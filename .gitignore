@@ -1,0 +1,12 @@
+*.avi
+*.dll
+test*
+yacctab.py
+lextab.py
+__pycache__
+*.png
+fullscreen_image.py
+*.jpg
+Automatic*
+*.ipynb
+Notes*
