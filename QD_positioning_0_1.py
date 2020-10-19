@@ -41,12 +41,20 @@ def terminate_threads():
         del thread
 
 
+def append_c_p(c_p,second_dict):
+    # Adds all keys and elements of second_dict to c_p. Does not replace any elements
+    # already in c_p.
+    for data in second_dict:
+        if not data in c_p:
+            c_p[data] = second_dict[data]
+
 def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, motor_z=False,
                     slm=False, tracking=False, isaac=False, temp=False,
                     stage_piezo_x=False, stage_piezo_y=False, stage_piezo_z=False, shutter=False):
     # TODO include these parameters in c_p
     # Make it so that c_p automagically extends to include the c_p needed for the
-    # various threads. Updates only the parameters needed
+    # various threads. Updates only the parameters needed. Already implemented for
+    # the shutter and piezo-stage.
     """
     Function for starting all the threads, should only be called once!
     """
@@ -108,6 +116,10 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         thread_list.append(temperature_thread)
         print('Temperature thread started')
 
+    # update c_p to include the necessary parameters
+    if stage_piezo_x or stage_piezo_y or stage_piezo_z:
+        append_c_p(c_p, TM.get_default_piezo_c_p())
+
     if stage_piezo_x:
         # OBS assumes that the x-motor is connected to channel 1
         try:
@@ -140,6 +152,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
             print('Could not start piezo z-thread')
 
     if shutter:
+        append_c_p(c_p, TS.get_shutter_c_p())
         try:
             shutter_thread = TM.XYZ_piezo_stage_motor(11, shutter_thread, c_p)
             shutter_thread.start()
@@ -147,7 +160,6 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
             print('Started shutter thread')
         except:
             print('Could not start piezo z-thread')
-
 
 
 class UserInterface:
