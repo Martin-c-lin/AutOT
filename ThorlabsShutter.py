@@ -12,7 +12,7 @@ def get_shutter_c_p():
     return shutter_c_p
 
 class ShutterThread(Thread):
-
+    # TODO add possibility to force shut
     def __init__(self, threadID, name, c_p, open_time=3000, port='COM1'):
 
         self.open = False
@@ -37,7 +37,7 @@ class ShutterThread(Thread):
     def open_shutter(self):
         try:
             self.shutter.sendcmd(cmd='ens')
-            self.open = True
+            self.is_open()
         except:
             pass
 
@@ -48,15 +48,19 @@ class ShutterThread(Thread):
             pass
         try:
             self.shutter.sendcmd(cmd='ens')
-            self.open = True
+            self.is_open()
         except:
             pass
 
     def is_open(self):
         # Function for quering if the shutter is open or not.
-        # TODO should check this with a proper command.
-        self.c_p['shutter_open'] = self.open
-        return self.open
+        # Returns True if shutter is open(enabled) otherwise False.
+        # Automatically updates c_p.
+        try:
+            self.c_p['shutter_open'] = self.shutter.sendcmd(cmd='ens?')
+        except:
+            pass
+        return self.c_p['shutter_open']
 
     def run(self):
 
@@ -65,5 +69,5 @@ class ShutterThread(Thread):
             if self.c_p['should_shutter_open']:
                 self.open_shutter()
                 self.c_p['should_shutter_open'] = False
-                while self.is_open() and self.c_p['running']: # add possibility to force shut
+                while self.is_open() and self.c_p['running']:
                     time.sleep(0.1)
