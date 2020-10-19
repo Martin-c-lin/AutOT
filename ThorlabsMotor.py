@@ -708,7 +708,7 @@ def get_default_piezo_c_p():
     'starting_position_piezo_xyz':[0,0,0],
     'piezo_target_pos':[0,0,0],
     'piezo_current_position':[0,0,0],
-    'stage_piezo_connected':[False,False,False]
+    'stage_piezo_connected':[False,False,False],
     'running':True,
     }
     return piezo_c_p
@@ -734,7 +734,7 @@ class XYZ_piezo_stage_motor(Thread):
         self.axis = axis
         self.sleep_time = sleep_time
         self.piezo_channel = ConnectPiezoStageChannel(serialNo, channel)
-        self.c_p['starting_position_piezo_xyz'][self.axis] =
+        self.c_p['starting_position_piezo_xyz'][self.axis] = self.piezo_channel.GetPosition()
         self.c_p['stage_piezo_connected'][self.axis] = True
 
     def update_position_data(self):
