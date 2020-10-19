@@ -352,7 +352,7 @@ class UserInterface:
         zoom_out_button = tkinter.Button(top, text='Zoom out', command=zoom_out)
         temperature_output_button = tkinter.Button(top,
             text='toggle temperature output', command=toggle_temperature_output)
-        set_exposure_button = tkinter.Button(top, text='Set exposure(basler)', command=set_exposure)
+        set_exposure_button = tkinter.Button(top, text='Set exposure', command=set_exposure)
         experiment_schedule_button = tkinter.Button(top,
             text='Select experiment schedule',
             command=self.read_experiment_dictionary
