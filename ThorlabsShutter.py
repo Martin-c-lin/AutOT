@@ -2,12 +2,18 @@ import instruments
 from threading import Thread
 
 def get_shutter_c_p():
-    #
-    pass
+    shutter_c_p = {
+    'shutter_connected':False, # True if shutter is connected
+    'shutter_open':False, # Current state of shutter
+    'should_shutter_open':False, # True if another open command should be sent
+    'shutter_open_time':1000, # Time which the shutter should be opened for after
+    # recieving an open command.
+    }
+    return shutter_c_p
 
 class ShutterThread(Thread):
 
-    def __init__(self, threadID, name, c_p, open_time=5, port='COM1'):
+    def __init__(self, threadID, name, c_p, open_time=3000, port='COM1'):
 
         self.open = False
         self.open_time = open_time
@@ -17,6 +23,7 @@ class ShutterThread(Thread):
         self.threadID = threadID
         self.setDaemon(True)
         self.shutter = instruments.thorlabs.SC10.open_serial(port=port, baud=9600, vid=None, pid=None, serial_number=None, timeout=2, write_timeout=10)
+        self.c_p['shutter_connected'] = True
 
     def set_open_time(self, duration):
         self.open_time = duration
@@ -55,8 +62,8 @@ class ShutterThread(Thread):
 
         while self.c_p['running']:
             self.set_open_time(self.c_p['shutter_open_time'])
-            if self.c_p['should_open']:
+            if self.c_p['should_shutter_open']:
                 self.open_shutter()
-                self.c_p['should_open'] = False
+                self.c_p['should_shutter_open'] = False
                 while self.is_open() and self.c_p['running']: # add possibility to force shut
                     time.sleep(0.1)

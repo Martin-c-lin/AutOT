@@ -702,11 +702,24 @@ def ConnectPiezoStageChannel(serialNo, channel):
     channel.EnableDevice()
     return channel
 
+def get_default_piezo_c_p():
+    piezo_c_p = {
+    'piezo_serial_no':'71165844',
+    'starting_position_piezo_xyz':[0,0,0],
+    'piezo_target_pos':[0,0,0],
+    'piezo_current_position':[0,0,0],
+    'stage_piezo_connected':[False,False,False]
+    'running':True,
+    }
+    return piezo_c_p
+
 class XYZ_piezo_stage_motor(Thread):
     '''
     Class to help a main program of Automagic Trapping interface with a
     thorlabs max381 stage piezo motors.
     '''
+
+    # TODO make it possible to connect/disconnect these motors on the fly.
     def __init__(self, threadID, name, channel_no, axis, c_p,
         serial_no='71165844', sleep_time=0.3):
         """
@@ -722,6 +735,7 @@ class XYZ_piezo_stage_motor(Thread):
         self.sleep_time = sleep_time
         self.piezo_channel = ConnectPiezoStageChannel(serialNo, channel)
         self.c_p['starting_position_piezo_xyz'][self.axis] =
+        self.c_p['stage_piezo_connected'][self.axis] = True
 
     def update_position_data(self):
         # Update c_p position

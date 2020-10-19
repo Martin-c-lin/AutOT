@@ -5,6 +5,7 @@ import ThorlabsMotor as TM
 import TemperatureControllerTED4015
 import find_particle_threshold as fpt
 import read_dict_from_file as rdff
+import ThorlabsShutter as TS
 import CameraControls
 from common_experiment_parameters import get_default_c_p
 from instrumental import u
@@ -41,8 +42,11 @@ def terminate_threads():
 
 
 def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, motor_z=False,
-                    slm=False, tracking=False, isaac=False, temp=False):
+                    slm=False, tracking=False, isaac=False, temp=False,
+                    stage_piezo_x=False, stage_piezo_y=False, stage_piezo_z=False, shutter=False):
     # TODO include these parameters in c_p
+    # Make it so that c_p automagically extends to include the c_p needed for the
+    # various threads. Updates only the parameters needed
     """
     Function for starting all the threads, should only be called once!
     """
@@ -103,6 +107,47 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         temperature_thread.start()
         thread_list.append(temperature_thread)
         print('Temperature thread started')
+
+    if stage_piezo_x:
+        # OBS assumes that the x-motor is connected to channel 1
+        try:
+            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, piezo_x, 1,0, c_p)
+            thread_piezo_x.start()
+            thread_list.append(thread_piezo_x)
+
+            print('Started piezo x-thread')
+        except:
+            print('Could not start piezo x-thread')
+
+    if stage_piezo_y:
+        # OBS assumes that the y-motor is connected to channel 2
+        try:
+            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, piezo_y, 2,1, c_p)
+            thread_piezo_y.start()
+            thread_list.append(thread_piezo_y)
+            print('Started piezo y-thread')
+        except:
+            print('Could not start piezo y-thread')
+
+    if stage_piezo_z:
+        # OBS assumes that the z-motor is connected to channel 3
+        try:
+            thread_piezo_z = TM.XYZ_piezo_stage_motor(10, piezo_z, 3,2, c_p)
+            thread_piezo_z.start()
+            thread_list.append(thread_piezo_z)
+            print('Started piezo z-thread')
+        except:
+            print('Could not start piezo z-thread')
+
+    if shutter:
+        try:
+            shutter_thread = TM.XYZ_piezo_stage_motor(11, shutter_thread, c_p)
+            shutter_thread.start()
+            thread_list.append(shutter_thread)
+            print('Started shutter thread')
+        except:
+            print('Could not start piezo z-thread')
+
 
 
 class UserInterface:
