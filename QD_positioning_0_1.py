@@ -9,7 +9,6 @@ import ThorlabsShutter as TS
 import CameraControls
 from common_experiment_parameters import get_default_c_p
 from instrumental import u
-import matplotlib.pyplot as plt
 import numpy as np
 import threading, time, cv2, queue, copy, sys, tkinter, os, pickle
 from tkinter import messagebox
@@ -289,6 +288,8 @@ class UserInterface:
         This function generates all the buttons for the interface along with
         the other control elementsn such as entry boxes.
         '''
+        # TODO make c_p non global, and change so that only the buttons actually
+        # usable are displayed. Preferably use the inputs to start_threads.
         global c_p
         if top is None:
             top = self.window
@@ -361,7 +362,6 @@ class UserInterface:
             temperature_entry.delete(0, last=5000)
 
         def set_exposure():
-            #if c_p['camera_model'] == 'basler':
             entry = exposure_entry.get()
             if c_p['camera_model'] == 'basler':
                 try:
@@ -396,6 +396,8 @@ class UserInterface:
 
         def connect_disconnect_piezo():
             c_p['connect_motor'][2] = not c_p['connect_motor'][2]
+        def open_shutter():
+            c_p['should_shutter_open'] = True
 
         threshold_button = tkinter.Button(
             top, text='Set threshold', command=set_threshold)
@@ -422,6 +424,9 @@ class UserInterface:
             top, text='Connect motor y', command=connect_disconnect_motorY)
         self.toggle_piezo_button = tkinter.Button(
             top, text='Connect piezo motor', command=connect_disconnect_piezo)
+
+        self.open_shutter_button = tkinter.Button(
+            top, text='Open sutter', command=open_shutter)
 
         x_position = 1220
         x_position_2 = 1420
