@@ -40,14 +40,12 @@ def terminate_threads():
         del thread
 
 
-def start_threads(cam=True, motor_x=False, motor_y=False, motor_z=False,
+def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, motor_z=False,
                     slm=False, tracking=False, isaac=False, temp=False):
-
+    # TODO include these parameters in c_p
     """
     Function for starting all the threads, should only be called once!
     """
-    global thread_list
-    global c_p
 
     if cam:
         camera_thread = CameraControls.CameraThread(1, 'Thread-camera',c_p=c_p)
@@ -109,7 +107,9 @@ def start_threads(cam=True, motor_x=False, motor_y=False, motor_z=False,
 
 class UserInterface:
 
-    def __init__(self, window, window_title, use_SLM = False):
+    def __init__(self, window, window_title, c_p, thread_list, use_SLM = False,
+                cam=True, motor_x=False, motor_y=False, motor_z=False, slm=False,
+                tracking=False, isaac=False, temp=False):
         self.window = window
         self.window.title(window_title)
 
@@ -141,7 +141,8 @@ class UserInterface:
             self.create_SLM_window(SLM_window)
         self.create_indicators()
         self.update()
-        start_threads()
+        start_threads(c_p, thread_list, cam=cam, motor_x=motor_x, motor_y=motor_y, motor_z=motor_z,
+                            slm=slm, tracking=tracking, isaac=isaac, temp=temp)
 
         self.window.mainloop()
 
@@ -258,10 +259,10 @@ class UserInterface:
                                       command=partial(move_button, 2))
         left_button = tkinter.Button(top, text='Move left',
                                      command=partial(move_button, 3))
-        start_record_button = tkinter.Button(top, text='Start recording',
-                                             command=start_record)
-        stop_record_button = tkinter.Button(top, text='Stop recording',
-                                            command=stop_record)
+        start_recording_button = tkinter.Button(top, text='Start recording',
+                                             command=start_recording)
+        stop_recording_button = tkinter.Button(top, text='Stop recording',
+                                            command=stop_recording)
         self.home_z_button = tkinter.Button(top, text='Toggle home z',
                                             command=home_z_command)
         toggle_bright_particle_button = tkinter.Button(
@@ -303,11 +304,24 @@ class UserInterface:
             temperature_entry.delete(0, last=5000)
 
         def set_exposure():
+            #if c_p['camera_model'] == 'basler':
+            entry = exposure_entry.get()
             if c_p['camera_model'] == 'basler':
-                entry = exposure_entry.get()
                 try:
                     exposure_time = int(entry)
                     if 59 < exposure_time < 4e5: # If you need more than that you are
+                        c_p['exposure_time'] = exposure_time
+                        print("Exposure time set to ", exposure_time)
+                        c_p['new_settings_camera'] = True
+                    else:
+                        print('Exposure time out of bounds!')
+                except:
+                    print('Cannot convert entry to integer')
+                exposure_entry.delete(0, last=5000)
+            elif c_p['camera_model'] == 'ThorlabsCam':
+                try:
+                    exposure_time = float(entry)
+                    if 0.01 < exposure_time < 100: # If you need more than that you are
                         c_p['exposure_time'] = exposure_time
                         print("Exposure time set to ", exposure_time)
                         c_p['new_settings_camera'] = True
@@ -362,8 +376,8 @@ class UserInterface:
         down_button.place(x=x_position, y=y_position.__next__())
         right_button.place(x=x_position, y=y_position.__next__())
         left_button.place(x=x_position, y=y_position.__next__())
-        start_record_button.place(x=x_position, y=y_position.__next__())
-        stop_record_button.place(x=x_position, y=y_position.__next__())
+        start_recording_button.place(x=x_position, y=y_position.__next__())
+        stop_recording_button.place(x=x_position, y=y_position.__next__())
         toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
         threshold_entry.place(x=x_position, y=y_position.__next__())
         threshold_button.place(x=x_position, y=y_position.__next__())
@@ -1077,6 +1091,7 @@ def update_c_p(update_dict, wait_for_completion=True):
         c_p['temperature_controller_connected']:
         time.sleep(0.3)
 
+
 def count_interior_particles(margin=30):
     '''
     Function for counting the number of particles in the interior of the frame.
@@ -1296,7 +1311,7 @@ def move_button(move_direction):
         print('Invalid move direction')
 
 
-def start_record():
+def start_recording():
     '''
     Button function for starting of recording
     '''
@@ -1304,7 +1319,7 @@ def start_record():
     print('Recording is on')
 
 
-def stop_record():
+def stop_recording():
     '''
     Button function for starting of recording
     '''
@@ -1328,6 +1343,7 @@ def snapshot(label=None):
         image_name = c_p['recording_path'] + '/' + label + '.jpg'
     cv2.imwrite(image_name, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
     print('Took a snapshot of the experiment.')
+
 
 def toggle_temperature_output():
     '''
@@ -1526,11 +1542,11 @@ def move_particles_slowly(last_d=30e-6):
 c_p = get_default_c_p()
 c_p['camera_model'] = 'ThorlabsCam'
 # Create camera and set defaults
-global image
-if c_p['camera_model'] == 'ThorlabsCam':
-    image = np.zeros((c_p['AOI'][1]-c_p['AOI'][0], c_p['AOI'][3]-c_p['AOI'][2], 1))
-else:
-    image = np.zeros((672,512,1))
+# global image
+# if c_p['camera_model'] == 'ThorlabsCam':
+#     image = np.zeros((c_p['AOI'][1]-c_p['AOI'][0], c_p['AOI'][3]-c_p['AOI'][2], 1))
+# else:
+#     image = np.zeros((672,512,1))
 
 # Create a empty list to put the threads in
 thread_list = []
@@ -1545,6 +1561,6 @@ experiment_schedule = [
 ]
 
 c_p['experiment_schedule'] = experiment_schedule
-T_D = UserInterface(tkinter.Tk(), "Control display")
+T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
 
 sys.exit()

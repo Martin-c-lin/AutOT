@@ -22,6 +22,7 @@ class CameraThread(threading.Thread):
           self.cam.set_defaults(left=c_p['AOI'][0], right=c_p['AOI'][1], top=c_p['AOI'][2], bot=c_p['AOI'][3], n_frames=1)
           exposure_time = TC.find_exposure_time(self.cam, targetIntensity=70) # automagically finds a decent exposure time
           print('Exposure time = ', exposure_time)
+          c_p['exposure_time'] = exposure_time
       else:
           # Get a basler camera
           tlf = pylon.TlFactory.GetInstance()
@@ -90,7 +91,9 @@ class CameraThread(threading.Thread):
               right=c_p['AOI'][1],
               top=c_p['AOI'][2],
               bot=c_p['AOI'][3])
+          TC.set_exposure(self.cam, c_p['exposure_time'])
           c_p['new_settings_camera'] = False
+
           # Grab one example image
           #global image
           image = c_p['image'] # TODO might give me problems
@@ -109,7 +112,6 @@ class CameraThread(threading.Thread):
               self.cam.wait_for_frame(timeout=None)
               if c_p['recording']:
                   # Create an array to store the images which have been captured in
-                  #print('recording')
 
                   if not video_created:
                       video, experiment_info_name, exp_info_params = self.create_video_writer()
