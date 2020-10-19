@@ -725,7 +725,7 @@ class XYZ_piezo_stage_motor(Thread):
 
     def update_position_data(self):
         # Update c_p position
-
+        self.piezo_channel.SetPosition(self.c_p['piezo_target_pos'][self.axis])
         self.c_p['piezo_current_position'][self.axis] = self.piezo_channel.GetPosition()
 
     def run(self):
