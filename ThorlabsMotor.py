@@ -1,8 +1,16 @@
+'''
+File containing a simplified interface for thorlabs motors. Supports
+the max381 stage as well as kcube motors. The motors are handled as threads
+'''
+
+# Import packages
 from ctypes import *
 import clr,sys
 from System import Decimal,Int32
 from time import sleep
-import threading
+from threading import Thread
+
+# Import DLLs
 """
 Note when usin this code on other computer than the one in the biophysics lab these paths may need changing.
 """
@@ -10,12 +18,17 @@ clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.Devic
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.GenericMotorCLI.dll')
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.KCube.DCServoCLI.dll')
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.KCube.InertialMotorCLI.dll ')
+clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.GenericPiezoCLI.dll')
+clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.Benchtop.PiezoCLI.dll')
 
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
 from Thorlabs.MotionControl.KCube.DCServoCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import MotorDirection
 from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
+from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
+from Thorlabs.MotionControl.GenericPiezoCLI.Piezo import *
+from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
 
 timeoutVal = 30000
 
@@ -520,7 +533,7 @@ def setJogSpeed(motor, jog_speed, jog_acc=0.01):
     return motor.SetJogVelocityParams(Decimal(jog_speed), Decimal(jog_acc))
 
 
-class MotorThread(threading.Thread):
+class MotorThread(Thread):
     '''
     Thread in which a motor is controlled. The motor object is available globally.
     '''
@@ -528,7 +541,7 @@ class MotorThread(threading.Thread):
     # Try replacing some of the c_p with events.
     def __init__(self, threadID, name, axis, c_p):
 
-      threading.Thread.__init__(self)
+      Thread.__init__(self)
       self.threadID = threadID
       self.name = name
       self.axis = axis # 0 = x-axis, 1 = y axis
@@ -604,13 +617,13 @@ class MotorThread(threading.Thread):
         if c_p['motors_connected'][self.axis]:
             DisconnectMotor(self.motor)
 
-class z_movement_thread(threading.Thread):
+class z_movement_thread(Thread):
     '''
     Thread for controling movement of the objective in z-direction.
     Will also help with automagically adjusting the focus to the sample.
     '''
     def __init__(self, threadID, name, serial_no, channel, c_p, polling_rate=250):
-        threading.Thread.__init__(self)
+        Thread.__init__(self)
         self.threadID = threadID
         self.name = name
         self.piezo = PiezoMotor(serial_no, channel=channel, pollingRate=polling_rate)
@@ -667,3 +680,63 @@ class z_movement_thread(threading.Thread):
 
             time.sleep(0.3)
         del(self.piezo)
+
+def ConnectPiezoStageChannel(serialNo, channel):
+    DeviceManagerCLI.BuildDeviceList()
+    DeviceManagerCLI.GetDeviceListSize()
+    device = BenchtopPiezo.CreateBenchtopPiezo(serialNo)
+    device.Connect(serialNo)
+    channel = device.GetChannel(channel)
+
+    piezoConfiguration = channel.GetPiezoConfiguration(channel.DeviceID)
+    currentDeviceSettings = channel.PiezoDeviceSettings
+    #channel.SetSettings(currentDeviceSettings, True, False)
+
+    channel.WaitForSettingsInitialized(5000)
+
+    channel.StartPolling(100)#(250)
+    # Needs a delay so that the current enabled state can be obtained
+
+    deviceInfo = channel.GetDeviceInfo()
+    # Enable the channel otherwise any move is ignored
+    channel.EnableDevice()
+    return channel
+
+class XYZ_piezo_stage_motor(Thread):
+    '''
+    Class to help a main program of Automagic Trapping interface with a
+    thorlabs max381 stage piezo motors.
+    '''
+    def __init__(self, threadID, name, channel_no, axis, c_p,
+        serial_no='71165844', sleep_time=0.3):
+        """
+
+        """
+        Thread.__init__(self)
+        self.c_p = c_p
+        self.name = name
+        self.threadID = threadID
+        self.setDaemon(True)
+        self.channel = channel
+        self.axis = axis
+        self.sleep_time = sleep_time
+        self.piezo_channel = ConnectPiezoStageChannel(serialNo, channel)
+        self.c_p['starting_position_piezo_xyz'][self.axis] =
+
+    def update_position_data(self):
+        # Update c_p position
+
+        self.c_p['piezo_current_position'][self.axis] = self.piezo_channel.GetPosition()
+
+    def run(self):
+        '''
+        '''
+        while self.c_p['running']:
+            self.update_position()
+            time.sleep(self.sleep_time)
+        self.__del__()
+
+    def __del__(self):
+        self.c_p['running'] = False
+        self.piezo_channel.StopPolling()
+        self.piezo_channel.Disconnect()
