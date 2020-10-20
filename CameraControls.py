@@ -30,7 +30,7 @@ class CameraThread(threading.Thread):
           self.cam.Open()
           image = np.zeros((672,512,1))
       self.setDaemon(True)
-      c_p['image'] = np.ones((512,672,3))
+      c_p['image'] = np.ones((512,672,1)) # Need to change here to get color
 
    def __del__(self):
         if self.c_p['camera_model'] == 'basler':
@@ -119,8 +119,9 @@ class CameraThread(threading.Thread):
                   video.write(image)
               # Capture an image and update the image count
               image_count = image_count+1
-              c_p['image'] = self.cam.latest_frame()
-
+              c_p['image'] = self.cam.latest_frame()[:,:,0]
+              # c_p['image'] = c_p['image'][:,:,0]
+              # print(np.shape(c_p['image']))
           # Close the livefeed and calculate the fps of the captures
           end = time.time()
           self.cam.stop_live_video()

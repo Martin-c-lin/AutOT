@@ -49,7 +49,7 @@ def append_c_p(c_p,second_dict):
 
 def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, motor_z=False,
                     slm=False, tracking=False, isaac=False, temp=False,
-                    stage_piezo_x=False, stage_piezo_y=False, stage_piezo_z=False, shutter=False):
+                    stage_piezo_x=False, stage_piezo_y=False, stage_piezo_z=False, shutter=True):
     # TODO include these parameters in c_p
     # Make it so that c_p automagically extends to include the c_p needed for the
     # various threads. Updates only the parameters needed. Already implemented for
@@ -153,19 +153,20 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
     if shutter:
         append_c_p(c_p, TS.get_shutter_c_p())
         try:
-            shutter_thread = TM.XYZ_piezo_stage_motor(11, shutter_thread, c_p)
+            shutter_thread = TS.ShutterThread(11, 'shutter_thread', c_p)
             shutter_thread.start()
             thread_list.append(shutter_thread)
             print('Started shutter thread')
         except:
-            print('Could not start piezo z-thread')
+            print('Could not start shutter thread')
 
 
 class UserInterface:
 
     def __init__(self, window, window_title, c_p, thread_list, use_SLM = False,
                 cam=True, motor_x=False, motor_y=False, motor_z=False, slm=False,
-                tracking=False, isaac=False, temp=False):
+                tracking=False, isaac=False, temp=False, stage_piezo_x=False,
+                stage_piezo_y=False, stage_piezo_z=False, shutter=True):
         self.window = window
         self.window.title(window_title)
 
@@ -196,9 +197,10 @@ class UserInterface:
         if use_SLM:
             self.create_SLM_window(SLM_window)
         self.create_indicators()
-        self.update()
         start_threads(c_p, thread_list, cam=cam, motor_x=motor_x, motor_y=motor_y, motor_z=motor_z,
-                            slm=slm, tracking=tracking, isaac=isaac, temp=temp)
+                            slm=slm, tracking=tracking, isaac=isaac, temp=temp,stage_piezo_x=stage_piezo_x,
+                            stage_piezo_y=stage_piezo_y,stage_piezo_z=stage_piezo_z,shutter=shutter)
+        self.update()
 
         self.window.mainloop()
 
@@ -426,7 +428,7 @@ class UserInterface:
             top, text='Connect piezo motor', command=connect_disconnect_piezo)
 
         self.open_shutter_button = tkinter.Button(
-            top, text='Open sutter', command=open_shutter)
+            top, text='Open shutter', command=open_shutter)
 
         x_position = 1220
         x_position_2 = 1420
@@ -460,6 +462,7 @@ class UserInterface:
         self.toggle_motorY_button.place(x=x_position_2, y=y_position_2.__next__())
         self.toggle_piezo_button.place(x=x_position_2, y=y_position_2.__next__())
         self.home_z_button.place(x=x_position_2, y=y_position_2.__next__())
+        self.open_shutter_button.place(x=x_position_2, y=y_position_2.__next__())
 
     def create_SLM_window(self, _class):
         try:
@@ -568,7 +571,10 @@ class UserInterface:
         self.temperature_label.config(text=self.get_temperature_info())
 
         self.position_label.config(text=self.get_position_info())
-
+        if c_p['shutter_open']:
+            self.open_shutter_button.config(bg='green',text='close shutter')
+        else:
+            self.open_shutter_button.config(bg='red',text='open shutter')
         self.update_motor_buttons()
         self.update_home_button()
 
