@@ -47,6 +47,7 @@ def append_c_p(c_p,second_dict):
         if not data in c_p:
             c_p[data] = second_dict[data]
 
+
 def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, motor_z=False,
                     slm=False, tracking=False, isaac=False, temp=False,
                     stage_piezo_x=False, stage_piezo_y=False, stage_piezo_z=False, shutter=True):
@@ -64,7 +65,10 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         thread_list.append(camera_thread)
         print('Camera thread started')
 
+    # Indicator to if the standard motors are being used ( non stage)
+    c_p['standard_motors'] = False
     if motor_x:
+        c_p['standard_motors'] = True
         try:
             motor_X_thread = TM.MotorThread(2,'Thread-motorX',0,c_p)
             motor_X_thread.start()
@@ -74,6 +78,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
             print('Could not start motor x thread')
 
     if motor_y:
+        c_p['standard_motors'] = True
         try:
             motor_Y_thread = TM.MotorThread(3,'Thread-motorY',1,c_p)
             motor_Y_thread.start()
@@ -116,13 +121,17 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         print('Temperature thread started')
 
     # update c_p to include the necessary parameters
+    c_p['stage_piezos'] = False
     if stage_piezo_x or stage_piezo_y or stage_piezo_z:
+        c_p['stage_piezos'] = True
         append_c_p(c_p, TM.get_default_piezo_c_p())
+        controller_device = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
 
     if stage_piezo_x:
         # OBS assumes that the x-motor is connected to channel 1
         try:
-            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, piezo_x, 1,0, c_p)
+            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 1,0, c_p,
+                controller_device=controller_device)
             thread_piezo_x.start()
             thread_list.append(thread_piezo_x)
 
@@ -133,7 +142,8 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
     if stage_piezo_y:
         # OBS assumes that the y-motor is connected to channel 2
         try:
-            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, piezo_y, 2,1, c_p)
+            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 2,1, c_p,
+                controller_device=controller_device)
             thread_piezo_y.start()
             thread_list.append(thread_piezo_y)
             print('Started piezo y-thread')
@@ -143,7 +153,8 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
     if stage_piezo_z:
         # OBS assumes that the z-motor is connected to channel 3
         try:
-            thread_piezo_z = TM.XYZ_piezo_stage_motor(10, piezo_z, 3,2, c_p)
+            thread_piezo_z = TM.XYZ_piezo_stage_motor(10, 'piezo_z', 3,2, c_p,
+                controller_device=controller_device)
             thread_piezo_z.start()
             thread_list.append(thread_piezo_z)
             print('Started piezo z-thread')
@@ -169,7 +180,9 @@ class UserInterface:
                 stage_piezo_y=False, stage_piezo_z=False, shutter=True):
         self.window = window
         self.window.title(window_title)
-
+        start_threads(c_p, thread_list, cam=cam, motor_x=motor_x, motor_y=motor_y, motor_z=motor_z,
+                            slm=slm, tracking=tracking, isaac=isaac, temp=temp,stage_piezo_x=stage_piezo_x,
+                            stage_piezo_y=stage_piezo_y,stage_piezo_z=stage_piezo_z,shutter=shutter)
         # Create a canvas that can fit the above video source size
         self.canvas_width = 1200
         self.canvas_height = 1000
@@ -196,10 +209,10 @@ class UserInterface:
         self.delay = 100#50
         if use_SLM:
             self.create_SLM_window(SLM_window)
+
+
+
         self.create_indicators()
-        start_threads(c_p, thread_list, cam=cam, motor_x=motor_x, motor_y=motor_y, motor_z=motor_z,
-                            slm=slm, tracking=tracking, isaac=isaac, temp=temp,stage_piezo_x=stage_piezo_x,
-                            stage_piezo_y=stage_piezo_y,stage_piezo_z=stage_piezo_z,shutter=shutter)
         self.update()
 
         self.window.mainloop()
@@ -285,6 +298,28 @@ class UserInterface:
 
         self.mini_image = mini_image.astype('uint8')
 
+
+    def get_standard_move_buttons(self, top):
+        self.up_button = tkinter.Button(top, text='Move up',
+                                   command=partial(move_button, 0))
+        self.down_button = tkinter.Button(top, text='Move down',
+                                     command=partial(move_button, 1))
+        self.right_button = tkinter.Button(top, text='Move right',
+                                      command=partial(move_button, 2))
+        self.left_button = tkinter.Button(top, text='Move left',
+                                     command=partial(move_button, 3))
+
+    def get_stage_move_buttons(self, top):
+        #stage_piezo_manual_move(axis, distance)
+        # TODO - double check axis and distance in actual experiment.
+        self.up_button = tkinter.Button(top, text='Move up',
+                                   command=partial(stage_piezo_manual_move, axis=1, distance=1))
+        self.down_button = tkinter.Button(top, text='Move down',
+                                     command=partial(stage_piezo_manual_move, axis=1, distance=-1))
+        self.right_button = tkinter.Button(top, text='Move right',
+                                      command=partial(stage_piezo_manual_move, axis=0, distance=1))
+        self.left_button = tkinter.Button(top, text='Move left',
+                                     command=partial(stage_piezo_manual_move, axis=0, distance=-1))
     def create_buttons(self,top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -310,15 +345,12 @@ class UserInterface:
         # TODO add home z button
         # TODO: Check if we can change colors of buttons by making buttons part of
         # object.
+        # Check which buttons to get
+        if c_p['standard_motors']:
+            self.get_standard_move_buttons(top)
+        elif c_p['stage_piezos']:
+            self.get_stage_move_buttons(top)
 
-        up_button = tkinter.Button(top, text='Move up',
-                                   command=partial(move_button, 0))
-        down_button = tkinter.Button(top, text='Move down',
-                                     command=partial(move_button, 1))
-        right_button = tkinter.Button(top, text='Move right',
-                                      command=partial(move_button, 2))
-        left_button = tkinter.Button(top, text='Move left',
-                                     command=partial(move_button, 3))
         start_recording_button = tkinter.Button(top, text='Start recording',
                                              command=start_recording)
         stop_recording_button = tkinter.Button(top, text='Stop recording',
@@ -436,10 +468,11 @@ class UserInterface:
         y_position_2 = get_y_separation()
 
         # Place all the buttons, starting with first column
-        up_button.place(x=x_position, y=y_position.__next__())
-        down_button.place(x=x_position, y=y_position.__next__())
-        right_button.place(x=x_position, y=y_position.__next__())
-        left_button.place(x=x_position, y=y_position.__next__())
+        if c_p['standard_motors'] or c_p['stage_piezos']:
+            self.up_button.place(x=x_position, y=y_position.__next__())
+            self.down_button.place(x=x_position, y=y_position.__next__())
+            self.right_button.place(x=x_position, y=y_position.__next__())
+            self.left_button.place(x=x_position, y=y_position.__next__())
         start_recording_button.place(x=x_position, y=y_position.__next__())
         stop_recording_button.place(x=x_position, y=y_position.__next__())
         toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
@@ -494,22 +527,35 @@ class UserInterface:
 
         global c_p
         # Add position info
-        position_text = 'x: '+str(c_p['motor_current_pos'][0])+\
-            'mm   y: '+str(c_p['motor_current_pos'][1])+\
-            'mm   z: '+str(c_p['motor_current_pos'][2])
+        target_key_motor = None
+        target_key_connection = None
+        position_text = ''
+
+        if c_p['standard_motors']:
+            target_key_motor = 'motor_current_pos'
+            target_key_connection = 'motors_connected'
+        elif  c_p['stage_piezos']:
+            target_key_motor = 'piezo_current_position'
+            target_key_connection = 'stage_piezo_connected'
+
+        if target_key_motor is not None:
+            position_text = 'x: '+str(c_p[target_key_motor][0])+\
+                'mm   y: '+str(c_p[target_key_motor][1])+\
+                'mm   z: '+str(c_p[target_key_motor][2])
+
+            # Add motor connection info
+            x_connected = 'connected. ' if c_p[target_key_connection][0] else 'disconnected.'
+            y_connected = 'connected. ' if c_p[target_key_connection][1] else 'disconnected.'
+            z_connected = 'connected. ' if c_p[target_key_connection][2] else 'disconnected.'
+
+            position_text += 'Motor-X is ' + x_connected
+            position_text += ' Motor-Y is ' + y_connected + '\n'
+            position_text += ' Focus (z) motor is ' + z_connected + '\n'
+
         position_text += '\n Experiments run ' + str(c_p['experiment_progress'])
         position_text += ' out of ' + str(c_p['nbr_experiments'])
         position_text += '  ' + str(c_p['experiment_runtime']) + 's run out of ' + str(c_p['recording_duration'])
         position_text += '\n Current search direction is: ' + str(c_p['search_direction'] + '\n')
-
-        # Add motor connection info
-        x_connected = 'connected. ' if c_p['motors_connected'][0] else 'disconnected.'
-        y_connected = 'connected. ' if c_p['motors_connected'][1] else 'disconnected.'
-        piezo_connected = 'connected. ' if c_p['motors_connected'][2] else 'disconnected.'
-
-        position_text += 'Motor-X is ' + x_connected
-        position_text += ' Motor-Y is ' + y_connected + '\n'
-        position_text += ' Focus (piezo) motor is ' + piezo_connected + '\n'
 
         return position_text
 
@@ -1379,6 +1425,15 @@ def move_button(move_direction):
         print('Invalid move direction')
 
 
+def stage_piezo_manual_move(axis, distance):
+    # Manually move the piezos a given distance(in microns)
+    c_p['piezo_target_pos'][axis] += distance
+    # Check if intended move is out of bounds
+    c_p['piezo_target_pos'][axis] = max(0,c_p['piezo_target_pos'][axis])
+    #0 if c_p['piezo_target_pos'][axis]<0 else c_p['piezo_target_pos'][axis]
+    c_p['piezo_target_pos'][axis] = min(20,c_p['piezo_target_pos'][axis])
+    #20 if c_p['piezo_target_pos'][axis] > 20 else c_p['piezo_target_pos'][axis]
+
 def start_recording():
     '''
     Button function for starting of recording
@@ -1629,6 +1684,6 @@ experiment_schedule = [
 ]
 
 c_p['experiment_schedule'] = experiment_schedule
-T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
+T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list,stage_piezo_x=True,stage_piezo_y=True, stage_piezo_z=True)
 
 sys.exit()

@@ -613,7 +613,7 @@ class MotorThread(Thread):
                 else:
                     motor_ = 'x' if self.axis == 0 else 'y'
                     print('Failed to connect motor '+motor_)
-            time.sleep(0.1) # To give other threads some time to work
+            sleep(0.1) # To give other threads some time to work
         if c_p['motors_connected'][self.axis]:
             DisconnectMotor(self.motor)
 
@@ -666,7 +666,7 @@ class z_movement_thread(Thread):
             # Piezomotor not connected but should be
             elif not self.piezo.is_connected and c_p['connect_motor'][2]:
                 self.piezo.connect_piezo_motor()
-                time.sleep(0.4)
+                sleep(0.4)
                 if self.piezo.is_connected:
                     # If the motor was just connected then reset positions
                     c_p['motor_current_pos'][2] = self.piezo.get_position()
@@ -678,14 +678,21 @@ class z_movement_thread(Thread):
             elif self.piezo.is_connected and not c_p['connect_motor'][2]:
                 self.piezo.disconnect_piezo()
 
-            time.sleep(0.3)
+            sleep(0.3)
         del(self.piezo)
 
-def ConnectPiezoStageChannel(serialNo, channel):
+def ConnectBenchtopPiezoController(serialNo):
     DeviceManagerCLI.BuildDeviceList()
     DeviceManagerCLI.GetDeviceListSize()
     device = BenchtopPiezo.CreateBenchtopPiezo(serialNo)
     device.Connect(serialNo)
+    return device
+
+def ConnectPiezoStageChannel(device, channel):
+    # DeviceManagerCLI.BuildDeviceList()
+    # DeviceManagerCLI.GetDeviceListSize()
+    # device = BenchtopPiezo.CreateBenchtopPiezo(serialNo)
+    # device.Connect(serialNo)
     channel = device.GetChannel(channel)
 
     piezoConfiguration = channel.GetPiezoConfiguration(channel.DeviceID)
@@ -700,6 +707,8 @@ def ConnectPiezoStageChannel(serialNo, channel):
     deviceInfo = channel.GetDeviceInfo()
     # Enable the channel otherwise any move is ignored
     channel.EnableDevice()
+    channel.SetPositionControlMode(2) # Set to closed loop mode.
+
     return channel
 
 def get_default_piezo_c_p():
@@ -720,8 +729,9 @@ class XYZ_piezo_stage_motor(Thread):
     '''
 
     # TODO make it possible to connect/disconnect these motors on the fly.
-    def __init__(self, threadID, name, channel_no, axis, c_p,
-        serial_no='71165844', sleep_time=0.3):
+    # TODO fix problem with single device
+    def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
+        serialNo='71165844', sleep_time=0.3):
         """
 
         """
@@ -732,25 +742,30 @@ class XYZ_piezo_stage_motor(Thread):
         self.setDaemon(True)
         self.channel = channel
         self.axis = axis
+        print('I am here')
         self.sleep_time = sleep_time
-        self.piezo_channel = ConnectPiezoStageChannel(serialNo, channel)
+        if controller_device is None:
+            controller_device = ConnectBenchtopPiezoController(serialNo)
+        self.controller_device = controller_device
+        self.piezo_channel = ConnectPiezoStageChannel(controller_device, channel)
+        print('I am here now')
         self.c_p['starting_position_piezo_xyz'][self.axis] = self.piezo_channel.GetPosition()
         self.c_p['stage_piezo_connected'][self.axis] = True
 
-    def update_position_data(self):
+    def update_position(self):
         # Update c_p position
-        self.piezo_channel.SetPosition(self.c_p['piezo_target_pos'][self.axis])
+        self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_pos'][self.axis]))
         self.c_p['piezo_current_position'][self.axis] = self.piezo_channel.GetPosition()
 
     def run(self):
         '''
         '''
-        while self.c_p['running']:
+        while self.c_p['program_running']:
             self.update_position()
-            time.sleep(self.sleep_time)
+            sleep(self.sleep_time)
         self.__del__()
 
     def __del__(self):
-        self.c_p['running'] = False
+        self.c_p['program_running'] = False
         self.piezo_channel.StopPolling()
         self.piezo_channel.Disconnect()
