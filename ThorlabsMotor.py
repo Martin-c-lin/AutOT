@@ -748,7 +748,6 @@ class XYZ_piezo_stage_motor(Thread):
             controller_device = ConnectBenchtopPiezoController(serialNo)
         self.controller_device = controller_device
         self.piezo_channel = ConnectPiezoStageChannel(controller_device, channel)
-        print('I am here now')
         self.c_p['starting_position_piezo_xyz'][self.axis] = self.piezo_channel.GetPosition()
         self.c_p['stage_piezo_connected'][self.axis] = True
 
@@ -769,3 +768,73 @@ class XYZ_piezo_stage_motor(Thread):
         self.c_p['program_running'] = False
         self.piezo_channel.StopPolling()
         self.piezo_channel.Disconnect()
+
+def ConnectBenchtopStepperController(serialNo):
+    '''
+    Connects a benchtop stepper controller.
+    '''
+
+    DeviceManagerCLI.BuildDeviceList()
+    DeviceManagerCLI.GetDeviceListSize()
+    device = BenchtopStepperMotor.CreateBenchtopStepperMotor(serialNo)
+    device.Connect(serialNo)
+    return device
+
+
+def ConnectBenchtopStepperChannel(device, channel, polling_rate=100):
+    '''
+
+    '''
+
+    channel = device.GetChannel(channel)
+
+    channel.WaitForSettingsInitialized(5000)
+
+    channel.StartPolling(polling_rate)
+    # Needs a delay so that the current enabled state can be obtained
+    motorConfiguration = channel.LoadMotorConfiguration(channel.DeviceID);
+    currentDeviceSettings = channel.MotorDeviceSettings# as ThorlabsBenchtopStepperMotorSettings;
+    channel.SetSettings(currentDeviceSettings, True, False)
+
+    deviceInfo = channel.GetDeviceInfo()
+    # Enable the channel otherwise any move is ignored
+    channel.EnableDevice()
+    return channel
+
+
+class XYZ_stepper_stage_motor(Thread):
+
+    def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
+        serialNo='70167314', sleep_time=0.3):
+        """
+
+        """
+        Thread.__init__(self)
+        self.c_p = c_p
+        self.name = name
+        self.threadID = threadID
+        self.setDaemon(True)
+        self.channel = channel
+        self.axis = axis
+        self.sleep_time = sleep_time
+        if controller_device is None:
+            controller_device = ConnectBenchtopStepperController(serialNo)
+        self.controller_device = controller_device
+        self.stepper_channel = ConnectBenchtopStepperChannel(controller_device, channel)
+        self.c_p['starting_position_stepper_xyz'][self.axis] = self.piezo_channel.GetPosition()
+        self.c_p['stage_stepper_connected'][self.axis] = True
+
+    def update_current_position(self):
+        decimal_pos = self.stepper_channel.Position
+        self.c_p['stepper_current_pos'][self.axis] = float(str(decimal_pos))
+        return float(str(decimal_pos))
+
+    def move_distance(self):
+
+        self.update_current_position()
+        pass
+    def run(self):
+
+        while self.c_p['program_running']:
+
+            sleep(self.sleep_time)
