@@ -8,6 +8,9 @@ from pypylon import pylon
 from datetime import  datetime
 
 
+# TODO add a get_camera_parameters function similar to what is available for the
+# shutter class
+
 class CameraThread(threading.Thread):
 
    def __init__(self, threadID, name, c_p):
@@ -82,16 +85,16 @@ class CameraThread(threading.Thread):
    def thorlabs_capture(self):
       number_images_saved = 0 # counts
       video_created = False
-      #global c_p
       c_p = self.c_p
 
       while c_p['program_running']:
           # Set defaults for camera, aknowledge that this has been done
+
           self.cam.set_defaults(left=c_p['AOI'][0],
               right=c_p['AOI'][1],
               top=c_p['AOI'][2],
-              bot=c_p['AOI'][3])
-          TC.set_exposure(self.cam, c_p['exposure_time'])
+              bot=c_p['AOI'][3],
+              exposure_time=TC.number_to_millisecond(c_p['exposure_time']))
           c_p['new_settings_camera'] = False
 
           # Grab one example image
@@ -102,9 +105,7 @@ class CameraThread(threading.Thread):
           # Start livefeed from the camera
 
           # Setting  maximum framerate. Will cap it to make it stable
-          self.cam.start_live_video(
-               framerate=str(c_p['framerate']) + 'hertz' )
-
+          self.cam.start_live_video()
           start = time.time()
 
           # Start continously capturin images now that the camera parameters have been set
@@ -121,7 +122,6 @@ class CameraThread(threading.Thread):
               image_count = image_count+1
               c_p['image'] = self.cam.latest_frame()[:,:,0]
               # c_p['image'] = c_p['image'][:,:,0]
-              # print(np.shape(c_p['image']))
           # Close the livefeed and calculate the fps of the captures
           end = time.time()
           self.cam.stop_live_video()

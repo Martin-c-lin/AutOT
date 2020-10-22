@@ -7,7 +7,7 @@ import find_particle_threshold as fpt
 import read_dict_from_file as rdff
 import ThorlabsShutter as TS
 import CameraControls
-from common_experiment_parameters import get_default_c_p
+from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters
 from instrumental import u
 import numpy as np
 import threading, time, cv2, queue, copy, sys, tkinter, os, pickle
@@ -48,11 +48,7 @@ def append_c_p(c_p,second_dict):
             c_p[data] = second_dict[data]
 
 
-def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, motor_z=False,
-                    slm=False, tracking=False, isaac=False, temp=False,
-                    stage_piezo_x=False, stage_piezo_y=False, stage_piezo_z=False,
-                    stage_stepper_x=False,stage_stepper_y=False,stage_stepper_z=False,
-                    shutter=True):
+def start_threads(c_p, thread_list):
     # TODO include these parameters in c_p
     # Make it so that c_p automagically extends to include the c_p needed for the
     # various threads. Updates only the parameters needed. Already implemented for
@@ -61,7 +57,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
     Function for starting all the threads, should only be called once!
     """
 
-    if cam:
+    if c_p['cam']:
         camera_thread = CameraControls.CameraThread(1, 'Thread-camera',c_p=c_p)
         camera_thread.start()
         thread_list.append(camera_thread)
@@ -69,7 +65,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
 
     # Indicator to if the standard motors are being used ( non stage)
     c_p['standard_motors'] = False
-    if motor_x:
+    if c_p['motor_x']:
         c_p['standard_motors'] = True
         try:
             motor_X_thread = TM.MotorThread(2,'Thread-motorX',0,c_p)
@@ -79,7 +75,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         except:
             print('Could not start motor x thread')
 
-    if motor_y:
+    if c_p['motor_y']:
         c_p['standard_motors'] = True
         try:
             motor_Y_thread = TM.MotorThread(3,'Thread-motorY',1,c_p)
@@ -89,7 +85,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         except:
             print('Could not start motor y thread')
 
-    if motor_z:
+    if c_p['motor_z']:
         try:
             z_thread = TM.z_movement_thread(4, 'z-thread',serial_no=c_p['serial_nums_motors'][2],channel=c_p['channel'],c_p=c_p)
             z_thread.start()
@@ -98,19 +94,19 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         except:
             print('Could not start motor z thread')
 
-    if slm:
+    if c_p['slm']:
         slm_thread =CreatePhasemaskThread(5,'Thread-SLM')
         slm_thread.start()
         thread_list.append(slm_thread)
         print('SLM thread started')
 
-    if tracking:
+    if c_p['tracking']:
         tracking_thread = ExperimentControlThread(6,'Tracker_thread')
         tracking_thread.start()
         thread_list.append(tracking_thread)
         print('Tracking thread started')
 
-    if temp:
+    if c_p['temp']:
 
         try:
             temperature_controller = TemperatureControllerTED4015.TED4015()
@@ -124,12 +120,12 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
 
     # update c_p to include the necessary parameters
     c_p['stage_piezos'] = False
-    if stage_piezo_x or stage_piezo_y or stage_piezo_z:
+    if c_p['stage_piezo_x'] or c_p['stage_piezo_y'] or c_p['stage_piezo_z']:
         c_p['stage_piezos'] = True
         append_c_p(c_p, TM.get_default_piezo_c_p())
         controller_device_piezo = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
 
-    if stage_piezo_x:
+    if c_p['stage_piezo_x']:
         # OBS assumes that the x-motor is connected to channel 1
         try:
             thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 1,0, c_p,
@@ -141,7 +137,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         except:
             print('Could not start piezo x-thread')
 
-    if stage_piezo_y:
+    if c_p['stage_piezo_y']:
         # OBS assumes that the y-motor is connected to channel 2
         try:
             thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 2,1, c_p,
@@ -152,7 +148,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         except:
             print('Could not start piezo y-thread')
 
-    if stage_piezo_z:
+    if c_p['stage_piezo_z']:
         # OBS assumes that the z-motor is connected to channel 3
         try:
             thread_piezo_z = TM.XYZ_piezo_stage_motor(10, 'piezo_z', 3,2, c_p,
@@ -165,11 +161,11 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
 
     # If there is any stepper motor to connect, then add necessary c_p and
     # connect benchtop controller.
-    if stage_stepper_x or stage_stepper_y or stage_stepper_z:
+    if c_p['stage_stepper_x'] or c_p['stage_stepper_y'] or c_p['stage_stepper_z']:
         append_c_p(c_p, TM.get_default_stepper_c_p())
         controller_device_stepper = TM.ConnectBenchtopStepperController()
 
-    if stage_stepper_x:
+    if c_p['stage_stepper_x']:
         try:
             thread_stepper_x = TM.XYZ_stepper_stage_motor(11, 'stepper_X',1,0,
             c_p, controller_device=controller_device_stepper)
@@ -178,7 +174,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         except:
             print('Could not connect stepper x')
 
-    if stage_stepper_y:
+    if c_p['stage_stepper_y']:
         try:
             thread_stepper_y = TM.XYZ_stepper_stage_motor(12, 'stepper_Y',2,1,
             c_p, controller_device=controller_device_stepper)
@@ -187,7 +183,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         except:
             print('Could not connect stepper y')
 
-    if stage_stepper_z:
+    if c_p['stage_stepper_z']:
         try:
             thread_stepper_z = TM.XYZ_stepper_stage_motor(13, 'stepper_Z',3,2,
             c_p, controller_device=controller_device_stepper)
@@ -197,7 +193,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
             print('Could not connect stepper z')
 
 
-    if shutter:
+    if c_p['shutter']:
         append_c_p(c_p, TS.get_shutter_c_p())
         try:
             shutter_thread = TS.ShutterThread(14, 'shutter_thread', c_p)
@@ -210,15 +206,10 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
 
 class UserInterface:
 
-    def __init__(self, window, window_title, c_p, thread_list, use_SLM = False,
-                cam=True, motor_x=False, motor_y=False, motor_z=False, slm=False,
-                tracking=False, isaac=False, temp=False, stage_piezo_x=False,
-                stage_piezo_y=False, stage_piezo_z=False, shutter=True):
+    def __init__(self, window, window_title, c_p, thread_list, use_SLM=False):
         self.window = window
         self.window.title(window_title)
-        start_threads(c_p, thread_list, cam=cam, motor_x=motor_x, motor_y=motor_y, motor_z=motor_z,
-                            slm=slm, tracking=tracking, isaac=isaac, temp=temp,stage_piezo_x=stage_piezo_x,
-                            stage_piezo_y=stage_piezo_y,stage_piezo_z=stage_piezo_z,shutter=shutter)
+        start_threads(c_p, thread_list)
         # Create a canvas that can fit the above video source size
         self.canvas_width = 1200
         self.canvas_height = 1000
@@ -243,7 +234,7 @@ class UserInterface:
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
         self.delay = 100#50
-        if use_SLM:
+        if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
 
@@ -449,7 +440,7 @@ class UserInterface:
             elif c_p['camera_model'] == 'ThorlabsCam':
                 try:
                     exposure_time = float(entry)
-                    if 0.01 < exposure_time < 100: # If you need more than that you are
+                    if 0.01 < exposure_time < 120: # If you need more than that you are
                         c_p['exposure_time'] = exposure_time
                         print("Exposure time set to ", exposure_time)
                         c_p['new_settings_camera'] = True
@@ -487,17 +478,7 @@ class UserInterface:
             text='Select experiment schedule',
             command=self.read_experiment_dictionary
             )
-        # Motor buttons. Attributes of UserInterface class os we can easily change
-        # the description text of them.
-        self.toggle_motorX_button = tkinter.Button(
-            top, text='Connect motor x', command=connect_disconnect_motorX)
-        self.toggle_motorY_button = tkinter.Button(
-            top, text='Connect motor y', command=connect_disconnect_motorY)
-        self.toggle_piezo_button = tkinter.Button(
-            top, text='Connect piezo motor', command=connect_disconnect_piezo)
 
-        self.open_shutter_button = tkinter.Button(
-            top, text='Open shutter', command=open_shutter)
 
         x_position = 1220
         x_position_2 = 1420
@@ -529,11 +510,25 @@ class UserInterface:
         exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
         set_exposure_button.place(x=x_position_2, y=y_position_2.__next__())
         experiment_schedule_button.place(x=x_position_2, y=y_position_2.__next__())
-        self.toggle_motorX_button.place(x=x_position_2, y=y_position_2.__next__())
-        self.toggle_motorY_button.place(x=x_position_2, y=y_position_2.__next__())
-        self.toggle_piezo_button.place(x=x_position_2, y=y_position_2.__next__())
-        self.home_z_button.place(x=x_position_2, y=y_position_2.__next__())
-        self.open_shutter_button.place(x=x_position_2, y=y_position_2.__next__())
+
+        # Motor buttons. Attributes of UserInterface class os we can easily change
+        # the description text of them.
+        if c_p['standard_motors']:
+            self.toggle_motorX_button = tkinter.Button(
+                top, text='Connect motor x', command=connect_disconnect_motorX)
+            self.toggle_motorY_button = tkinter.Button(
+                top, text='Connect motor y', command=connect_disconnect_motorY)
+            self.toggle_piezo_button = tkinter.Button(
+                top, text='Connect piezo motor', command=connect_disconnect_piezo)
+            self.toggle_motorX_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.toggle_motorY_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.toggle_piezo_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.home_z_button.place(x=x_position_2, y=y_position_2.__next__())
+
+        if c_p['shutter']:
+            self.open_shutter_button = tkinter.Button(
+                top, text='Open shutter', command=open_shutter)
+            self.open_shutter_button.place(x=x_position_2, y=y_position_2.__next__())
 
     def create_SLM_window(self, _class):
         try:
@@ -655,12 +650,18 @@ class UserInterface:
         self.temperature_label.config(text=self.get_temperature_info())
 
         self.position_label.config(text=self.get_position_info())
-        if c_p['shutter_open']:
-            self.open_shutter_button.config(bg='green',text='close shutter')
-        else:
-            self.open_shutter_button.config(bg='red',text='open shutter')
-        self.update_motor_buttons()
-        self.update_home_button()
+
+        # Update the shutter if it is used
+        if c_p['shutter']:
+            if c_p['shutter_open']:
+                self.open_shutter_button.config(bg='green',text='close shutter')
+            else:
+                self.open_shutter_button.config(bg='red',text='open shutter')
+
+        # If standard motors are use then update these
+        if c_p['standard_motors']:
+            self.update_motor_buttons()
+            self.update_home_button()
 
     def resize_display_image(self, img):
         img_size = np.shape(img)
@@ -1722,8 +1723,9 @@ experiment_schedule = [
 ]
 
 c_p['experiment_schedule'] = experiment_schedule
-T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list,
-    stage_stepper)
+append_c_p(c_p,get_thread_activation_parameters())
+
+T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
 
 # UserInterface(tkinter.Tk(), "Control display", c_p, thread_list,
 #     stage_piezo_x=True,stage_piezo_y=True, stage_piezo_z=True)

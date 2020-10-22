@@ -38,7 +38,6 @@ def find_closest(centers, target):
 
 def set_exposure(cam, exposure_time):
     exposure_time = float(exposure_time+1e-4)
-    # print(number_to_millisecond(exposure_time))
     cam.set_defaults(exposure_time=number_to_millisecond(exposure_time))
 
 

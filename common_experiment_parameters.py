@@ -15,6 +15,29 @@ def get_save_path(base_path='F:/Martin/D', extension_path=""):
     return recording_path
 
 
+def get_thread_activation_parameters():
+    # Returns a dictionary with names for thread activation paramters
+    # If the thred activation parameter is set to true then the program will
+    # try to start that thread.
+    thread_activation = {
+        'cam':True,
+        'motor_x':False,
+        'motor_y':False,
+        'motor_z':False,
+        'slm':False,
+        'tracking':False,
+        'isaac':False,
+        'temp':False,
+        'stage_piezo_x':False,
+        'stage_piezo_y':False,
+        'stage_piezo_z':False,
+        'stage_stepper_x':False,
+        'stage_stepper_y':False,
+        'stage_stepper_z':False,
+        'shutter':False,
+        }
+    return thread_activation
+
 def get_experiment_setup():
     '''
     Function which returns the standard parameters which need to be calibrated
@@ -180,7 +203,3 @@ def get_default_c_p(recording_path=None):
     c_p['phasemask'] = np.zeros((1080, 1080))  # phasemask  size
 
     return c_p
-
-
-def get_motor_default_control_parameters():
-    pass
