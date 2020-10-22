@@ -9,3 +9,6 @@ Then we would have for instance c_p_temperature(),c_p_camera etc
 
 Add manual controls of shutter, set shutter open time and open shutter.
 Also add ... to it
+
+Manual control of piezos/steppers? Have user press on screen where the
+laser should be moved to?
