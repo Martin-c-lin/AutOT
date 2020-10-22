@@ -50,7 +50,9 @@ def append_c_p(c_p,second_dict):
 
 def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, motor_z=False,
                     slm=False, tracking=False, isaac=False, temp=False,
-                    stage_piezo_x=False, stage_piezo_y=False, stage_piezo_z=False, shutter=True):
+                    stage_piezo_x=False, stage_piezo_y=False, stage_piezo_z=False,
+                    stage_stepper_x=False,stage_stepper_y=False,stage_stepper_z=False,
+                    shutter=True):
     # TODO include these parameters in c_p
     # Make it so that c_p automagically extends to include the c_p needed for the
     # various threads. Updates only the parameters needed. Already implemented for
@@ -125,13 +127,13 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
     if stage_piezo_x or stage_piezo_y or stage_piezo_z:
         c_p['stage_piezos'] = True
         append_c_p(c_p, TM.get_default_piezo_c_p())
-        controller_device = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
+        controller_device_piezo = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
 
     if stage_piezo_x:
         # OBS assumes that the x-motor is connected to channel 1
         try:
             thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 1,0, c_p,
-                controller_device=controller_device)
+                controller_device=controller_device_piezo)
             thread_piezo_x.start()
             thread_list.append(thread_piezo_x)
 
@@ -143,7 +145,7 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         # OBS assumes that the y-motor is connected to channel 2
         try:
             thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 2,1, c_p,
-                controller_device=controller_device)
+                controller_device=controller_device_piezo)
             thread_piezo_y.start()
             thread_list.append(thread_piezo_y)
             print('Started piezo y-thread')
@@ -154,17 +156,51 @@ def start_threads(c_p, thread_list, cam=True, motor_x=False, motor_y=False, moto
         # OBS assumes that the z-motor is connected to channel 3
         try:
             thread_piezo_z = TM.XYZ_piezo_stage_motor(10, 'piezo_z', 3,2, c_p,
-                controller_device=controller_device)
+                controller_device=controller_device_piezo)
             thread_piezo_z.start()
             thread_list.append(thread_piezo_z)
             print('Started piezo z-thread')
         except:
             print('Could not start piezo z-thread')
 
+    # If there is any stepper motor to connect, then add necessary c_p and
+    # connect benchtop controller.
+    if stage_stepper_x or stage_stepper_y or stage_stepper_z:
+        append_c_p(c_p, TM.get_default_stepper_c_p())
+        controller_device_stepper = TM.ConnectBenchtopStepperController()
+
+    if stage_stepper_x:
+        try:
+            thread_stepper_x = TM.XYZ_stepper_stage_motor(11, 'stepper_X',1,0,
+            c_p, controller_device=controller_device_stepper)
+            thread_stepper_x.start()
+            thread_list.append(thread_stepper_x)
+        except:
+            print('Could not connect stepper x')
+
+    if stage_stepper_y:
+        try:
+            thread_stepper_y = TM.XYZ_stepper_stage_motor(12, 'stepper_Y',2,1,
+            c_p, controller_device=controller_device_stepper)
+            thread_stepper_y.start()
+            thread_list.append(thread_stepper_y)
+        except:
+            print('Could not connect stepper y')
+
+    if stage_stepper_z:
+        try:
+            thread_stepper_z = TM.XYZ_stepper_stage_motor(13, 'stepper_Z',3,2,
+            c_p, controller_device=controller_device_stepper)
+            thread_stepper_z.start()
+            thread_list.append(thread_stepper_z)
+        except:
+            print('Could not connect stepper z')
+
+
     if shutter:
         append_c_p(c_p, TS.get_shutter_c_p())
         try:
-            shutter_thread = TS.ShutterThread(11, 'shutter_thread', c_p)
+            shutter_thread = TS.ShutterThread(14, 'shutter_thread', c_p)
             shutter_thread.start()
             thread_list.append(shutter_thread)
             print('Started shutter thread')
@@ -320,6 +356,7 @@ class UserInterface:
                                       command=partial(stage_piezo_manual_move, axis=0, distance=1))
         self.left_button = tkinter.Button(top, text='Move left',
                                      command=partial(stage_piezo_manual_move, axis=0, distance=-1))
+
     def create_buttons(self,top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -473,6 +510,7 @@ class UserInterface:
             self.down_button.place(x=x_position, y=y_position.__next__())
             self.right_button.place(x=x_position, y=y_position.__next__())
             self.left_button.place(x=x_position, y=y_position.__next__())
+
         start_recording_button.place(x=x_position, y=y_position.__next__())
         stop_recording_button.place(x=x_position, y=y_position.__next__())
         toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
@@ -1684,6 +1722,10 @@ experiment_schedule = [
 ]
 
 c_p['experiment_schedule'] = experiment_schedule
-T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list,stage_piezo_x=True,stage_piezo_y=True, stage_piezo_z=True)
+T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list,
+    stage_stepper)
+
+# UserInterface(tkinter.Tk(), "Control display", c_p, thread_list,
+#     stage_piezo_x=True,stage_piezo_y=True, stage_piezo_z=True)
 
 sys.exit()

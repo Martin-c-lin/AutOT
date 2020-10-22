@@ -765,7 +765,6 @@ class XYZ_piezo_stage_motor(Thread):
         self.__del__()
 
     def __del__(self):
-        self.c_p['program_running'] = False
         self.piezo_channel.StopPolling()
         self.piezo_channel.Disconnect()
 
@@ -783,7 +782,7 @@ def ConnectBenchtopStepperController(serialNo):
 
 def ConnectBenchtopStepperChannel(device, channel, polling_rate=100):
     '''
-
+    Connects to the stepper motor of BenchtopStepperController on channel "channel".
     '''
 
     channel = device.GetChannel(channel)
@@ -800,6 +799,21 @@ def ConnectBenchtopStepperChannel(device, channel, polling_rate=100):
     # Enable the channel otherwise any move is ignored
     channel.EnableDevice()
     return channel
+
+
+def get_default_stepper_c_p():
+    """
+    Returns a dictionary containg default values for all control parameters needed
+    for the benchtop stepper controller and it's motors.
+    """
+    stepper_c_p = {
+        'stepper_serial_no':'70167314',
+        'starting_position_stepper_xyz':[0, 0, 0],
+        'stage_stepper_connected':[False, False, False],
+        'stepper_current_pos':[0, 0, 0],
+        'stepper_next_move':[0, 0, 0],
+    }
+    return stepper_c_p
 
 
 class XYZ_stepper_stage_motor(Thread):
@@ -821,7 +835,7 @@ class XYZ_stepper_stage_motor(Thread):
             controller_device = ConnectBenchtopStepperController(serialNo)
         self.controller_device = controller_device
         self.stepper_channel = ConnectBenchtopStepperChannel(controller_device, channel)
-        self.c_p['starting_position_stepper_xyz'][self.axis] = self.piezo_channel.GetPosition()
+        self.c_p['starting_position_stepper_xyz'][self.axis] = self.update_current_position()
         self.c_p['stage_stepper_connected'][self.axis] = True
 
     def update_current_position(self):
@@ -829,12 +843,21 @@ class XYZ_stepper_stage_motor(Thread):
         self.c_p['stepper_current_pos'][self.axis] = float(str(decimal_pos))
         return float(str(decimal_pos))
 
-    def move_distance(self):
-
+    def move_distance(self, distance):
+        self.stepper_channel.MoveRelative(1, Decimal(distance), Int32(10000))
         self.update_current_position()
-        pass
+
+    def move_to_position(self, position):
+        distance = position - self.c_p['stepper_current_pos'][self.axis]
+        self.move_distance(distance)
+
     def run(self):
 
         while self.c_p['program_running']:
-
+            self.move_distance(self.c_p['stepper_next_move'][self.axis])
             sleep(self.sleep_time)
+        self.__del__()
+
+    def __del__(self):
+        self.stepper_channel.StopPolling()
+        self.stepper_channel.Disconnect()
