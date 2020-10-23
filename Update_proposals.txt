@@ -12,3 +12,6 @@ Also add ... to it
 
 Manual control of piezos/steppers? Have user press on screen where the
 laser should be moved to?
+
+Investigate if I can replace c_p with something similar to events for the
+threads.

@@ -14,6 +14,12 @@ def get_save_path(base_path='F:/Martin/D', extension_path=""):
         print('Directory already exist')
     return recording_path
 
+def append_c_p(c_p,second_dict):
+    # Adds all keys and elements of second_dict to c_p. Does not replace any elements
+    # already in c_p.
+    for data in second_dict:
+        if not data in c_p:
+            c_p[data] = second_dict[data]
 
 def get_thread_activation_parameters():
     # Returns a dictionary with names for thread activation paramters

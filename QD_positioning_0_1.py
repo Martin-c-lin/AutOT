@@ -7,7 +7,7 @@ import find_particle_threshold as fpt
 import read_dict_from_file as rdff
 import ThorlabsShutter as TS
 import CameraControls
-from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters
+from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p
 from instrumental import u
 import numpy as np
 import threading, time, cv2, queue, copy, sys, tkinter, os, pickle
@@ -20,7 +20,7 @@ from tkinter import *  # TODO Should avoid this type of import statements.
 import PIL.Image, PIL.ImageTk
 from pypylon import pylon
 
-def terminate_threads():
+def terminate_threads(thread_list, c_p):
     '''
     Function for terminating all threads.
 
@@ -33,19 +33,11 @@ def terminate_threads():
     c_p['motor_running'] = False
     c_p['tracking_on'] = False
     time.sleep(1)
-    global thread_list
+    #global thread_list
     for thread in thread_list:
         thread.join()
     for thread in thread_list:
         del thread
-
-
-def append_c_p(c_p,second_dict):
-    # Adds all keys and elements of second_dict to c_p. Does not replace any elements
-    # already in c_p.
-    for data in second_dict:
-        if not data in c_p:
-            c_p[data] = second_dict[data]
 
 
 def start_threads(c_p, thread_list):
@@ -237,8 +229,6 @@ class UserInterface:
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
-
-
         self.create_indicators()
         self.update()
 
@@ -246,10 +236,10 @@ class UserInterface:
 
     def __del__(self):
         # Close the program
-        terminate_threads()
         c_p['program_running'] = False
         c_p['motor_running'] = False
         c_p['tracking_on'] = False
+        terminate_threads(thread_list, c_p)
 
     def read_experiment_dictionary(self):
         global c_p
@@ -275,6 +265,7 @@ class UserInterface:
             c_p['recording_path'] = get_save_path(extension_path='_'+name)
         else:
             print('Invalid or empty file.')
+
 
     def create_trap_image(self):
         global c_p
@@ -370,14 +361,12 @@ class UserInterface:
         def home_z_command():
             c_p['return_z_home'] = not c_p['return_z_home']
 
-        # TODO add home z button
-        # TODO: Check if we can change colors of buttons by making buttons part of
-        # object.
         # Check which buttons to get
         if c_p['standard_motors']:
             self.get_standard_move_buttons(top)
         elif c_p['stage_piezos']:
             self.get_stage_move_buttons(top)
+        #TODO Add the stepper motor buttons
 
         start_recording_button = tkinter.Button(top, text='Start recording',
                                              command=start_recording)
@@ -458,6 +447,7 @@ class UserInterface:
 
         def connect_disconnect_piezo():
             c_p['connect_motor'][2] = not c_p['connect_motor'][2]
+
         def open_shutter():
             c_p['should_shutter_open'] = True
 
@@ -694,7 +684,8 @@ class UserInterface:
          self.create_trap_image()
          self.mini_photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.mini_image, mode='RGB'))
          self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW) # need to use a compatible image type
-
+         # x = self.window.winfo_pointerx() - self.window.winfo_rootx()
+         # print(x)
          self.window.after(self.delay, self.update)
 
 
