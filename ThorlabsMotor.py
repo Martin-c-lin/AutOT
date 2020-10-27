@@ -811,6 +811,7 @@ def get_default_stepper_c_p():
         'starting_position_stepper_xyz':[0, 0, 0],
         'stage_stepper_connected':[False, False, False],
         'stepper_current_pos':[0, 0, 0],
+        'stepper_target_position':[0, 0, 0],
         'stepper_next_move':[0, 0, 0],
         'stepper_max_speed':[0.5, 0.5, 0.5],
         'stepper_acc':[0.5, 0.5, 0.5],
@@ -866,7 +867,7 @@ class XYZ_stepper_stage_motor(Thread):
         while self.c_p['program_running']:
             if self.c_p['new_stepper_velocity_params']:
                 self.set_velocity_params()
-            self.move_distance(self.c_p['stepper_next_move'][self.axis])
+            self.move_to_position(self.c_p['stepper_target_position'][self.axis])
             sleep(self.sleep_time)
         self.__del__()
 

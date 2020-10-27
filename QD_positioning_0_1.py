@@ -340,6 +340,9 @@ class UserInterface:
         self.left_button = tkinter.Button(top, text='Move left',
                                      command=partial(stage_piezo_manual_move, axis=0, distance=-1))
 
+    def test_click():
+        print('Click')
+
     def create_buttons(self,top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -348,6 +351,7 @@ class UserInterface:
         # TODO make c_p non global, and change so that only the buttons actually
         # usable are displayed. Preferably use the inputs to start_threads.
         global c_p
+        self.canvas.bind("<Button-1>", test_click)
         if top is None:
             top = self.window
 
@@ -668,6 +672,21 @@ class UserInterface:
             dim = ( int(self.canvas_height), int(self.canvas_height/img_size[0]*img_size[1]))
         return cv2.resize(img, (dim[1],dim[0]), interpolation = cv2.INTER_AREA)
 
+    def get_mouse_position(self):
+
+        c_p['mouse_position'][0] = self.window.winfo_pointerx() - self.window.winfo_rootx()
+        c_p['mouse_position'][1] = self.window.winfo_pointery() - self.window.winfo_rooty()
+
+    def mouse_command_move(self):
+        # Function to convert a mouse click to a movement.
+
+        # Update position of the mouse
+        self.get_mouse_position()
+
+        # Update target position for the stepper stage.
+        c_p['stepper_target_position'][0] = c_p['stepper_current_pos'][0] - (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel']
+        c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - (c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel']
+
     def update(self):
          # Get a frame from the video source
          #global image
@@ -680,7 +699,6 @@ class UserInterface:
          self.update_indicators()
          # TODO make it possible to overlay the positions of the trapped particles and the
          # estimated positions of the target positions
-         #print(np.shape(image))
          self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.resize_display_image(image)))
          self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW) # need to use a compatible image type
 
