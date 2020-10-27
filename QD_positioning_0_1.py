@@ -154,6 +154,7 @@ def start_threads(c_p, thread_list):
     # If there is any stepper motor to connect, then add necessary c_p and
     # connect benchtop controller.
     if c_p['stage_stepper_x'] or c_p['stage_stepper_y'] or c_p['stage_stepper_z']:
+        c_p['using_stepper_motors'] = True
         append_c_p(c_p, TM.get_default_stepper_c_p())
         controller_device_stepper = TM.ConnectBenchtopStepperController()
 
@@ -366,6 +367,9 @@ class UserInterface:
             self.get_standard_move_buttons(top)
         elif c_p['stage_piezos']:
             self.get_stage_move_buttons(top)
+        if cp['using_stepper_motors']:
+
+            passs
         #TODO Add the stepper motor buttons
 
         start_recording_button = tkinter.Button(top, text='Start recording',
@@ -1459,10 +1463,15 @@ def stage_piezo_manual_move(axis, distance):
     # Manually move the piezos a given distance(in microns)
     c_p['piezo_target_pos'][axis] += distance
     # Check if intended move is out of bounds
-    c_p['piezo_target_pos'][axis] = max(0,c_p['piezo_target_pos'][axis])
-    #0 if c_p['piezo_target_pos'][axis]<0 else c_p['piezo_target_pos'][axis]
-    c_p['piezo_target_pos'][axis] = min(20,c_p['piezo_target_pos'][axis])
-    #20 if c_p['piezo_target_pos'][axis] > 20 else c_p['piezo_target_pos'][axis]
+    c_p['piezo_target_pos'][axis] = max(0, c_p['piezo_target_pos'][axis])
+    c_p['piezo_target_pos'][axis] = min(20, c_p['piezo_target_pos'][axis])
+
+def stage_stepper_manual_move(axis, distance):
+    # Move the stepper motor distance (measured in mm)
+    c_p['stepper_target_pos'][axis] += distance
+    # Check if move was ok
+    c_p['stepper_target_pos'][axis] = max(0, c_p['stepper_target_pos'][axis] )
+    c_p['stepper_target_pos'][axis] = min(20, c_p['stepper_target_pos'][axis] )
 
 def start_recording():
     '''
