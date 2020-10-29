@@ -156,7 +156,9 @@ def start_threads(c_p, thread_list):
     if c_p['stage_stepper_x'] or c_p['stage_stepper_y'] or c_p['stage_stepper_z']:
         c_p['using_stepper_motors'] = True
         append_c_p(c_p, TM.get_default_stepper_c_p())
-        controller_device_stepper = TM.ConnectBenchtopStepperController()
+        controller_device_stepper = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
+    else:
+        c_p['using_stepper_motors'] = False
 
     if c_p['stage_stepper_x']:
         try:
@@ -226,7 +228,7 @@ class UserInterface:
         self.window.geometry('1700x1000')
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
-        self.delay = 100#50
+        self.delay = 50#100
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
@@ -340,8 +342,12 @@ class UserInterface:
         self.left_button = tkinter.Button(top, text='Move left',
                                      command=partial(stage_piezo_manual_move, axis=0, distance=-1))
 
-    def test_click():
-        print('Click')
+    def test_click(self, event):
+        if c_p['mouse_move_allowed']:
+            self.mouse_command_move()
+
+    def toggle_move_by_clicking(self):
+        c_p['mouse_move_allowed'] = not c_p['mouse_move_allowed']
 
     def create_buttons(self,top=None):
         '''
@@ -351,7 +357,7 @@ class UserInterface:
         # TODO make c_p non global, and change so that only the buttons actually
         # usable are displayed. Preferably use the inputs to start_threads.
         global c_p
-        self.canvas.bind("<Button-1>", test_click)
+        self.canvas.bind("<Button-1>", self.test_click)
         if top is None:
             top = self.window
 
@@ -371,9 +377,9 @@ class UserInterface:
             self.get_standard_move_buttons(top)
         elif c_p['stage_piezos']:
             self.get_stage_move_buttons(top)
-        if cp['using_stepper_motors']:
-
-            passs
+        if c_p['using_stepper_motors']:
+            self.move_by_clicking_button = tkinter.Button(top, text='move by clicking',
+                                             command=self.toggle_move_by_clicking)
         #TODO Add the stepper motor buttons
 
         start_recording_button = tkinter.Button(top, text='Start recording',
@@ -489,6 +495,8 @@ class UserInterface:
             self.down_button.place(x=x_position, y=y_position.__next__())
             self.right_button.place(x=x_position, y=y_position.__next__())
             self.left_button.place(x=x_position, y=y_position.__next__())
+        if c_p['using_stepper_motors']:
+            self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
 
         start_recording_button.place(x=x_position, y=y_position.__next__())
         stop_recording_button.place(x=x_position, y=y_position.__next__())
@@ -660,6 +668,12 @@ class UserInterface:
         if c_p['standard_motors']:
             self.update_motor_buttons()
             self.update_home_button()
+
+        if c_p['using_stepper_motors']:
+            if c_p['mouse_move_allowed']:
+                self.move_by_clicking_button.config(bg='green')
+            else:
+                self.move_by_clicking_button.config(bg='red')
 
     def resize_display_image(self, img):
         img_size = np.shape(img)
@@ -1721,12 +1735,7 @@ def move_particles_slowly(last_d=30e-6):
 ############### Main script starts here ####################################
 c_p = get_default_c_p()
 c_p['camera_model'] = 'ThorlabsCam'
-# Create camera and set defaults
-# global image
-# if c_p['camera_model'] == 'ThorlabsCam':
-#     image = np.zeros((c_p['AOI'][1]-c_p['AOI'][0], c_p['AOI'][3]-c_p['AOI'][2], 1))
-# else:
-#     image = np.zeros((672,512,1))
+
 
 # Create a empty list to put the threads in
 thread_list = []
@@ -1742,6 +1751,9 @@ experiment_schedule = [
 
 c_p['experiment_schedule'] = experiment_schedule
 append_c_p(c_p,get_thread_activation_parameters())
+
+c_p['stage_stepper_x'] = True
+c_p['stage_stepper_y'] = True
 
 T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
 

@@ -120,6 +120,8 @@ def get_default_c_p(recording_path=None):
         'phasemask_updated': False,  # True if the phasemask is to be udpated
         'SLM_iterations': 30,
         'movement_threshold': 30,
+        'mouse_move_allowed':True, # Determines if one is allowed to move motors
+        # by clicking on the screen.
         'nbr_experiments':1,
         'framerate': 500,
         'tracking_on': False,
@@ -131,6 +133,7 @@ def get_default_c_p(recording_path=None):
         'temperature_output_on':True,
         'need_T_stable':False,
         'search_direction': 'up',
+        'mouse_position': [0, 0],
         'particle_centers': [[500], [500]],
         'target_particle_center': [500, 500],  # Position of the particle we
         # currently are trying to trap. Used to minimize changes in code when

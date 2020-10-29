@@ -20,7 +20,9 @@ clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.KCube
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.KCube.InertialMotorCLI.dll ')
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.GenericPiezoCLI.dll')
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.Benchtop.PiezoCLI.dll')
+clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.Benchtop.StepperMotorCLI.dll')
 
+# TODO replace import * wiht something better
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
 from Thorlabs.MotionControl.KCube.DCServoCLI import *
@@ -29,6 +31,8 @@ from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
 from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
 from Thorlabs.MotionControl.GenericPiezoCLI.Piezo import *
 from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
+from Thorlabs.MotionControl.Benchtop.StepperMotorCLI import *
+
 
 timeoutVal = 30000
 
@@ -853,7 +857,8 @@ class XYZ_stepper_stage_motor(Thread):
 
     def move_to_position(self, position):
         distance = position - self.c_p['stepper_current_pos'][self.axis]
-        self.move_distance(distance)
+        self.move_distance(float(distance))
+        print(distance, self.c_p['stepper_current_pos'][self.axis])
 
     def set_velocity_params(self):
         try:
