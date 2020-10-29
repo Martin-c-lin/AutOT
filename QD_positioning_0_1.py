@@ -33,7 +33,6 @@ def terminate_threads(thread_list, c_p):
     c_p['motor_running'] = False
     c_p['tracking_on'] = False
     time.sleep(1)
-    #global thread_list
     for thread in thread_list:
         thread.join()
     for thread in thread_list:
@@ -41,7 +40,6 @@ def terminate_threads(thread_list, c_p):
 
 
 def start_threads(c_p, thread_list):
-    # TODO include these parameters in c_p
     # Make it so that c_p automagically extends to include the c_p needed for the
     # various threads. Updates only the parameters needed. Already implemented for
     # the shutter and piezo-stage.
@@ -573,9 +571,9 @@ class UserInterface:
         if c_p['standard_motors']:
             target_key_motor = 'motor_current_pos'
             target_key_connection = 'motors_connected'
-        elif  c_p['stage_piezos']:
-            target_key_motor = 'piezo_current_position'
-            target_key_connection = 'stage_piezo_connected'
+        elif  c_p['using_stepper_motors']:
+            target_key_motor = 'stepper_current_pos'
+            target_key_connection = 'stage_stepper_connected'
 
         if target_key_motor is not None:
             position_text = 'x: '+str(c_p[target_key_motor][0])+\

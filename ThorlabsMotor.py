@@ -858,7 +858,6 @@ class XYZ_stepper_stage_motor(Thread):
     def move_to_position(self, position):
         distance = position - self.c_p['stepper_current_pos'][self.axis]
         self.move_distance(float(distance))
-        print(distance, self.c_p['stepper_current_pos'][self.axis])
 
     def set_velocity_params(self):
         try:
