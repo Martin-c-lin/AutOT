@@ -118,7 +118,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_piezo_x']:
         # OBS assumes that the x-motor is connected to channel 1
         try:
-            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 1,0, c_p,
+            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 2,0, c_p,
                 controller_device=controller_device_piezo)
             thread_piezo_x.start()
             thread_list.append(thread_piezo_x)
@@ -130,7 +130,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_piezo_y']:
         # OBS assumes that the y-motor is connected to channel 2
         try:
-            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 2,1, c_p,
+            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 1,1, c_p,
                 controller_device=controller_device_piezo)
             thread_piezo_y.start()
             thread_list.append(thread_piezo_y)
@@ -391,7 +391,7 @@ class UserInterface:
             command=toggle_bright_particle)
 
         threshold_entry = tkinter.Entry(top, bd=5)
-        temperature_entry = tkinter.Entry(top, bd=5)
+        self.temperature_entry = tkinter.Entry(top, bd=5)
         exposure_entry = tkinter.Entry(top, bd=5)
 
         toggle_tracking_button = tkinter.Button(
@@ -411,7 +411,7 @@ class UserInterface:
             threshold_entry.delete(0, last=5000)
 
         def set_temperature():
-            entry = temperature_entry.get()
+            entry = self.temperature_entry.get()
             try:
                 temperature = float(entry)
                 if 20 < temperature < 40:
@@ -422,7 +422,7 @@ class UserInterface:
                           freeze your samples')
             except:
                 print('Cannot convert entry to integer')
-            temperature_entry.delete(0, last=5000)
+            self.temperature_entry.delete(0, last=5000)
 
         def set_exposure():
             entry = exposure_entry.get()
@@ -465,10 +465,10 @@ class UserInterface:
 
         threshold_button = tkinter.Button(
             top, text='Set threshold', command=set_threshold)
-        focus_up_button = tkinter.Button(
-            top, text='Move focus up', command=focus_up)
-        focus_down_button = tkinter.Button(
-            top, text='Move focus down', command=focus_down)
+        # focus_up_button = tkinter.Button(
+        #     top, text='Move focus up', command=focus_up)
+        # focus_down_button = tkinter.Button(
+        #     top, text='Move focus down', command=focus_down)
         temperature_button = tkinter.Button(
             top, text='Set setpoint temperature', command=set_temperature)
         zoom_in_button = tkinter.Button(top, text='Zoom in', command=zoom_in)
@@ -493,8 +493,24 @@ class UserInterface:
             self.down_button.place(x=x_position, y=y_position.__next__())
             self.right_button.place(x=x_position, y=y_position.__next__())
             self.left_button.place(x=x_position, y=y_position.__next__())
+
+            focus_up_button = tkinter.Button(
+                top, text='Move focus up', command=focus_up)
+            focus_down_button = tkinter.Button(
+                top, text='Move focus down', command=focus_down)
+            focus_up_button.place(x=x_position, y=y_position.__next__())
+            focus_down_button.place(x=x_position, y=y_position.__next__())
+
         if c_p['using_stepper_motors']:
             self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
+            self.sample_up_button = tkinter.Button(top, text='Sample up', command=stepper_button_move_upp)
+            self.sample_down_button = tkinter.Button(top, text='Sample down', command=stepper_button_move_down)
+            self.sample_up_button.place(x=x_position, y=y_position.__next__())
+            self.sample_down_button.place(x=x_position, y=y_position.__next__())
+
+        if c_p['temp']:
+            self.temperature_entry.place(x=x_position, y=y_position.__next__())
+            temperature_button.place(x=x_position, y=y_position.__next__())
 
         start_recording_button.place(x=x_position, y=y_position.__next__())
         stop_recording_button.place(x=x_position, y=y_position.__next__())
@@ -502,10 +518,9 @@ class UserInterface:
         threshold_entry.place(x=x_position, y=y_position.__next__())
         threshold_button.place(x=x_position, y=y_position.__next__())
         toggle_tracking_button.place(x=x_position, y=y_position.__next__())
-        focus_up_button.place(x=x_position, y=y_position.__next__())
-        focus_down_button.place(x=x_position, y=y_position.__next__())
-        temperature_entry.place(x=x_position, y=y_position.__next__())
-        temperature_button.place(x=x_position, y=y_position.__next__())
+        # focus_up_button.place(x=x_position, y=y_position.__next__())
+        # focus_down_button.place(x=x_position, y=y_position.__next__())
+
         zoom_in_button.place(x=x_position, y=y_position.__next__())
         zoom_out_button.place(x=x_position, y=y_position.__next__())
 
@@ -578,7 +593,7 @@ class UserInterface:
         if target_key_motor is not None:
             position_text = 'x: '+str(c_p[target_key_motor][0])+\
                 'mm   y: '+str(c_p[target_key_motor][1])+\
-                'mm   z: '+str(c_p[target_key_motor][2])
+                'mm   z: '+str(c_p[target_key_motor][2])+'\n'
 
             # Add motor connection info
             x_connected = 'connected. ' if c_p[target_key_connection][0] else 'disconnected.'
@@ -696,8 +711,11 @@ class UserInterface:
         self.get_mouse_position()
 
         # Update target position for the stepper stage.
-        c_p['stepper_target_position'][0] = c_p['stepper_current_pos'][0] - (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel']
-        c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - (c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel']
+        print('dx: ', (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0]) )
+        # Camera orientation will affect signs in the following expressions
+        c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
+        c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - (c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
+        print(c_p['stepper_target_position'][0], c_p['stepper_current_pos'][0])
 
     def update(self):
          # Get a frame from the video source
@@ -1610,6 +1628,15 @@ def zoom_out():
         CameraControls.set_AOI(c_p, left=0, right=672, up=0, down=512)
 
 
+def stepper_button_move_down(distance=0.005):
+    # Moves the z-motor of the stepper up a tiny bit
+    c_p['stepper_target_position'][2] = c_p['stepper_current_pos'][2] - distance
+
+
+def stepper_button_move_upp(distance=0.005):
+    # Moves the z-motor of the stepper up a tiny bit
+    c_p['stepper_target_position'][2] = c_p['stepper_current_pos'][2] + distance
+
 def search_for_particles():
     '''
     Function for searching after particles. Threats the sample as a grid and
@@ -1752,6 +1779,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
+c_p['stage_stepper_z'] = True
+c_p['shutter'] = True
+
 
 T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
 

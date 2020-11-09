@@ -9,6 +9,7 @@ import clr,sys
 from System import Decimal,Int32
 from time import sleep
 from threading import Thread
+import numpy as np
 
 # Import DLLs
 """
@@ -795,7 +796,7 @@ def ConnectBenchtopStepperChannel(device, channel, polling_rate=100):
 
     channel.StartPolling(polling_rate)
     # Needs a delay so that the current enabled state can be obtained
-    motorConfiguration = channel.LoadMotorConfiguration(channel.DeviceID);
+    motorConfiguration = channel.LoadMotorConfiguration(channel.DeviceID)
     currentDeviceSettings = channel.MotorDeviceSettings# as ThorlabsBenchtopStepperMotorSettings;
     channel.SetSettings(currentDeviceSettings, True, False)
 
@@ -815,10 +816,10 @@ def get_default_stepper_c_p():
         'starting_position_stepper_xyz':[0, 0, 0],
         'stage_stepper_connected':[False, False, False],
         'stepper_current_pos':[0, 0, 0],
-        'stepper_target_position':[0, 0, 0],
+        'stepper_target_position':[2.3, 2.3, 0],# Has trouble moving at edge
         'stepper_next_move':[0, 0, 0],
-        'stepper_max_speed':[0.5, 0.5, 0.5],
-        'stepper_acc':[0.5, 0.5, 0.5],
+        'stepper_max_speed':[0.01, 0.01, 0.01],
+        'stepper_acc':[0.01, 0.01, 0.01],
         'new_stepper_velocity_params':False,
     }
     return stepper_c_p
@@ -827,7 +828,7 @@ def get_default_stepper_c_p():
 class XYZ_stepper_stage_motor(Thread):
 
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='70167314', sleep_time=0.3):
+        serialNo='70167314', sleep_time=0.1):
         """
 
         """
@@ -844,6 +845,7 @@ class XYZ_stepper_stage_motor(Thread):
         self.controller_device = controller_device
         self.stepper_channel = ConnectBenchtopStepperChannel(controller_device, channel)
         self.c_p['starting_position_stepper_xyz'][self.axis] = self.update_current_position()
+        self.c_p['stepper_target_position'][self.axis] =  self.c_p['starting_position_stepper_xyz'][self.axis]
         self.c_p['stage_stepper_connected'][self.axis] = True
 
     def update_current_position(self):
@@ -851,27 +853,49 @@ class XYZ_stepper_stage_motor(Thread):
         self.c_p['stepper_current_pos'][self.axis] = float(str(decimal_pos))
         return float(str(decimal_pos))
 
+    def move_absolute(self):
+        target_pos = Decimal(float(self.c_p['stepper_target_position'][self.axis]))
+        self.stepper_channel.MoveTo(target_pos,Int32(100000))
+        #self.stepper_channel.MoveAbsolute(Int32(100000))
+
     def move_distance(self, distance):
-        self.stepper_channel.MoveRelative(1, Decimal(distance), Int32(10000))
+        self.stepper_channel.MoveRelative(1, Decimal(distance), Int32(100000))
         self.update_current_position()
 
     def move_to_position(self, position):
         distance = position - self.c_p['stepper_current_pos'][self.axis]
         self.move_distance(float(distance))
 
+    def jog_move(self):
+        # Does not work well at the moment
+        jog_distance = self.c_p['stepper_target_position'][self.axis] - self.c_p['stepper_current_pos'][self.axis]
+        if np.abs(jog_distance)>1e-4:
+            self.stepper_channel.SetJogStepSize(Decimal(float(jog_distance)))
+            self.stepper_channel.MoveJog(1, Int32(10000))
+
     def set_velocity_params(self):
         try:
             self.stepper_channel.SetVelocityParams(
-                Decimal(self.c_p['stepper_max_speed'][self.axis]),
-                Decimal(self.c_p['stepper_acc'][self.axis]))
+                Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
+                Decimal(float(self.c_p['stepper_acc'][self.axis])))
         except:
             print('Could not set velocity params.')
-    def run(self):
 
+    def run(self):
+        self.set_velocity_params()
+        self.move_absolute()
         while self.c_p['program_running']:
             if self.c_p['new_stepper_velocity_params']:
                 self.set_velocity_params()
-            self.move_to_position(self.c_p['stepper_target_position'][self.axis])
+                self.c_p['new_stepper_velocity_params'] = False
+            #self.update_current_position()
+            #self.move_to_position(self.c_p['stepper_target_position'][self.axis])
+            #self.move_absolute()
+            try:
+                self.jog_move()
+            except:
+                print('movement error')
+            self.update_current_position()
             sleep(self.sleep_time)
         self.__del__()
 

@@ -75,8 +75,8 @@ def set_defualt_trap_position(c_p):
     c_p['xm'] = [100]
     c_p['ym'] = [200]
 
-    c_p['traps_absolute_pos'][0][0] = 100
-    c_p['traps_absolute_pos'][1][0] = 200
+    c_p['traps_absolute_pos'][0][0] = 658
+    c_p['traps_absolute_pos'][1][0] = 533
     c_p['traps_relative_pos'][0][0] = c_p['traps_absolute_pos'][0][0]
     c_p['traps_relative_pos'][1][0] = c_p['traps_absolute_pos'][1][0]
 
@@ -201,8 +201,9 @@ def get_default_c_p(recording_path=None):
         # for the path-search
     }
 
-    # Add camera dependent parameters.
+    # Add camera dependent parameters. Needs to be calibrated.
     c_p['mmToPixel'] = 17736 if c_p['camera_model'] == 'basler' else 16140
+    c_p['mmToPixel'] /= 0.7#0.6 - For 60x objective A little extra magnification.
     c_p['slm_to_pixel'] = 5_000_000 if c_p['camera_model'] == 'basler' else 4_550_000
 
     # Initialize traps and set traps positions
