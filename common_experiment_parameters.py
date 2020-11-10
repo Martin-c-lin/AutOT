@@ -1,6 +1,7 @@
 # File with common experiment parameters.
 from datetime import datetime
 import numpy as np
+import os
 
 def get_save_path(base_path='F:/Martin/D', extension_path=""):
     now = datetime.now()
@@ -75,8 +76,9 @@ def set_defualt_trap_position(c_p):
     c_p['xm'] = [100]
     c_p['ym'] = [200]
 
-    c_p['traps_absolute_pos'][0][0] = 658
-    c_p['traps_absolute_pos'][1][0] = 533
+    # Laser position
+    c_p['traps_absolute_pos'][0][0] = 984
+    c_p['traps_absolute_pos'][1][0] = 404
     c_p['traps_relative_pos'][0][0] = c_p['traps_absolute_pos'][0][0]
     c_p['traps_relative_pos'][1][0] = c_p['traps_absolute_pos'][1][0]
 
@@ -123,7 +125,7 @@ def get_default_c_p(recording_path=None):
         'mouse_move_allowed':True, # Determines if one is allowed to move motors
         # by clicking on the screen.
         'nbr_experiments':1,
-        'framerate': 500,
+        'framerate': 15,
         'tracking_on': False,
         'setpoint_temperature': 25,
         'current_temperature': 25,

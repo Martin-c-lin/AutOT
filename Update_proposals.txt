@@ -17,3 +17,14 @@ Investigate if I can replace c_p with something similar to events for the
 threads.
 
 Make it so that stepper and "normal motors" implement the same interface
+
+
+Exception in thread Thread-camera:
+Traceback (most recent call last):
+  File "C:\Users\Feynman\Anaconda3\lib\threading.py", line 917, in _bootstrap_inner
+    self.run()
+  File "C:\Martin\AutOT\CameraControls.py", line 240, in run
+    self.thorlabs_capture()
+  File "C:\Martin\AutOT\CameraControls.py", line 138, in thorlabs_capture
+    outfile = open(experiment_info_name, 'wb')
+FileNotFoundError: [Errno 2] No such file or directory: 'F:/Martin/D2020-11-10/data-11-2-42'

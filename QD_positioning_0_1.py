@@ -378,7 +378,6 @@ class UserInterface:
         if c_p['using_stepper_motors']:
             self.move_by_clicking_button = tkinter.Button(top, text='move by clicking',
                                              command=self.toggle_move_by_clicking)
-        #TODO Add the stepper motor buttons
 
         start_recording_button = tkinter.Button(top, text='Start recording',
                                              command=start_recording)
@@ -465,10 +464,6 @@ class UserInterface:
 
         threshold_button = tkinter.Button(
             top, text='Set threshold', command=set_threshold)
-        # focus_up_button = tkinter.Button(
-        #     top, text='Move focus up', command=focus_up)
-        # focus_down_button = tkinter.Button(
-        #     top, text='Move focus down', command=focus_down)
         temperature_button = tkinter.Button(
             top, text='Set setpoint temperature', command=set_temperature)
         zoom_in_button = tkinter.Button(top, text='Zoom in', command=zoom_in)
@@ -518,14 +513,11 @@ class UserInterface:
         threshold_entry.place(x=x_position, y=y_position.__next__())
         threshold_button.place(x=x_position, y=y_position.__next__())
         toggle_tracking_button.place(x=x_position, y=y_position.__next__())
-        # focus_up_button.place(x=x_position, y=y_position.__next__())
-        # focus_down_button.place(x=x_position, y=y_position.__next__())
 
         zoom_in_button.place(x=x_position, y=y_position.__next__())
         zoom_out_button.place(x=x_position, y=y_position.__next__())
 
         # Second column
-        #temperature_output_button.place(x=x_position_2, y=y_position_2.__next__())
         exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
         set_exposure_button.place(x=x_position_2, y=y_position_2.__next__())
         experiment_schedule_button.place(x=x_position_2, y=y_position_2.__next__())
@@ -1628,12 +1620,12 @@ def zoom_out():
         CameraControls.set_AOI(c_p, left=0, right=672, up=0, down=512)
 
 
-def stepper_button_move_down(distance=0.005):
+def stepper_button_move_down(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
     c_p['stepper_target_position'][2] = c_p['stepper_current_pos'][2] - distance
 
 
-def stepper_button_move_upp(distance=0.005):
+def stepper_button_move_upp(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
     c_p['stepper_target_position'][2] = c_p['stepper_current_pos'][2] + distance
 
@@ -1771,7 +1763,7 @@ d0y = -80e-6
 xm1, ym1 = SLM.get_xm_ym_rect(nbr_rows=2, nbr_columns=1, d0x=d0x, d0y=d0y, dx=20e-6, dy=20e-6,)
 experiment_schedule = [
 {'xm':xm1, 'ym':ym1, 'use_LGO':[False],'target_experiment_z':1000,
-'LGO_order':4,  'recording_duration':1000,'SLM_iterations':30,'activate_traps_one_by_one':False},
+'LGO_order':4,  'recording_duration':1000,' SLM_iterations':30,'activate_traps_one_by_one':False},
 ]
 
 c_p['experiment_schedule'] = experiment_schedule
