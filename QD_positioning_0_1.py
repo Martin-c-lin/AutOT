@@ -232,7 +232,7 @@ class UserInterface:
 
         self.create_indicators()
         self.update()
-
+        zoom_out()
         self.window.mainloop()
 
     def __del__(self):
@@ -703,11 +703,11 @@ class UserInterface:
         self.get_mouse_position()
 
         # Update target position for the stepper stage.
-        print('dx: ', (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0]) )
+        # print('dx: ', (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0]) )
         # Camera orientation will affect signs in the following expressions
         c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
         c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - (c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
-        print(c_p['stepper_target_position'][0], c_p['stepper_current_pos'][0])
+        # print(c_p['stepper_target_position'][0], c_p['stepper_current_pos'][0])
 
     def update(self):
          # Get a frame from the video source
@@ -1543,7 +1543,7 @@ def snapshot(label=None):
                     ".jpg"
     else:
         image_name = c_p['recording_path'] + '/' + label + '.jpg'
-    cv2.imwrite(image_name, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+    cv2.imwrite(image_name, cv2.cvtColor(c_p['image'], cv2.COLOR_RGB2BGR))
     print('Took a snapshot of the experiment.')
 
 

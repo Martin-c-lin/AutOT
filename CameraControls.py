@@ -22,8 +22,6 @@ class CameraThread(threading.Thread):
           # Get a thorlabs camera
           self.cam = TC.get_camera()
           self.cam.set_defaults(left=c_p['AOI'][0], right=c_p['AOI'][1], top=c_p['AOI'][2], bot=c_p['AOI'][3], n_frames=1)
-          # exposure_time = TC.find_exposure_time(self.cam, targetIntensity=70) # automagically finds a decent exposure time
-          # print('Exposure time = ', exposure_time)
           c_p['exposure_time'] = 20#exposure_time
       else:
           # Get a basler camera
