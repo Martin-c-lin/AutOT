@@ -22,3 +22,5 @@ pypylon-1.5.4-cp37-cp37m-win_amd64.whl . Might also need setup-tools
 
 # TODO - Check that these are all that are needed and that the program works
 # after installing them.
+
+https://github.com/Galvant/InstrumentKit - for shutter
