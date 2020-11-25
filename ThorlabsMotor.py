@@ -819,7 +819,7 @@ def get_default_stepper_c_p():
         'stepper_target_position':[2.3, 2.3, 0],# Has trouble moving at edge
         'stepper_next_move':[0, 0, 0],
         'stepper_max_speed':[0.01, 0.01, 0.01],
-        'stepper_acc':[0.01, 0.01, 0.01],
+        'stepper_acc':[0.005, 0.005, 0.005],
         'new_stepper_velocity_params':False,
     }
     return stepper_c_p
@@ -880,13 +880,20 @@ class XYZ_stepper_stage_motor(Thread):
                 Decimal(float(self.c_p['stepper_acc'][self.axis])))
         except:
             print('Could not set velocity params.')
+    def set_jog_velocity_params(self):
+        try:
+            self.stepper_channel.SetJogVelocityParams(
+                Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
+                Decimal(float(self.c_p['stepper_acc'][self.axis])))
+        except:
+            print('Could not set velocity params.')
 
     def run(self):
-        self.set_velocity_params()
+        self.set_jog_velocity_params()#set_velocity_params()
         self.move_absolute()
         while self.c_p['program_running']:
             if self.c_p['new_stepper_velocity_params']:
-                self.set_velocity_params()
+                self.set_jog_velocity_params()#set_velocity_params()
                 self.c_p['new_stepper_velocity_params'] = False
             #self.update_current_position()
             #self.move_to_position(self.c_p['stepper_target_position'][self.axis])
