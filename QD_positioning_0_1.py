@@ -380,7 +380,7 @@ class UserInterface:
                                              command=self.toggle_move_by_clicking)
 
         self.recording_button = tkinter.Button(top, text='Start recording',
-                                             command=start_recording)
+                                             command=toggle_recording)
         # stop_recording_button = tkinter.Button(top, text='Stop recording',
         #                                     command=stop_recording)
         self.home_z_button = tkinter.Button(top, text='Toggle home z',
@@ -1513,11 +1513,11 @@ def stage_stepper_manual_move(axis, distance):
     c_p['stepper_target_pos'][axis] = max(0, c_p['stepper_target_pos'][axis] )
     c_p['stepper_target_pos'][axis] = min(20, c_p['stepper_target_pos'][axis] )
 
-def start_recording():
+def toggle_recording():
     '''
     Button function for starting of recording
     '''
-    c_p['recording']= True
+    c_p['recording'] = not c_p['recording']
     print('Recording is on')
 
 
