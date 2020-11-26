@@ -379,10 +379,10 @@ class UserInterface:
             self.move_by_clicking_button = tkinter.Button(top, text='move by clicking',
                                              command=self.toggle_move_by_clicking)
 
-        start_recording_button = tkinter.Button(top, text='Start recording',
+        self.recording_button = tkinter.Button(top, text='Start recording',
                                              command=start_recording)
-        stop_recording_button = tkinter.Button(top, text='Stop recording',
-                                            command=stop_recording)
+        # stop_recording_button = tkinter.Button(top, text='Stop recording',
+        #                                     command=stop_recording)
         self.home_z_button = tkinter.Button(top, text='Toggle home z',
                                             command=home_z_command)
         toggle_bright_particle_button = tkinter.Button(
@@ -507,8 +507,8 @@ class UserInterface:
             self.temperature_entry.place(x=x_position, y=y_position.__next__())
             temperature_button.place(x=x_position, y=y_position.__next__())
 
-        start_recording_button.place(x=x_position, y=y_position.__next__())
-        stop_recording_button.place(x=x_position, y=y_position.__next__())
+        self.recording_button.place(x=x_position, y=y_position.__next__())
+        #stop_recording_button.place(x=x_position, y=y_position.__next__())
         toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
         threshold_entry.place(x=x_position, y=y_position.__next__())
         threshold_button.place(x=x_position, y=y_position.__next__())
@@ -621,13 +621,13 @@ class UserInterface:
     def create_indicators(self):
         global c_p
         # Update if recording is turned on or not
-        if c_p['recording']:
-            self.recording_label = Label(
-                self.window, text='recording is on', bg='green')
-        else:
-            self.recording_label = Label(
-                self.window, text='recording is off', bg='red')
-        self.recording_label.place(x=1220, y=750)
+        # if c_p['recording']:
+        #     self.recording_label = Label(
+        #         self.window, text='recording is on', bg='green')
+        # else:
+        #     self.recording_label = Label(
+        #         self.window, text='recording is off', bg='red')
+        # self.recording_label.place(x=1220, y=750)
 
         if c_p['tracking_on']:
              self.tracking_label = Label(
@@ -649,9 +649,9 @@ class UserInterface:
         global c_p
         # Update if recording is turned on or not
         if c_p['recording']:
-            self.recording_label.config(text='recording is on', bg='green')
+            self.recording_button.config(text='Turn off recording', bg='green')
         else:
-            self.recording_label.config(text='recording is off', bg='red')
+            self.recording_button.config(text='Turn on recording', bg='red')
 
         if c_p['tracking_on']:
             self.tracking_label.config(text='particle tracking is on',bg='green')
