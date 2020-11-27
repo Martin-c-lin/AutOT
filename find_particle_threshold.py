@@ -4,6 +4,8 @@ from matplotlib import pyplot as plt
 import scipy.ndimage as ndi
 from skimage import measure
 import time
+#from numba import jit
+
 def find_single_particle_center(img,threshold=127):
     """
     Locate the center of a single particle in an image.
@@ -22,6 +24,7 @@ def threshold_image(image,threshold=120,bright_particle=True):
         else:
             ret,thresholded_image = cv2.threshold(img_temp,threshold,255,cv2.THRESH_BINARY_INV)
             return thresholded_image
+        
 def find_particle_centers(image,threshold=120,particle_size_threshold=200,particle_upper_size_threshold=5000,bright_particle=True):
     """
     Function which locates particle centers using thresholding.
@@ -50,7 +53,6 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
     y = []
     group = 0
 
-    #tmp_image = np.zeros()
     # Check for pixel sections which are larger than particle_size_threshold.
 
     for pixel_count in counts: # First will be background
@@ -61,6 +63,5 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
             y.append(cy)
 
         group +=1
-    #cv2.imwrite(str(threshold)+"threshold-" + time.strftime("%d-%m-%Y-%H-%M-%S") + ".jpg", cv2.cvtColor(thresholded_image, cv2.COLOR_RGB2BGR))
 
     return x,y
