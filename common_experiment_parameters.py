@@ -42,6 +42,7 @@ def get_thread_activation_parameters():
         'stage_stepper_y':False,
         'stage_stepper_z':False,
         'shutter':False,
+        'QD_tracking':False,
         }
     return thread_activation
 

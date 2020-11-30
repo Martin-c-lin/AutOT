@@ -1,6 +1,6 @@
 # Script for controlling the whole setup automagically
 import ThorlabsCam as TC
-import SLM
+import SLM, QD_tracking
 import ThorlabsMotor as TM
 import TemperatureControllerTED4015
 import find_particle_threshold as fpt
@@ -195,6 +195,18 @@ def start_threads(c_p, thread_list):
             print('Started shutter thread')
         except:
             print('Could not start shutter thread')
+
+    if c_p['QD_tracking']:
+        append_c_p(c_p, QD_tracking.get_QD_tracking_c_p())
+
+        try:
+            QD_Tracking_Thread = QD_tracking.QD_Tracking_Thread(
+                15, 'QD_Tracking_Thread', c_p=c_p)
+            QD_Tracking_Thread.start()
+            thread_list.append(QD_Tracking_Thread)
+            print('Quantum dot tracking thread started')
+        except:
+            print('Could not start quantum dot tracking thread')
 
 
 class UserInterface:
@@ -1773,6 +1785,7 @@ c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
 c_p['shutter'] = True
+c_p['QD_tracking'] = True
 
 
 T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
