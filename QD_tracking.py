@@ -4,7 +4,7 @@ import cv2
 from find_particle_threshold import find_particle_centers
 from numba import jit
 from threading import  Thread
-from time import sleep
+from time import sleep, time
 
 @jit
 def normalize_image(image):
@@ -84,7 +84,10 @@ def find_QDs(image, inner_filter_width=20, outer_filter_width=100,threshold=0.6,
     particle_size_threshold=30, particle_upper_size_threshold=5000, edge=80):
     if image is None:
         return [], [], []
-    s = np.shape(image)
+    else:
+        s = np.shape(image)
+        if s[0] < edge*2 or s[1] < edge*2:
+            return [], [], []
     image = fourier_filter(image, inner_filter_width=inner_filter_width, outer_filter_width=outer_filter_width)
     image = np.float32(normalize_image(image)) # Can I add the edge removal here already
 
@@ -107,7 +110,7 @@ class QD_Tracking_Thread(Thread):
    '''
    Thread which does the tracking.
    '''
-   def __init__(self, threadID, name, c_p, sleep_time=0.05):
+   def __init__(self, threadID, name, c_p, sleep_time=0.01):
         Thread.__init__(self)
         self.threadID = threadID
         self.name = name
@@ -123,8 +126,10 @@ class QD_Tracking_Thread(Thread):
        while self.c_p['program_running']:
            if self.c_p['tracking_on']:
                # TODO make it possible to adjust tracking parameters on the fly
-               x,y,tracked_image = find_QDs(self.c_p['image']) # Need to send copy?
+               start = time()
+               x, y, tracked_image = find_QDs(self.c_p['image']) # Need to send copy?
                self.c_p['particle_centers'] = [x, y]
+               # print('Tracked in', time()-start, ' seconds.')
                #print("Particles at",x,y)
 
            sleep(self.sleep_time)
