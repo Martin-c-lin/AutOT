@@ -69,19 +69,22 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     inv = np.fft.fft2(inv)
     return inv
 
-def remove_edge_detections(x,y, width=1200, height=1000, edge_size=30):
-    # Removes false positives close to the edge.
-    # TODO make it more elegant by using vectorization properly.
-    px = []
-    py = []
-    for i in range(len(x)):
-        if x[i]>edge_size and x[i]<width-edge_size and y[i]>edge_size and y[i]<height-edge_size:
-            px.append(1200 - x[i])
-            py.append(1000 - y[i])
-    return px, py
 
 def find_QDs(image, inner_filter_width=20, outer_filter_width=100,threshold=0.6,
     particle_size_threshold=30, particle_upper_size_threshold=5000, edge=80):
+    '''
+    Function for detecting the quantum dots.
+
+    Inputs:
+            image - image to be tracked
+    Outputs:
+            px - list of detected quantum dots x-positions. Empty if no QDs were detected
+            py - list of detected quantum dots y-positions. Empty if no QDs were detected
+            image - The thresholded image used to detect the quantum dots.
+                Usefull for debugging and finding suitable paramters to give this
+                function for optimizing tracking.
+    '''
+
     if image is None:
         return [], [], []
     else:
@@ -89,26 +92,53 @@ def find_QDs(image, inner_filter_width=20, outer_filter_width=100,threshold=0.6,
         if s[0] < edge*2 or s[1] < edge*2:
             return [], [], []
     image = fourier_filter(image, inner_filter_width=inner_filter_width, outer_filter_width=outer_filter_width)
-    image = np.float32(normalize_image(image)) # Can I add the edge removal here already
+    image = np.float32(normalize_image(image)) # Can edge removal be added here already?
 
     x,y = find_particle_centers(image[edge:-edge,edge:-edge], threshold=threshold, particle_size_threshold=particle_size_threshold, particle_upper_size_threshold=particle_upper_size_threshold)
-    #x,y = remove_edge_detections(x,y)
+
     px = [s[1] - x_i - edge for x_i in x]
     py = [s[0] - y_i - edge for y_i in y]
-    return px,py,image
+    return px, py, image
 
 def get_QD_tracking_c_p():
-    # Function for retrieving default c_p needed for tracking QDs
+    '''
+    Function for retrieving default c_p needed for tracking QDs.
+    '''
     tracking_params = {
-    'tracking_edge':80,
+        'tracking_edge':80,
+        'threshold':0.6,
+        'inner_filter_width':20,
+        'outer_filter_width':100,
+        'particle_size_threshold':30,
+        'particle_upper_size_threshold':5000,
+        'max_trapped_counter':5, # Maximum number of missed detections allowed before
+        # particle is considered untrapped.
+        'QD_trapped':False, # True if a QD has been trapped, will still be true if it has been trapped in the last few frames
+        'QD_currently_trapped': False, # True if the QD was in the trap the last frame
+        'QD_trapped_counter': 0
+        'QD_target_location',[[],[]] # Location to stick the QDs to. Measured in mm, motor positions.
+        'QD_polymerization_time':2, # time during which the polymerization laser will be turned on.
+        'closest_QD': None, # index of quantum dot closest to the trap
     }
 
     return tracking_params
 
 
+def is_trapped(c_p, trap_dist):
+    '''
+    Calculate distance between trap and particle centers.
+    '''
+    if len(c_p['particle_centers'][0]) < 1:
+        return False, None
+    dists_x = np.asarray(c_p['particle_centers'][0] - c_p['traps_absolute_pos'][0][0])
+    dists_y = np.asarray(c_p['particle_centers'][1] - c_p['traps_absolute_pos'][1][0])
+    dists_tot = dists_x**2 + dists_y**2
+    return min(a) < trap_dist
+
 class QD_Tracking_Thread(Thread):
    '''
-   Thread which does the tracking.
+   Thread which does the tracking and placement of quantum dots automatically.
+
    '''
    def __init__(self, threadID, name, c_p, sleep_time=0.01):
         Thread.__init__(self)
@@ -121,14 +151,61 @@ class QD_Tracking_Thread(Thread):
    def __del__(self):
        self.c_p['tracking_on'] = False
 
+
+   def trapped_now(self):
+       self.c_p['QD_currently_trapped'], self.c_p['closest_QD'] = is_trapped(self.c_p, 15)
+       if self.c_p['QD_currently_trapped']:
+           self.c_p["QD_trapped"] = True
+           self.c_p['QD_trapped_counter'] = 0
+       else:
+           self.c_p['QD_trapped_counter'] += 1
+           if self.c_p['QD_trapped_counter'] >= self.c_p'[max_trapped_counter']:
+              self.c_p['QD_trapped'] = False
+   def move_to_target_location(self):
+       '''
+       Function for transporting a quantum dot to target location.
+       '''
+       print('Trying to move to target location')
+       # TODO add so that this function automatically
+       pass
+
+   def look_for_quantum_dot(self):
+       pass
+
+
+   def trap_quantum_dot(self):
+       '''
+       Function for trapping a quantum dot and trapping it in the area around the area it is in now.
+       If there are no quantum dots in the area then the program will go look for one.
+       '''
+       if len(self.c_p['particle_centers'][0]) > 0:
+           pass # Should move in and trap that QD
+       else:
+           self.look_for_quantum_dot()
+           print('Looking for quantum dots')
+       pass
+
+
    def run(self):
 
        while self.c_p['program_running']:
            if self.c_p['tracking_on']:
                # TODO make it possible to adjust tracking parameters on the fly
-               start = time()
-               x, y, tracked_image = find_QDs(self.c_p['image']) # Need to send copy?
+               #start = time()
+               # Do the particle tracking.
+               # Note that the tracking algorithm can easily be replaced if need be
+               x, y, tracked_image = find_QDs(self.c_p['image'])
                self.c_p['particle_centers'] = [x, y]
+
+               # Check trapping status
+               self.trapped_now()
+
+               if self.c_p['QD_trapped']:
+                   self.move_to_target_location()
+               else:
+                   self.trap_quantum_dot()
+               # Check if particle is trapped or has been trapped in the last number of frames
+               # if so then try to move it to target position.
                # print('Tracked in', time()-start, ' seconds.')
                #print("Particles at",x,y)
 
