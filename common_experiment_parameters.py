@@ -200,6 +200,7 @@ def get_default_c_p(recording_path=None):
         'activate_traps_one_by_one':False, # If true then the program will
         # activate and fill traps one by one.
         'camera_model':'basler',
+        'basler_camera':'large',
         'cell_width':32,  # Width of cells when dividing the frame into a grid
         # for the path-search
     }

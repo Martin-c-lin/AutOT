@@ -25,6 +25,10 @@ class CameraThread(threading.Thread):
           c_p['exposure_time'] = 20#exposure_time
       else:
           # Get a basler camera
+          self.c_p['AOI'][0] = 0
+          self.c_p['AOI'][1] = 3600
+          self.c_p['AOI'][2] = 0
+          self.c_p['AOI'][3] = 3000
           tlf = pylon.TlFactory.GetInstance()
           self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
           self.cam.Open()
@@ -137,6 +141,15 @@ class CameraThread(threading.Thread):
             pickle.dump(exp_info_params, outfile)
             outfile.close()
 
+   def set_basler_AOI_big(self):
+       self.cam.OffsetX = 0
+       self.cam.Width = 3600
+       self.cam.OffsetX = 0
+       self.cam.OffsetY = 0
+       self.cam.Height = 3000
+       self.cam.OffsetY = 0
+
+
    def set_basler_AOI(self):
        '''
        Function for setting AOI of basler camera to c_p['AOI']
@@ -149,13 +162,16 @@ class CameraThread(threading.Thread):
             # camera won't accept your valuse. Thereof the if-else-statements
             # below. Conditions might need to be changed if the usecase of this
             #  funciton change
+
+            camera_width = 3600# 672 for small camera
+            camera_height = 3000# 512 for small camer
             c_p['AOI'][1] -= np.mod(c_p['AOI'][1]-c_p['AOI'][0],16)
             c_p['AOI'][3] -= np.mod(c_p['AOI'][3]-c_p['AOI'][2],16)
 
             width = int(c_p['AOI'][1] - c_p['AOI'][0])
-            offset_x = 672 - width - c_p['AOI'][0]
+            offset_x = camera_width - width - c_p['AOI'][0]
             height = int(c_p['AOI'][3] - c_p['AOI'][2])
-            offset_y = 512 - height - c_p['AOI'][2]
+            offset_y = camera_height - height - c_p['AOI'][2]
 
             self.cam.OffsetX = 0
             self.cam.Width = width
@@ -199,7 +215,7 @@ class CameraThread(threading.Thread):
 
                with self.cam.RetrieveResult(2000) as result:
                   img.AttachGrabResultBuffer(result)
-                  image = np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
+                  c_p['image'] = np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
                   img.Release()
                   if c_p['recording']:
                       # Create an array to store the images which have been captured in

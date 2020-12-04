@@ -289,6 +289,7 @@ class UserInterface:
         AOI = c_p['AOI']
         # Define new mini-image
         mini_image = np.zeros((200,240,3))
+        scale_factor = c_p['AOI'][1]/240
         scale_factor = 5
 
         l = int(round(AOI[2]/scale_factor))  # left
@@ -352,7 +353,7 @@ class UserInterface:
         self.left_button = tkinter.Button(top, text='Move left',
                                      command=partial(stage_piezo_manual_move, axis=0, distance=-1))
 
-    def test_click(self, event):
+    def screen_click(self, event):
         if c_p['mouse_move_allowed']:
             self.mouse_command_move()
 
@@ -367,7 +368,7 @@ class UserInterface:
         # TODO make c_p non global, and change so that only the buttons actually
         # usable are displayed. Preferably use the inputs to start_threads.
         global c_p
-        self.canvas.bind("<Button-1>", self.test_click)
+        self.canvas.bind("<Button-1>", self.screen_click)
         if top is None:
             top = self.window
 
@@ -440,7 +441,7 @@ class UserInterface:
             if c_p['camera_model'] == 'basler':
                 try:
                     exposure_time = int(entry)
-                    if 59 < exposure_time < 4e5: # If you need more than that you are
+                    if 59 < exposure_time < 1e6: # If you need more than that you are
                         c_p['exposure_time'] = exposure_time
                         print("Exposure time set to ", exposure_time)
                         c_p['new_settings_camera'] = True
@@ -712,6 +713,7 @@ class UserInterface:
         # Function to convert a mouse click to a movement.
 
         # Update position of the mouse
+        # TODO add parameter for camera orientaiton(0,90,180,270 degrees tilt)
         self.get_mouse_position()
 
         # Update target position for the stepper stage.
@@ -1629,9 +1631,10 @@ def zoom_out():
         CameraControls.set_AOI(c_p, left=0, right=1200, up=0, down=1000)
         #c_p['framerate'] = 500
     else:
-        CameraControls.set_AOI(c_p, left=0, right=672, up=0, down=512)
-
-
+        if c_p['basler_camera'] == 'small':
+            CameraControls.set_AOI(c_p, left=0, right=672, up=0, down=512)
+        else:
+            CameraControls.set_AOI(c_p, left=0, right=3600, up=0, down=3000)
 def stepper_button_move_down(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
     c_p['stepper_target_position'][2] = c_p['stepper_current_pos'][2] - distance
@@ -1763,7 +1766,7 @@ def move_particles_slowly(last_d=30e-6):
 
 ############### Main script starts here ####################################
 c_p = get_default_c_p()
-c_p['camera_model'] = 'ThorlabsCam'
+c_p['camera_model'] = 'basler'#'ThorlabsCam'
 
 
 # Create a empty list to put the threads in
