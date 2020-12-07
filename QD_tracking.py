@@ -115,8 +115,8 @@ def get_QD_tracking_c_p():
         # particle is considered untrapped.
         'QD_trapped':False, # True if a QD has been trapped, will still be true if it has been trapped in the last few frames
         'QD_currently_trapped': False, # True if the QD was in the trap the last frame
-        'QD_trapped_counter': 0
-        'QD_target_location',[[],[]] # Location to stick the QDs to. Measured in mm, motor positions.
+        'QD_trapped_counter': 0,
+        'QD_target_location':[[],[]], # Location to stick the QDs to. Measured in mm, motor positions.
         'QD_polymerization_time':2, # time during which the polymerization laser will be turned on.
         'closest_QD': None, # index of quantum dot closest to the trap
     }
@@ -159,7 +159,7 @@ class QD_Tracking_Thread(Thread):
            self.c_p['QD_trapped_counter'] = 0
        else:
            self.c_p['QD_trapped_counter'] += 1
-           if self.c_p['QD_trapped_counter'] >= self.c_p'[max_trapped_counter']:
+           if self.c_p['QD_trapped_counter'] >= self.c_p['max_trapped_counter']:
               self.c_p['QD_trapped'] = False
    def move_to_target_location(self):
        '''
