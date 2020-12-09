@@ -163,7 +163,7 @@ class CameraThread(threading.Thread):
             # below. Conditions might need to be changed if the usecase of this
             #  funciton change
 
-            camera_width = 3600# 672 for small camera
+            camera_width = 5000#3600# 672 for small camera
             camera_height = 3000# 512 for small camer
             c_p['AOI'][1] -= np.mod(c_p['AOI'][1]-c_p['AOI'][0],16)
             c_p['AOI'][3] -= np.mod(c_p['AOI'][3]-c_p['AOI'][2],16)
@@ -175,7 +175,7 @@ class CameraThread(threading.Thread):
 
             self.cam.OffsetX = 0
             self.cam.Width = width
-            self.cam.OffsetX = offset_x
+            self.cam.OffsetX = 1000#offset_x
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = offset_y

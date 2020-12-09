@@ -206,8 +206,12 @@ def get_default_c_p(recording_path=None):
     }
 
     # Add camera dependent parameters. Needs to be calibrated.
+    # 40 pixels per micron in new camera => 40 000 mm to pixel
     c_p['mmToPixel'] = 17736 if c_p['camera_model'] == 'basler' else 16140
     c_p['mmToPixel'] /= 0.7#0.6 - For 60x objective A little extra magnification.
+    if c_p['camera_model'] == 'basler':
+        c_p['mmToPixel'] = 40_000
+    # TODO: Add basler-big as a separate camera option
     c_p['slm_to_pixel'] = 5_000_000 if c_p['camera_model'] == 'basler' else 4_550_000
 
     # Initialize traps and set traps positions
