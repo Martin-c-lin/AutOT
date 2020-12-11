@@ -238,7 +238,8 @@ class UserInterface:
         self.window.geometry('1700x1000')
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
-        self.delay = 50#100
+        self.image_scale = 1 # scale of image being displayed
+        self.delay = 50 # how often to update view in ms intervals
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
@@ -342,7 +343,6 @@ class UserInterface:
                                      command=partial(move_button, 3))
 
     def get_stage_move_buttons(self, top):
-        #stage_piezo_manual_move(axis, distance)
         # TODO - double check axis and distance in actual experiment.
         self.up_button = tkinter.Button(top, text='Move up',
                                    command=partial(stage_piezo_manual_move, axis=1, distance=1))
@@ -394,8 +394,6 @@ class UserInterface:
 
         self.recording_button = tkinter.Button(top, text='Start recording',
                                              command=toggle_recording)
-        # stop_recording_button = tkinter.Button(top, text='Stop recording',
-        #                                     command=stop_recording)
         self.home_z_button = tkinter.Button(top, text='Toggle home z',
                                             command=home_z_command)
         toggle_bright_particle_button = tkinter.Button(
@@ -521,7 +519,6 @@ class UserInterface:
             temperature_button.place(x=x_position, y=y_position.__next__())
 
         self.recording_button.place(x=x_position, y=y_position.__next__())
-        #stop_recording_button.place(x=x_position, y=y_position.__next__())
         toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
         threshold_entry.place(x=x_position, y=y_position.__next__())
         threshold_button.place(x=x_position, y=y_position.__next__())
@@ -634,14 +631,6 @@ class UserInterface:
     def create_indicators(self):
         global c_p
         # Update if recording is turned on or not
-        # if c_p['recording']:
-        #     self.recording_label = Label(
-        #         self.window, text='recording is on', bg='green')
-        # else:
-        #     self.recording_label = Label(
-        #         self.window, text='recording is off', bg='red')
-        # self.recording_label.place(x=1220, y=750)
-
         if c_p['tracking_on']:
              self.tracking_label = Label(
                  self.window, text='particle tracking is on', bg='green')
@@ -702,6 +691,7 @@ class UserInterface:
             dim = (int(self.canvas_width/img_size[1]*img_size[0]), int(self.canvas_width))
         else:
             dim = ( int(self.canvas_height), int(self.canvas_height/img_size[0]*img_size[1]))
+        self.image_scale = max(self.canvas_width/img_size[0], self.canvas_height/img_size[1])
         return cv2.resize(img, (dim[1],dim[0]), interpolation = cv2.INTER_AREA)
 
     def get_mouse_position(self):
@@ -714,14 +704,13 @@ class UserInterface:
 
         # Update position of the mouse
         # TODO add parameter for camera orientaiton(0,90,180,270 degrees tilt)
+        # 
         self.get_mouse_position()
 
         # Update target position for the stepper stage.
-        # print('dx: ', (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0]) )
         # Camera orientation will affect signs in the following expressions
-        c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - (c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
-        c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - (c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
-        # print(c_p['stepper_target_position'][0], c_p['stepper_current_pos'][0])
+        c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - self.image_scale*(c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
+        c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - self.image_scale*(c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
 
     def update(self):
          # Get a frame from the video source
