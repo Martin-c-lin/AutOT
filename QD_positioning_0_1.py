@@ -246,7 +246,7 @@ class UserInterface:
 
         self.create_indicators()
         self.update()
-        zoom_out()
+        CameraControls.zoom_out(c_p)
         self.window.mainloop()
 
     def __del__(self):
@@ -437,7 +437,7 @@ class UserInterface:
 
         def set_exposure():
             entry = exposure_entry.get()
-            if c_p['camera_model'] == 'basler':
+            if c_p['camera_model'] == 'basler_large' or 'basler_fast':
                 try:
                     exposure_time = int(entry)
                     if 59 < exposure_time < 1e6: # If you need more than that you are
@@ -479,7 +479,7 @@ class UserInterface:
         temperature_button = tkinter.Button(
             top, text='Set setpoint temperature', command=set_temperature)
         zoom_in_button = tkinter.Button(top, text='Zoom in', command=zoom_in)
-        zoom_out_button = tkinter.Button(top, text='Zoom out', command=zoom_out)
+        zoom_out_button = tkinter.Button(top, text='Zoom out', command=CameraControls.zoom_out(c_p=c_p))
         temperature_output_button = tkinter.Button(top,
             text='toggle temperature output', command=toggle_temperature_output)
         set_exposure_button = tkinter.Button(top, text='Set exposure', command=set_exposure)
@@ -1328,7 +1328,7 @@ def in_focus(margin=40):
     median_intesity = np.median(image)
 
 
-    if c_p['camera_model'] == 'basler':
+    if c_p['camera_model'] == 'basler_fast':
         image_limits = [672,512]
     else:
         image_limits = [1200,1000]
@@ -1616,15 +1616,15 @@ def zoom_in(margin=60, use_traps=False):
     CameraControls.set_AOI(c_p, left=left, right=right, up=up, down=down)
 
 
-def zoom_out():
-    if c_p['camera_model'] == 'ThorlabsCam':
-        CameraControls.set_AOI(c_p, left=0, right=1200, up=0, down=1000)
-        #c_p['framerate'] = 500
-    else:
-        if c_p['basler_camera'] == 'small':
-            CameraControls.set_AOI(c_p, left=0, right=672, up=0, down=512)
-        else:
-            CameraControls.set_AOI(c_p, left=0, right=3600, up=0, down=3000)
+# def CameraControls.zoom_out(c_p)():
+#     # Reset camera to fullscreen view
+#     if c_p['camera_model'] == 'ThorlabsCam':
+#         CameraControls.set_AOI(c_p, left=0, right=1200, up=0, down=1000)
+#     elif c_p['camera_model'] == 'basle_fast':
+#             CameraControls.set_AOI(c_p, left=0, right=672, up=0, down=512)
+#     elif c_p['camera_model'] == 'basle_large':
+#             CameraControls.set_AOI(c_p, left=0, right=3600, up=0, down=3000)
+
 def stepper_button_move_down(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
     c_p['stepper_target_position'][2] = c_p['stepper_current_pos'][2] - distance
@@ -1756,7 +1756,7 @@ def move_particles_slowly(last_d=30e-6):
 
 ############### Main script starts here ####################################
 c_p = get_default_c_p()
-c_p['camera_model'] = 'basler'#'ThorlabsCam'
+c_p['camera_model'] = 'basler_large'#'ThorlabsCam'
 
 
 # Create a empty list to put the threads in

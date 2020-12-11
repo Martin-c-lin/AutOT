@@ -25,6 +25,12 @@ def get_camera_c_p():
         'camera_orientatation':'down', # direction camera is mounted in. Needed for
         # not
     }
+    if camera_c_p['camera_model'] == 'basler_large':
+        camera_c_p['mmToPixel'] = 40_000
+    else:
+        camera_c_p['mmToPixel'] = 17736/0.7 if camera_c_p['camera_model'] == 'thorlabs' else 16140/0.7
+    # TODO: Add basler-big as a separate camera option
+    camera_c_p['slm_to_pixel'] = 5_000_000 if camera_c_p['camera_model'] == 'basler_fast' else 4_550_000
     return camera_c_p
 
 class CameraThread(threading.Thread):
@@ -53,7 +59,7 @@ class CameraThread(threading.Thread):
       c_p['image'] = np.ones((self.c_p['AOI'][3], self.c_p['AOI'][1], 1)) # Need to change here to get color
 
    def __del__(self):
-        if self.c_p['camera_model'] == 'basler':
+        if self.c_p['camera_model'] == 'basler_large' or self.c_p['camera_model'] == 'basler_fast':
             self.cam.Close()
         else:
             self.cam.close()
@@ -178,8 +184,8 @@ class CameraThread(threading.Thread):
             # below. Conditions might need to be changed if the usecase of this
             #  funciton change
 
-            camera_width = 5000#3600# 672 for small camera
-            camera_height = 3000# 512 for small camer
+            camera_width = 3600 if self.c_p['camera_model']=='basler_large' else 672
+            camera_height = 3008 if self.c_p['camera_model']=='basler_large' else 512# 512 for small camer
             c_p['AOI'][1] -= np.mod(c_p['AOI'][1]-c_p['AOI'][0],16)
             c_p['AOI'][3] -= np.mod(c_p['AOI'][3]-c_p['AOI'][2],16)
 
@@ -194,6 +200,8 @@ class CameraThread(threading.Thread):
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = offset_y
+            print('Helloe')
+
        except Exception as e:
            print('AOI not accepted',c_p['AOI'])
            print(e)
@@ -266,7 +274,7 @@ class CameraThread(threading.Thread):
    def run(self):
        if self.c_p['camera_model'] == 'ThorlabsCam':
            self.thorlabs_capture()
-       elif self.c_p['camera_model'] == 'basler':
+       elif self.c_p['camera_model'] == 'basler_large' or 'basler_fast':
            self.basler_capture()
 
 def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None):
@@ -309,3 +317,11 @@ def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None)
 
     # Give motor threads time to catch up
     time.sleep(0.5)
+def zoom_out(c_p):
+    # Reset camera to fullscreen view
+    if c_p['camera_model'] == 'ThorlabsCam':
+        set_AOI(c_p, left=0, right=1200, up=0, down=1000)
+    elif c_p['camera_model'] == 'basle_fast':
+        set_AOI(c_p, left=0, right=672, up=0, down=512)
+    elif c_p['camera_model'] == 'basle_large':
+        set_AOI(c_p, left=0, right=3600, up=0, down=3000)
