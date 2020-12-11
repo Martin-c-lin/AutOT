@@ -115,10 +115,10 @@ def get_default_c_p(recording_path=None):
         'polling_rate': 100,
         'program_running': True,  # True if camera etc should keep updating
         'motor_running': True,  # Should the motor thread keep running
-        'zoomed_in': False,  # Keeps track of whether the image is cropped or
+#        'zoomed_in': False,  # Keeps track of whether the image is cropped or
         # not
-        'recording': False,  # True if recording is on
-        'AOI': [0, 672, 0, 512], # Default for basler camera [0,1200,0,1000] TC
+        # 'recording': False,  # True if recording is on
+        # 'AOI': [0, 672, 0, 512], # Default for basler camera [0,1200,0,1000] TC
         'image': np.zeros((1080,1080,1)),
         'new_settings_camera': False,
         'new_AOI_display': False,
@@ -129,7 +129,7 @@ def get_default_c_p(recording_path=None):
         'mouse_move_allowed':True, # Determines if one is allowed to move motors
         # by clicking on the screen.
         'nbr_experiments':1,
-        'framerate': 15,
+        # 'framerate': 15,
         'tracking_on': False,
         'setpoint_temperature': 25,
         'current_temperature': 25,
@@ -159,9 +159,6 @@ def get_default_c_p(recording_path=None):
         # be performed
         'z_x_diff': 0,  # Used for compensating drift in z when moving the
         # sample. Caused by sample being slightly tilted Needs to be calibrated
-        # calculated as the change needed in z (measured in steps) when the
-        # motor is moved 1 mm in positive direction z_x_diff = (z1-z0)/(x1-x0) steps/mm
-        # Sign ,+ or -,of this?
         'z_y_diff': 0, # approximate, has not measured this
         'x_start': 0,
         'temperature_z_diff': 0,#-180, #-80,  # How much the objective need to be moved
@@ -174,36 +171,32 @@ def get_default_c_p(recording_path=None):
         # This is the position of the 0th order of the SLM (ie where the trap)
         # with xm=ym=0 is located in camera pixel coordinates
         'slm_y_center': 576,
-        # 'slm_to_pixel': 5000000.0, # Basler
-        # #4550000.0,# Thorlabs
-
         'return_z_home': False,
         'focus_threshold':1_000, #
         'particle_threshold': 100,
         'particle_size_threshold': 200,  # Parcticle detection threshold
         'bright_particle': True,  # Is particle brighter than the background?
         'xy_movement_limit': 1200,
-        #'motor_locks': [threading.Lock(), threading.Lock()],
 
         'use_LGO':[False],
         'LGO_order': -8,
         'nbr_ghost_traps':0,
         # Ghost-traps: traps to be added after particle(s) are lifted to
         # make comparison measurements
-        'exposure_time':80, # ExposureTime in micro s
+#        'exposure_time':80, # ExposureTime in micro s
         'SLM_iterations':5,
         'trap_separation_x':20e-6,
         'trap_separation_y':20e-6,
-        'new_video':False,
-        'recording_duration':3000,
+        # 'new_video':False,
+        # 'recording_duration':3000,
         'experiment_schedule':[],
         'measurement_name':'', # Name of measurement to use when saving data.
         'experiment_progress':0, # number of experiments run
         'experiment_runtime':0, # How many seconds have the experiment been running
         'activate_traps_one_by_one':False, # If true then the program will
         # activate and fill traps one by one.
-        'camera_model':'basler',
-        'basler_camera':'large',
+        # 'camera_model':'basler_large', # basler_fast, thorlabs are the other options
+        # 'camera_orientatation':'down', # direction camera is mounted in. Needed for
         'cell_width':32,  # Width of cells when dividing the frame into a grid
         # for the path-search
     }

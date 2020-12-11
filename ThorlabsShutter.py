@@ -19,7 +19,6 @@ class ShutterThread(Thread):
         self.name = name
         self.threadID = threadID
         self.open = False
-        # self.open_time = open_time
         self.c_p = c_p
         print('Trying to connect shutter')
         self.shutter = instruments.thorlabs.SC10.open_serial(port=port, baud=9600, vid=None, pid=None, serial_number=None, timeout=2, write_timeout=10)

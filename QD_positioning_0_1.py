@@ -48,6 +48,7 @@ def start_threads(c_p, thread_list):
     """
 
     if c_p['cam']:
+        append_c_p(c_p, CameraControls.get_camera_c_p())
         camera_thread = CameraControls.CameraThread(1, 'Thread-camera',c_p=c_p)
         camera_thread.start()
         thread_list.append(camera_thread)
@@ -704,7 +705,7 @@ class UserInterface:
 
         # Update position of the mouse
         # TODO add parameter for camera orientaiton(0,90,180,270 degrees tilt)
-        # 
+        #
         self.get_mouse_position()
 
         # Update target position for the stepper stage.

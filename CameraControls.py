@@ -9,6 +9,23 @@ from datetime import  datetime
 
 # TODO add a get_camera_parameters function similar to what is available for the
 # shutter class
+def get_camera_c_p():
+    '''
+    Function for retrieving the c_p relevant for controlling the camera
+    '''
+    camera_c_p = {
+        'new_video':False,
+        'recording_duration':3000,
+        'exposure_time':80, # ExposureTime in ms for thorlabs, mus for basler
+        'framerate': 15,
+        'recording': False,  # True if recording is on
+        'AOI': [0, 3600, 0, 3008], # Default for basler camera [0,1200,0,1000] TC
+        'zoomed_in': False,  # Keeps track of whether the image is cropped or
+        'camera_model':'basler_large', # basler_fast, thorlabs are the other options
+        'camera_orientatation':'down', # direction camera is mounted in. Needed for
+        # not
+    }
+    return camera_c_p
 
 class CameraThread(threading.Thread):
 
@@ -26,15 +43,14 @@ class CameraThread(threading.Thread):
       else:
           # Get a basler camera
           self.c_p['AOI'][0] = 0
-          self.c_p['AOI'][1] = 3600
+          self.c_p['AOI'][1] = 3600 if self.c_p['camera_model'] == 'basler_large' else 672
           self.c_p['AOI'][2] = 0
-          self.c_p['AOI'][3] = 3000
+          self.c_p['AOI'][3] = 3008 if self.c_p['camera_model'] == 'basler_large' else 512
           tlf = pylon.TlFactory.GetInstance()
           self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
           self.cam.Open()
-          image = np.zeros((672,512,1))
       self.setDaemon(True)
-      c_p['image'] = np.ones((512,672,1)) # Need to change here to get color
+      c_p['image'] = np.ones((self.c_p['AOI'][3], self.c_p['AOI'][1], 1)) # Need to change here to get color
 
    def __del__(self):
         if self.c_p['camera_model'] == 'basler':
@@ -65,7 +81,6 @@ class CameraThread(threading.Thread):
         Funciton for creating a VideoWriter.
         Will also save the relevant parameters of the experiments.
         '''
-        #global c_p
         c_p = self.c_p
         now = datetime.now()
         fourcc = VideoWriter_fourcc(*'MJPG')
