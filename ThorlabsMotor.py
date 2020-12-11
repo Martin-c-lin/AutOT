@@ -264,7 +264,6 @@ class StageMotor():
             return False
         return True
     def MoveMotorPixels(self, distance):
-        # TODO - check if the mmToPixel value is valid for the basler camera.
         '''
         Moves motor a specified number of pixels.
 
@@ -438,7 +437,6 @@ def MoveMotor(motor, distance):
 
 
 def MoveMotorPixels(motor, distance, mmToPixel=16140):
-    # TODO - check if the mmToPixel value is valid for the basler camera.
     '''
     Moves motor a specified number of pixels.
 
@@ -542,8 +540,7 @@ class MotorThread(Thread):
     '''
     Thread in which a motor is controlled. The motor object is available globally.
     '''
-    # TODO: Try removing the treadlocks on the motors.
-    # Try replacing some of the c_p with events.
+    # TODO: Try replacing some of the c_p with events.
     def __init__(self, threadID, name, axis, c_p):
 
       Thread.__init__(self)
@@ -735,6 +732,7 @@ class XYZ_piezo_stage_motor(Thread):
 
     # TODO make it possible to connect/disconnect these motors on the fly.
     # TODO fix problem with single device
+    # TODO change motor speed to slow.
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
         serialNo='71165844', sleep_time=0.3):
         """

@@ -248,6 +248,7 @@ class UserInterface:
         self.update()
         CameraControls.zoom_out(c_p)
         self.window.mainloop()
+        self.__del__()
 
     def __del__(self):
         # Close the program
@@ -345,6 +346,7 @@ class UserInterface:
 
     def get_stage_move_buttons(self, top):
         # TODO - double check axis and distance in actual experiment.
+        # Add possibility for precision movement with the piezos.
         self.up_button = tkinter.Button(top, text='Move up',
                                    command=partial(stage_piezo_manual_move, axis=1, distance=1))
         self.down_button = tkinter.Button(top, text='Move down',
@@ -692,7 +694,7 @@ class UserInterface:
             dim = (int(self.canvas_width/img_size[1]*img_size[0]), int(self.canvas_width))
         else:
             dim = ( int(self.canvas_height), int(self.canvas_height/img_size[0]*img_size[1]))
-        self.image_scale = max(self.canvas_width/img_size[0], self.canvas_height/img_size[1])
+        self.image_scale = max(img_size[1]/self.canvas_width, img_size[0]/self.canvas_height)
         return cv2.resize(img, (dim[1],dim[0]), interpolation = cv2.INTER_AREA)
 
     def get_mouse_position(self):
@@ -710,8 +712,26 @@ class UserInterface:
 
         # Update target position for the stepper stage.
         # Camera orientation will affect signs in the following expressions
-        c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - self.image_scale*(c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
-        c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - self.image_scale*(c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
+
+        # Account for camera rotation
+        x_rot = 1
+        y_rot = 1
+        if c_p['camera_orientatation'] == 'up':
+            # No change needed
+            pass
+        elif c_p['camera_orientatation'] == 'down':
+            y_rot = -1
+            x_rot = -1
+        elif c_p['camera_orientatation'] == 'left':
+            # Not implemented yet
+            pass
+        else: # Right
+            # Not implemented yet
+            pass
+        c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - \
+            self.image_scale*(c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
+        c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - \
+            self.image_scale*(c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
 
     def update(self):
          # Get a frame from the video source
@@ -732,8 +752,6 @@ class UserInterface:
          self.create_trap_image()
          self.mini_photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.mini_image, mode='RGB'))
          self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW) # need to use a compatible image type
-         # x = self.window.winfo_pointerx() - self.window.winfo_rootx()
-         # print(x)
          self.window.after(self.delay, self.update)
 
 
@@ -1615,15 +1633,6 @@ def zoom_in(margin=60, use_traps=False):
     # Note calculated framerate is automagically saved.
     CameraControls.set_AOI(c_p, left=left, right=right, up=up, down=down)
 
-
-# def CameraControls.zoom_out(c_p)():
-#     # Reset camera to fullscreen view
-#     if c_p['camera_model'] == 'ThorlabsCam':
-#         CameraControls.set_AOI(c_p, left=0, right=1200, up=0, down=1000)
-#     elif c_p['camera_model'] == 'basle_fast':
-#             CameraControls.set_AOI(c_p, left=0, right=672, up=0, down=512)
-#     elif c_p['camera_model'] == 'basle_large':
-#             CameraControls.set_AOI(c_p, left=0, right=3600, up=0, down=3000)
 
 def stepper_button_move_down(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit

@@ -67,9 +67,6 @@ def get_experiment_setup():
     }
     return params
 
-# TODO add a parameter for the enlargemenet factor of the image to help with clicka and move function.
-# For instance scaled down facor 3 from 3600x3000 to 1200x1000 means a click move should be increased by a
-# factor of 3.
 
 def set_defualt_trap_position(c_p):
     # Initialize traps and set traps positions

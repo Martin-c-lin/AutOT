@@ -7,8 +7,6 @@ from pypylon import pylon
 from datetime import  datetime
 
 
-# TODO add a get_camera_parameters function similar to what is available for the
-# shutter class
 def get_camera_c_p():
     '''
     Function for retrieving the c_p relevant for controlling the camera
@@ -16,7 +14,7 @@ def get_camera_c_p():
     camera_c_p = {
         'new_video':False,
         'recording_duration':3000,
-        'exposure_time':80, # ExposureTime in ms for thorlabs, mus for basler
+        'exposure_time':40_000, # ExposureTime in ms for thorlabs, mus for basler
         'framerate': 15,
         'recording': False,  # True if recording is on
         'AOI': [0, 3600, 0, 3008], # Default for basler camera [0,1200,0,1000] TC
@@ -29,9 +27,9 @@ def get_camera_c_p():
         camera_c_p['mmToPixel'] = 40_000
     else:
         camera_c_p['mmToPixel'] = 17736/0.7 if camera_c_p['camera_model'] == 'thorlabs' else 16140/0.7
-    # TODO: Add basler-big as a separate camera option
     camera_c_p['slm_to_pixel'] = 5_000_000 if camera_c_p['camera_model'] == 'basler_fast' else 4_550_000
     return camera_c_p
+
 
 class CameraThread(threading.Thread):
 
@@ -103,6 +101,9 @@ class CameraThread(threading.Thread):
             (image_width, image_height), isColor=False)
         exp_info_params = self.get_important_parameters()
         return video, experiment_info_name, exp_info_params
+   def turn_image():
+       # Function which compensates for camera orientation in the image
+       pass
 
    def thorlabs_capture(self):
       number_images_saved = 0 # counts
@@ -121,7 +122,7 @@ class CameraThread(threading.Thread):
 
           # Grab one example image
           #global image
-          image = c_p['image'] # TODO might give me problems
+          image = c_p['image']
           image = self.cam.grab_image(n_frames=1)
           image_count = 0
           # Start livefeed from the camera
@@ -143,7 +144,6 @@ class CameraThread(threading.Thread):
               # Capture an image and update the image count
               image_count = image_count+1
               c_p['image'] = self.cam.latest_frame()[:,:,0]
-              # c_p['image'] = c_p['image'][:,:,0]
           # Close the livefeed and calculate the fps of the captures
           end = time.time()
           self.cam.stop_live_video()
@@ -161,15 +161,6 @@ class CameraThread(threading.Thread):
             exp_info_params['fps'] = fps
             pickle.dump(exp_info_params, outfile)
             outfile.close()
-
-   def set_basler_AOI_big(self):
-       self.cam.OffsetX = 0
-       self.cam.Width = 3600
-       self.cam.OffsetX = 0
-       self.cam.OffsetY = 0
-       self.cam.Height = 3000
-       self.cam.OffsetY = 0
-
 
    def set_basler_AOI(self):
        '''
@@ -200,7 +191,6 @@ class CameraThread(threading.Thread):
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = offset_y
-            print('Helloe')
 
        except Exception as e:
            print('AOI not accepted',c_p['AOI'])
@@ -235,10 +225,9 @@ class CameraThread(threading.Thread):
           # Start continously capturing images now that the camera parameters have been set
           while c_p['program_running']\
                and not c_p['new_settings_camera']:
-
                with self.cam.RetrieveResult(2000) as result:
                   img.AttachGrabResultBuffer(result)
-                  c_p['image'] = np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
+                  c_p['image'] = img.GetArray()#np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
                   img.Release()
                   if c_p['recording']:
                       # Create an array to store the images which have been captured in
@@ -248,7 +237,6 @@ class CameraThread(threading.Thread):
                       video.write(c_p['image'])
                   # Capture an image and update the image count
                   image_count = image_count+1
-
 
           self.cam.StopGrabbing()
 
@@ -317,6 +305,7 @@ def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None)
 
     # Give motor threads time to catch up
     time.sleep(0.5)
+
 def zoom_out(c_p):
     # Reset camera to fullscreen view
     if c_p['camera_model'] == 'ThorlabsCam':
