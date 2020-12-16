@@ -285,6 +285,15 @@ def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None)
                 c_p['AOI'][3] = down
             else:
                 print("Trying to set invalid area")
+    elif c_p['camera_model'] == 'basler_large':
+        if left is not None and right is not None and up is not None and down is not None:
+            if 0<=left<3600 and left<=right<=3600 and 0<=up<3008 and up<=down<=3008:
+                c_p['AOI'][0] = left
+                c_p['AOI'][1] = right
+                c_p['AOI'][2] = up
+                c_p['AOI'][3] = down
+            else:
+                print("Trying to set invalid area")
     else:
         if left is not None and right is not None and up is not None and down is not None:
             if 0<=left<672 and left<=right<=672 and 0<=up<512 and up<=down<=512:
@@ -308,10 +317,12 @@ def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None)
     time.sleep(0.5)
 
 def zoom_out(c_p):
+    print('trying to zoom out')
     # Reset camera to fullscreen view
     if c_p['camera_model'] == 'ThorlabsCam':
         set_AOI(c_p, left=0, right=1200, up=0, down=1000)
-    elif c_p['camera_model'] == 'basle_fast':
+    elif c_p['camera_model'] == 'basler_fast':
         set_AOI(c_p, left=0, right=672, up=0, down=512)
-    elif c_p['camera_model'] == 'basle_large':
+    elif c_p['camera_model'] == 'basler_large':
         set_AOI(c_p, left=0, right=3600, up=0, down=3000)
+    c_p['new_settings_camera'] = True

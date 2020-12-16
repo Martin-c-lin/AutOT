@@ -487,7 +487,7 @@ class UserInterface:
         zoom_in_button = tkinter.Button(top, text='Zoom in', command=zoom_in)
 
         zoom_out_button = tkinter.Button(top, text='Zoom out',
-            command=CameraControls.zoom_out(c_p=c_p))
+            command=partial(CameraControls.zoom_out, c_p=c_p) )
 
         temperature_output_button = tkinter.Button(top,
             text='toggle temperature output', command=toggle_temperature_output)
@@ -1650,7 +1650,7 @@ def zoom_in(margin=60, use_traps=False):
         up = int(up // 20 * 20)
         down = min(max(c_p['traps_absolute_pos'][1]) + margin, 1000)
         down = int(down // 20 * 20)
-    elif c_p['camera_model'] = 'basler_large': # TODO finish this
+    elif c_p['camera_model'] == 'basler_large': # TODO finish this
         margin = 240
         left = max(min(c_p['traps_absolute_pos'][0]) - margin, 0)
         left = int(left // 16 * 16)
@@ -1672,7 +1672,7 @@ def zoom_in(margin=60, use_traps=False):
     #c_p['framerate'] = 500
     # Note calculated framerate is automagically saved.
     CameraControls.set_AOI(c_p, left=left, right=right, up=up, down=down)
-
+    update_traps_relative_pos()
 
 def stepper_button_move_down(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
