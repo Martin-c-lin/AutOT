@@ -227,7 +227,8 @@ class CameraThread(threading.Thread):
                and not c_p['new_settings_camera']:
                with self.cam.RetrieveResult(2000) as result:
                   img.AttachGrabResultBuffer(result)
-                  c_p['image'] = img.GetArray()#np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
+                  c_p['image'] = np.uint16(img.GetArray()) #np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
+                  # TODO convert to unit16 at this point. CHeck if it wokrs and makes it faster
                   img.Release()
                   if c_p['recording']:
                       # Create an array to store the images which have been captured in

@@ -58,7 +58,7 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     s[0] = int(d[1] / 2)
     s[1] = int(d[0] / 2)
 
-    # put this on top so I do not need to create it on each call
+    # TODO put this on top so I do not need to create it on each call
     mask = create_circular_mask(d[0],d[1],s,inner_filter_width)
     outer_mask = create_circular_mask_inverse(d[0],d[1],s,outer_filter_width)
 
