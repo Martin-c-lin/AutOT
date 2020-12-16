@@ -133,7 +133,7 @@ def is_trapped(c_p, trap_dist):
     dists_x = np.asarray(c_p['particle_centers'][0] - c_p['traps_absolute_pos'][0][0])
     dists_y = np.asarray(c_p['particle_centers'][1] - c_p['traps_absolute_pos'][1][0])
     dists_tot = dists_x**2 + dists_y**2
-    return min(a) < trap_dist
+    return min(dists_tot) < trap_dist
 
 class QD_Tracking_Thread(Thread):
    '''
@@ -191,14 +191,14 @@ class QD_Tracking_Thread(Thread):
        while self.c_p['program_running']:
            if self.c_p['tracking_on']:
                # TODO make it possible to adjust tracking parameters on the fly
-               #start = time()
+               start = time()
                # Do the particle tracking.
                # Note that the tracking algorithm can easily be replaced if need be
                x, y, tracked_image = find_QDs(self.c_p['image'])
                self.c_p['particle_centers'] = [x, y]
 
                # Check trapping status
-               self.trapped_now()
+               #self.trapped_now()
 
                if self.c_p['QD_trapped']:
                    self.move_to_target_location()
@@ -206,7 +206,7 @@ class QD_Tracking_Thread(Thread):
                    self.trap_quantum_dot()
                # Check if particle is trapped or has been trapped in the last number of frames
                # if so then try to move it to target position.
-               # print('Tracked in', time()-start, ' seconds.')
+               print('Tracked in', time()-start, ' seconds.')
                #print("Particles at",x,y)
 
            sleep(self.sleep_time)

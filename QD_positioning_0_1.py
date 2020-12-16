@@ -707,7 +707,6 @@ class UserInterface:
 
         # Update position of the mouse
         # TODO add parameter for camera orientaiton(0,90,180,270 degrees tilt)
-        #
         self.get_mouse_position()
 
         # Update target position for the stepper stage.
@@ -729,13 +728,15 @@ class UserInterface:
             # Not implemented yet
             pass
         c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - \
-            self.image_scale*(c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
+            (c_p['traps_absolute_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel'])
+            #self.image_scale*(c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
         c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - \
-            self.image_scale*(c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
+            #self.image_scale*(c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
+            (c_p['traps_absolute_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel'])
+        print(self.image_scale*c_p['mouse_position'][0], self.image_scale*c_p['mouse_position'][1], c_p['stepper_current_pos'][1])
 
     def update(self):
          # Get a frame from the video source
-         #global image
          image = np.asarray(c_p['image'])
          image = image.astype('uint8')
          if c_p['phasemask_updated']:
