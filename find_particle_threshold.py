@@ -24,7 +24,7 @@ def threshold_image(image,threshold=120,bright_particle=True):
         else:
             ret,thresholded_image = cv2.threshold(img_temp,threshold,255,cv2.THRESH_BINARY_INV)
             return thresholded_image
-        
+
 def find_particle_centers(image,threshold=120,particle_size_threshold=200,particle_upper_size_threshold=5000,bright_particle=True):
     """
     Function which locates particle centers using thresholding.
@@ -51,17 +51,17 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
     counts = np.bincount(np.reshape(separate_particles_image,(np.shape(separate_particles_image)[0]*np.shape(separate_particles_image)[1])))
     x = []
     y = []
-    group = 0
+    #group = 0
 
     # Check for pixel sections which are larger than particle_size_threshold.
-
-    for pixel_count in counts: # First will be background
+    # TODO parallelize?
+    for group, pixel_count in enumerate(counts): # First will be background
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
             # Particle found, locate center of mass of the particle
             cy, cx = ndi.center_of_mass(separate_particles_image==group)
             x.append(cx)
             y.append(cy)
 
-        group +=1
+        #group +=1
 
     return x,y

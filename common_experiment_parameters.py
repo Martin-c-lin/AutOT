@@ -78,7 +78,7 @@ def set_defualt_trap_position(c_p):
     c_p['ym'] = [200]
 
     # Laser position
-    c_p['traps_absolute_pos'][0][0] = 2271#551#293
+    c_p['traps_absolute_pos'][0][0] = 2251#551#293
     c_p['traps_absolute_pos'][1][0] = 1822#589#776
     c_p['traps_relative_pos'][0][0] = c_p['traps_absolute_pos'][0][0]
     c_p['traps_relative_pos'][1][0] = c_p['traps_absolute_pos'][1][0]
@@ -125,6 +125,7 @@ def get_default_c_p(recording_path=None):
         'movement_threshold': 30,
         'mouse_move_allowed':True, # Determines if one is allowed to move motors
         # by clicking on the screen.
+        'display_laser_position':True,
         'nbr_experiments':1,
         # 'framerate': 15,
         'tracking_on': False,

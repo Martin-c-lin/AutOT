@@ -360,6 +360,9 @@ class UserInterface:
         if c_p['mouse_move_allowed']:
             self.mouse_command_move()
 
+    def toggle_laser_cross(self):
+        c_p['display_laser_position'] = not c_p['display_laser_position']
+
     def toggle_move_by_clicking(self):
         c_p['mouse_move_allowed'] = not c_p['mouse_move_allowed']
 
@@ -480,16 +483,24 @@ class UserInterface:
             top, text='Set threshold', command=set_threshold)
         temperature_button = tkinter.Button(
             top, text='Set setpoint temperature', command=set_temperature)
+
         zoom_in_button = tkinter.Button(top, text='Zoom in', command=zoom_in)
-        zoom_out_button = tkinter.Button(top, text='Zoom out', command=CameraControls.zoom_out(c_p=c_p))
+
+        zoom_out_button = tkinter.Button(top, text='Zoom out',
+            command=CameraControls.zoom_out(c_p=c_p))
+
         temperature_output_button = tkinter.Button(top,
             text='toggle temperature output', command=toggle_temperature_output)
-        set_exposure_button = tkinter.Button(top, text='Set exposure', command=set_exposure)
+
+        set_exposure_button = tkinter.Button(top, text='Set exposure',
+            command=set_exposure)
+
         experiment_schedule_button = tkinter.Button(top,
             text='Select experiment schedule',
             command=self.read_experiment_dictionary
             )
-
+        self.diplay_laser_button = tkinter.Button(top, \
+            text='Toggle laser indicator', command=self.toggle_laser_cross)
 
         x_position = 1220
         x_position_2 = 1420
@@ -534,6 +545,7 @@ class UserInterface:
         exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
         set_exposure_button.place(x=x_position_2, y=y_position_2.__next__())
         experiment_schedule_button.place(x=x_position_2, y=y_position_2.__next__())
+        self.diplay_laser_button.place(x=x_position_2, y=y_position_2.__next__())
 
         # Motor buttons. Attributes of UserInterface class os we can easily change
         # the description text of them.
@@ -663,6 +675,11 @@ class UserInterface:
         else:
             self.tracking_label.config(text='particle tracking is off', bg='red')
 
+        if c_p['display_laser_position']:
+            self.diplay_laser_button.config(bg='green')
+        else:
+            self.diplay_laser_button.config(bg='red')
+
         self.temperature_label.config(text=self.get_temperature_info())
 
         self.position_label.config(text=self.get_position_info())
@@ -735,10 +752,23 @@ class UserInterface:
             (c_p['traps_absolute_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel'])
         print(self.image_scale*c_p['mouse_position'][0], self.image_scale*c_p['mouse_position'][1], c_p['stepper_current_pos'][1])
 
+    def add_laser_cross(self, image):
+         try:
+             y = int(c_p['traps_relative_pos'][0][0])
+             x = int(c_p['traps_relative_pos'][1][0])
+             image[x-10:x+10, y] = 0
+             image[x, y-10:y+10] = 0
+         except:
+             print('Warning could not display laser position',x,y,np.size(image))
+
     def update(self):
          # Get a frame from the video source
          image = np.asarray(c_p['image'])
          image = image.astype('uint8')
+
+         if c_p['display_laser_position']:
+             self.add_laser_cross(image)
+
          if c_p['phasemask_updated']:
               print('New phasemask')
               self.SLM_Window.update()
