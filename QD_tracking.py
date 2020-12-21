@@ -224,8 +224,19 @@ class QD_Tracking_Thread(Thread):
        return np.abs(x) < self.c_p['tolerance'] and np.abs(y) < self.c_p['tolerance']
 
    def extract_piezo_image(self):
+       x_0 = self.c_p['traps_relative_pos'][0][0]
+       y_0 = self.c_p['traps_relative_pos'][1][0]
 
-       return self.c_p['image']
+       # TODO check orientation of piezos etc relative to camera
+       # Also check what happens when zoomed in
+       # should there be a factor 1000 somewhere here?
+       x_start = int(x_0 - self.c_p['piezo_current_position'][0] * self.c_p['mmToPixel'] / 1000)
+       x_end = int(x_0 + (20 - self.c_p['piezo_current_position'][0]) * self.c_p['mmToPixel'] / 1000)
+
+       y_start = int(y_0 - self.c_p['piezo_current_position'][1] * self.c_p['mmToPixel'] / 1000)
+       y_end = int(y_0 + (20 - self.c_p['piezo_current_position'][1]) * self.c_p['mmToPixel'] / 1000)
+
+       return self.c_p['image'][x_start:x_end, y_start:y_end], True
 
    def run(self):
 
@@ -236,8 +247,10 @@ class QD_Tracking_Thread(Thread):
                # Do the particle tracking.
                # Note that the tracking algorithm can easily be replaced if need be
 
-
-               x, y, tracked_image = find_QDs(self.c_p['image'])
+               image, image_extracted = self.extract_piezo_image()
+               if not image_extracted:
+                   pass
+               x, y, tracked_image = find_QDs(image)
                self.c_p['particle_centers'] = [x, y]
                # Check trapping status
                self.trapped_now()
