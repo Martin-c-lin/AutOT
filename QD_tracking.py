@@ -105,20 +105,24 @@ def get_QD_tracking_c_p():
     Function for retrieving default c_p needed for tracking QDs.
     '''
     tracking_params = {
-        'tracking_edge':80,
-        'threshold':0.6,
-        'inner_filter_width':20,
-        'outer_filter_width':100,
-        'particle_size_threshold':30,
-        'particle_upper_size_threshold':5000,
+        'tracking_edge': 80,
+        'threshold': 0.6,
+        'inner_filter_width': 20,
+        'outer_filter_width': 100,
+        'particle_size_threshold': 30,
+        'particle_upper_size_threshold': 5000,
         'max_trapped_counter':5, # Maximum number of missed detections allowed before
         # particle is considered untrapped.
-        'QD_trapped':False, # True if a QD has been trapped, will still be true if it has been trapped in the last few frames
+        'QD_trapped': False, # True if a QD has been trapped, will still be true if it has been trapped in the last few frames
         'QD_currently_trapped': False, # True if the QD was in the trap the last frame
         'QD_trapped_counter': 0,
-        'QD_target_location':[[],[]], # Location to stick the QDs to. Measured in mm, motor positions.
-        'QD_polymerization_time':2, # time during which the polymerization laser will be turned on.
+        'QD_polymerization_time': 2, # time during which the polymerization laser will be turned on.
         'closest_QD': None, # index of quantum dot closest to the trap
+        'target_loc_x': [1, 5], # X - location(in mum) where quantum dots should be placed.
+        'target_loc_y': [1, 1],
+        'nbr_quantum_dots_stuck': 0, # number of quantum dots already positioned
+        'step_size': 0.2, # Step size to move the quantum dots
+        'tolerance': 0.01
     }
 
     return tracking_params
@@ -151,27 +155,50 @@ class QD_Tracking_Thread(Thread):
    def __del__(self):
        self.c_p['tracking_on'] = False
 
-
    def trapped_now(self):
        self.c_p['QD_currently_trapped'], self.c_p['closest_QD'] = is_trapped(self.c_p, 15)
        if self.c_p['QD_currently_trapped']:
-           self.c_p["QD_trapped"] = True
+           self.c_p['QD_trapped'] = True
            self.c_p['QD_trapped_counter'] = 0
        else:
            self.c_p['QD_trapped_counter'] += 1
            if self.c_p['QD_trapped_counter'] >= self.c_p['max_trapped_counter']:
               self.c_p['QD_trapped'] = False
+
    def move_to_target_location(self):
        '''
        Function for transporting a quantum dot to target location.
        '''
-       print('Trying to move to target location')
-       # TODO add so that this function automatically
-       pass
+
+       # Update target position of piezo in x-direction
+       x_move = self.c_p['target_loc_x'][self.c_p['nbr_quantum_dots_stuck']] - \
+            self.c_p['piezo_current_position'][0]
+       if x_move < 0:
+           self.c_p['piezo_target_pos'][0] += max(x_move, -self.c_p['step_size'])
+       else:
+           self.c_p['piezo_target_pos'][0] += min(x_move, self.c_p['step_size'])
+
+       # Update target position of piezo in y-direction
+       y_move = self.c_p['target_loc_y'][self.c_p['nbr_quantum_dots_stuck']] - \
+            self.c_p['piezo_current_position'][1]
+       if y_move < 0:
+           self.c_p['piezo_target_pos'][1] += max(y_move, -self.c_p['step_size'])
+       else:
+           self.c_p['piezo_target_pos'][1] += min(y_move, self.c_p['step_size'])
 
    def look_for_quantum_dot(self):
        pass
 
+   def stick_quantum_dot(self):
+
+       # Check that a quantum dot is trapepd
+       if not self.c_p['QD_trapped']:
+           return
+       # Open shutter to stick the quantum dot
+       self.c_p['shutter_open_time'] = 500 # open shutter for 500 ms
+       self.c_p['should_shutter_open'] = True
+       # Increase the stick count
+       self.c_p['nbr_quantum_dots_stuck'] += 1
 
    def trap_quantum_dot(self):
        '''
@@ -179,12 +206,26 @@ class QD_Tracking_Thread(Thread):
        If there are no quantum dots in the area then the program will go look for one.
        '''
        if len(self.c_p['particle_centers'][0]) > 0:
-           pass # Should move in and trap that QD
+           if self.c_p[]:
+
        else:
            self.look_for_quantum_dot()
            print('Looking for quantum dots')
        pass
 
+   def ready_to_stick(self):
+       # Check if a quantum dot is in correct position
+       if len(self.c_p['target_loc_y']) >= self.c_p['nbr_quantum_dots_stuck']:
+           return False
+
+       y = self.c_p['piezo_current_position'][1] - self.c_p['target_loc_y'][self.c_p['nbr_quantum_dots_stuck']]
+       x = self.c_p['piezo_current_position'][0] - self.c_p['target_loc_x'][self.c_p['nbr_quantum_dots_stuck']]
+
+       return np.abs(x) < self.c_p['tolerance'] and np.abs(y) < self.c_p['tolerance']
+
+   def extract_piezo_image(self):
+
+       return self.c_p['image']
 
    def run(self):
 
@@ -194,19 +235,23 @@ class QD_Tracking_Thread(Thread):
                start = time()
                # Do the particle tracking.
                # Note that the tracking algorithm can easily be replaced if need be
+
+
                x, y, tracked_image = find_QDs(self.c_p['image'])
                self.c_p['particle_centers'] = [x, y]
-
                # Check trapping status
-               #self.trapped_now()
+               self.trapped_now()
 
                if self.c_p['QD_trapped']:
                    self.move_to_target_location()
+                   if self.ready_to_stick():
+                       print('Sticking QD no:', self.c_p['nbr_quantum_dots_stuck'])
+                       self.stick_quantum_dot()
                else:
                    self.trap_quantum_dot()
                # Check if particle is trapped or has been trapped in the last number of frames
                # if so then try to move it to target position.
-               print('Tracked in', time()-start, ' seconds.')
+               #print('Tracked in', time()-start, ' seconds.')
                #print("Particles at",x,y)
 
            sleep(self.sleep_time)
