@@ -18,7 +18,7 @@ int_parameters = ['SLM_iterations']
 
 bool_list = ['use_LGO']
 float_list = ['xm', 'ym', 'zm', 'ghost_traps_x', 'ghost_traps_y',
-            'ghost_traps_z']
+            'ghost_traps_z','QD_target_loc_x','QD_target_loc_y']
 string_list = ['measurement_name']
 
 # Make it possible to load also trap locations.

@@ -118,8 +118,8 @@ def get_QD_tracking_c_p():
         'QD_trapped_counter': 0,
         'QD_polymerization_time': 2, # time during which the polymerization laser will be turned on.
         'closest_QD': None, # index of quantum dot closest to the trap
-        'target_loc_x': [1, 5], # X - location(in mum) where quantum dots should be placed.
-        'target_loc_y': [1, 1],
+        'QD_target_loc_x': [1, 5], # X - location(in mum) where quantum dots should be placed.
+        'QD_target_loc_y': [1, 1],
         'nbr_quantum_dots_stuck': 0, # number of quantum dots already positioned
         'step_size': 0.2, # Step size to move the quantum dots
         'tolerance': 0.01
@@ -171,7 +171,7 @@ class QD_Tracking_Thread(Thread):
        '''
 
        # Update target position of piezo in x-direction
-       x_move = self.c_p['target_loc_x'][self.c_p['nbr_quantum_dots_stuck']] - \
+       x_move = self.c_p['QD_target_loc_x'][self.c_p['nbr_quantum_dots_stuck']] - \
             self.c_p['piezo_current_position'][0]
        if x_move < 0:
            self.c_p['piezo_target_pos'][0] += max(x_move, -self.c_p['step_size'])
@@ -179,7 +179,7 @@ class QD_Tracking_Thread(Thread):
            self.c_p['piezo_target_pos'][0] += min(x_move, self.c_p['step_size'])
 
        # Update target position of piezo in y-direction
-       y_move = self.c_p['target_loc_y'][self.c_p['nbr_quantum_dots_stuck']] - \
+       y_move = self.c_p['QD_target_loc_y'][self.c_p['nbr_quantum_dots_stuck']] - \
             self.c_p['piezo_current_position'][1]
        if y_move < 0:
            self.c_p['piezo_target_pos'][1] += max(y_move, -self.c_p['step_size'])
@@ -215,11 +215,11 @@ class QD_Tracking_Thread(Thread):
 
    def ready_to_stick(self):
        # Check if a quantum dot is in correct position
-       if len(self.c_p['target_loc_y']) >= self.c_p['nbr_quantum_dots_stuck']:
+       if len(self.c_p['QD_target_loc_y']) >= self.c_p['nbr_quantum_dots_stuck']:
            return False
 
-       y = self.c_p['piezo_current_position'][1] - self.c_p['target_loc_y'][self.c_p['nbr_quantum_dots_stuck']]
-       x = self.c_p['piezo_current_position'][0] - self.c_p['target_loc_x'][self.c_p['nbr_quantum_dots_stuck']]
+       y = self.c_p['piezo_current_position'][1] - self.c_p['QD_target_loc_y'][self.c_p['nbr_quantum_dots_stuck']]
+       x = self.c_p['piezo_current_position'][0] - self.c_p['QD_target_loc_x'][self.c_p['nbr_quantum_dots_stuck']]
 
        return np.abs(x) < self.c_p['tolerance'] and np.abs(y) < self.c_p['tolerance']
 
