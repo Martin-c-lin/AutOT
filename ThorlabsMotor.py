@@ -731,7 +731,6 @@ class XYZ_piezo_stage_motor(Thread):
     '''
 
     # TODO make it possible to connect/disconnect these motors on the fly.
-    # TODO fix problem with single device
     # TODO change motor speed to slow.
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
         serialNo='71165844', sleep_time=0.3):
@@ -753,6 +752,7 @@ class XYZ_piezo_stage_motor(Thread):
         self.piezo_channel = ConnectPiezoStageChannel(controller_device, channel)
         self.c_p['starting_position_piezo_xyz'][self.axis] = self.piezo_channel.GetPosition()
         self.c_p['stage_piezo_connected'][self.axis] = True
+        print(self.c_p['starting_position_piezo_xyz'][self.axis])
 
     def update_position(self):
         # Update c_p position
@@ -768,7 +768,7 @@ class XYZ_piezo_stage_motor(Thread):
         self.__del__()
 
     def __del__(self):
-        self.piezo_channel.StopPolling()
+        self.piezo_channel.StopPolling() # TODO investigate error when closing piezos
         self.piezo_channel.Disconnect()
 
 def ConnectBenchtopStepperController(serialNo):

@@ -206,8 +206,8 @@ class QD_Tracking_Thread(Thread):
        If there are no quantum dots in the area then the program will go look for one.
        '''
        if len(self.c_p['particle_centers'][0]) > 0:
-           if self.c_p[]:
-
+           #if self.c_p[]:
+           pass
        else:
            self.look_for_quantum_dot()
            print('Looking for quantum dots')
