@@ -65,4 +65,4 @@ class ShutterThread(Thread):
                 self.open_for_duration(self.c_p['shutter_open_time'])
                 self.c_p['should_shutter_open'] = False
 
-            time.sleep(0.2)
+            time.sleep(0.1)
