@@ -731,7 +731,6 @@ class XYZ_piezo_stage_motor(Thread):
     '''
 
     # TODO make it possible to connect/disconnect these motors on the fly.
-    # TODO fix problem with single device
     # TODO change motor speed to slow.
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
         serialNo='71165844', sleep_time=0.3):

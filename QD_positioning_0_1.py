@@ -7,6 +7,7 @@ import find_particle_threshold as fpt
 import read_dict_from_file as rdff
 import ThorlabsShutter as TS
 import CameraControls
+from CameraControls import update_traps_relative_pos # Moved this function
 from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p
 from instrumental import u
 import numpy as np
@@ -366,13 +367,14 @@ class UserInterface:
     def toggle_move_by_clicking(self):
         c_p['mouse_move_allowed'] = not c_p['mouse_move_allowed']
 
-    def create_buttons(self,top=None):
+    def create_buttons(self, top=None):
         '''
         This function generates all the buttons for the interface along with
         the other control elementsn such as entry boxes.
         '''
         # TODO make c_p non global, and change so that only the buttons actually
-        # usable are displayed. Preferably use the inputs to start_threads.
+        # usable are displayed. Split this function into several smaller ones
+
         global c_p
         self.canvas.bind("<Button-1>", self.screen_click)
         if top is None:
@@ -746,9 +748,8 @@ class UserInterface:
             pass
         c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - \
             (c_p['traps_absolute_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel'])
-            #self.image_scale*(c_p['traps_absolute_pos'][0,0] - c_p['mouse_position'][0])/c_p['mmToPixel'])
+
         c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - \
-            #self.image_scale*(c_p['traps_absolute_pos'][1,0] - c_p['mouse_position'][1])/c_p['mmToPixel'])
             (c_p['traps_absolute_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel'])
         print(self.image_scale*c_p['mouse_position'][0], self.image_scale*c_p['mouse_position'][1], c_p['stepper_current_pos'][1])
 
@@ -760,6 +761,17 @@ class UserInterface:
              image[x, y-10:y+10] = 0
          except:
              print('Warning could not display laser position',x,y,np.size(image))
+
+    def add_particle_positions_to_image(self, image):
+        for x,y in zip(c_p['particle_centers'][0], c_p['particle_centers'][1]):
+            try:
+                x = int(x)
+                y = int(y)
+                # TODO change to different shape to color
+                image[x-10:x+10, y] = 0
+                image[x, y-10:y+10] = 0
+            except:
+                print(' Warning could not display particle at position: ', x, y)
 
     def update(self):
          # Get a frame from the video source
@@ -1141,8 +1153,7 @@ def path_search(filled_traps_locs, target_particle_location,
         was found. False otherwise.
 
     '''
-    # TODO Make it possible to try and
-    # move in between particles.
+
     global c_p
 
     nx = int( (c_p['AOI'][1]-c_p['AOI'][0]) / c_p['cell_width'])
@@ -1429,7 +1440,7 @@ def get_particle_trap_distances():
     To clarify the distance between trap n and particle m is distances[n][m].
     '''
     global c_p
-    update_traps_relative_pos() # just in case
+    update_traps_relative_pos(c_p) # just in case
     nbr_traps = len(c_p['traps_relative_pos'][0])
     nbr_particles = len(c_p['particle_centers'][0])
     distances = np.ones((nbr_traps, nbr_particles))
@@ -1636,7 +1647,6 @@ def focus_down():
 
 
 def zoom_in(margin=60, use_traps=False):
-    # TODO make these compatible with the new structure of the code
     '''
     Helper function for zoom button and zoom function.
     Zooms in on an area around the traps
@@ -1650,7 +1660,7 @@ def zoom_in(margin=60, use_traps=False):
         up = int(up // 20 * 20)
         down = min(max(c_p['traps_absolute_pos'][1]) + margin, 1000)
         down = int(down // 20 * 20)
-    elif c_p['camera_model'] = 'basler_large': # TODO finish this
+    elif c_p['camera_model'] = 'basler_large':
         margin = 240
         left = max(min(c_p['traps_absolute_pos'][0]) - margin, 0)
         left = int(left // 16 * 16)
@@ -1724,14 +1734,6 @@ def search_for_particles():
         print('changing search direction to right')
 
 
-def update_traps_relative_pos():
-    global c_p
-    tmp_x = [x - c_p['AOI'][0] for x in c_p['traps_absolute_pos'][0] ]
-    tmp_y = [y - c_p['AOI'][2] for y in c_p['traps_absolute_pos'][1] ]
-    tmp = np.asarray([tmp_x, tmp_y])
-    c_p['traps_relative_pos'] = tmp
-
-
 def pixels_to_SLM_locs(locs, axis):
     '''
     Function for converting from PIXELS to SLM locations.
@@ -1756,7 +1758,7 @@ def SLM_loc_to_trap_loc(xm, ym):
     tmp = np.asarray([tmp_x, tmp_y])
     c_p['traps_absolute_pos'] = tmp
     print('Traps are at: ', c_p['traps_absolute_pos'] )
-    update_traps_relative_pos()
+    update_traps_relative_pos(c_p)
 
 
 def save_phasemask():

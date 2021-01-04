@@ -228,7 +228,7 @@ class CameraThread(threading.Thread):
                with self.cam.RetrieveResult(2000) as result:
                   img.AttachGrabResultBuffer(result)
                   c_p['image'] = np.uint16(img.GetArray()) #np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
-                  # TODO convert to unit16 at this point. CHeck if it wokrs and makes it faster
+
                   img.Release()
                   if c_p['recording']:
                       # Create an array to store the images which have been captured in
@@ -302,10 +302,21 @@ def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None)
     c_p['new_AOI_display'] = True
     print('AOI changed')
     # Update trap relative position
-    #update_traps_relative_pos() TODO fix this problemo
+    update_traps_relative_pos(c_p)
 
     # Give motor threads time to catch up
-    time.sleep(0.5)
+    time.sleep(0.1)
+
+
+def update_traps_relative_pos(c_p):
+    '''
+    Updates the relative position of the traps when zooming in.
+    '''
+    tmp_x = [x - c_p['AOI'][0] for x in c_p['traps_absolute_pos'][0] ]
+    tmp_y = [y - c_p['AOI'][2] for y in c_p['traps_absolute_pos'][1] ]
+    tmp = np.asarray([tmp_x, tmp_y])
+    c_p['traps_relative_pos'] = tmp
+
 
 def zoom_out(c_p):
     # Reset camera to fullscreen view

@@ -8,8 +8,9 @@ from time import sleep, time
 
 @jit
 def normalize_image(image):
+    # Normalizes the image to be in range 0,1
     #image = image/np.max(image)
-    image = image -np.mean(image)
+    #image = image -np.mean(image)
     image -= np.min(image)
     image /= np.max(image)
     return image
@@ -166,7 +167,7 @@ class QD_Tracking_Thread(Thread):
        Function for transporting a quantum dot to target location.
        '''
        print('Trying to move to target location')
-       # TODO add so that this function automatically
+       # TODO add so that this function automatically moves the QD to target location
        pass
 
    def look_for_quantum_dot(self):
