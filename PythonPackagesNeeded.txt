@@ -10,7 +10,7 @@ Instrumental-lib ,
 python-opencv ,
 keras , # Optional, only for deep-learning tracking.
 tensorflow , # Optional, only for deep-learning tracking.
-
+pyFFTW, For faster FFT tracking than numpy
 For basler camera:
 
 swig (run "conda install -c anaconda siwg" before installing pypylon)

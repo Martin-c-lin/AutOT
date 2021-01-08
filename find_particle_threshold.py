@@ -4,16 +4,25 @@ from matplotlib import pyplot as plt
 import scipy.ndimage as ndi
 from skimage import measure
 import time
-from numba import jit
+from numba import njit, jit
 
 
-@jit
-def center_of_mass(image):
-    pos = np.nonzero(image)
-    tot = np.sum(image)
-    x = sum(pos[0][:])
-    y = sum(pos[1][:])
-    return x/tot, y/tot
+@njit(parallel=True)
+def parallel_center_of_masses(data):
+    # Without "parallel=True" in the jit-decorator
+    # the prange statement is equivalent to range
+    ret_x = []
+    ret_y = []
+    for d in data:
+        #ret.append(center_of_mass(d))
+        pos = np.nonzero(d)
+        tot = len(d[0])#np.sum(d)
+        #tot = np.shape(pos)[1]
+        x = np.sum(pos[0][:]) # check if these two calculations can be exchanged for one
+        y = np.sum(pos[1][:])
+        ret_x.append(x/tot)
+        ret_y.append(y/tot)
+    return ret_x, ret_y
 
 def find_single_particle_center(img,threshold=127):
     """
@@ -88,8 +97,11 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
     #group = 0
 
     # Check for pixel sections which are larger than particle_size_threshold.
-    # TODO parallelize?
-
+    # particle_images = find_groups_of_interest(counts, \
+    #                                           particle_upper_size_threshold, \
+    #                                           particle_size_threshold, \
+    #                                           separate_particles_image)
+    # x, y = parallel_center_of_masses(particle_images)
     for group, pixel_count in enumerate(counts): # First will be background
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
             # Particle found, locate center of mass of the particle
