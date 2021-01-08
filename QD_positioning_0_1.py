@@ -1660,11 +1660,8 @@ def zoom_in(margin=60, use_traps=False):
         up = int(up // 20 * 20)
         down = min(max(c_p['traps_absolute_pos'][1]) + margin, 1000)
         down = int(down // 20 * 20)
-<<<<<<< HEAD
-    elif c_p['camera_model'] = 'basler_large':
-=======
+
     elif c_p['camera_model'] == 'basler_large': # TODO finish this
->>>>>>> 58accfba5eee12f921424889267f41936bc8b1f2
         margin = 240
         left = max(min(c_p['traps_absolute_pos'][0]) - margin, 0)
         left = int(left // 16 * 16)
@@ -1686,7 +1683,7 @@ def zoom_in(margin=60, use_traps=False):
     #c_p['framerate'] = 500
     # Note calculated framerate is automagically saved.
     CameraControls.set_AOI(c_p, left=left, right=right, up=up, down=down)
-    update_traps_relative_pos()
+    update_traps_relative_pos(c_p)
 
 def stepper_button_move_down(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit

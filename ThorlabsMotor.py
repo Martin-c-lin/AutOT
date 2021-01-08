@@ -757,7 +757,7 @@ class XYZ_piezo_stage_motor(Thread):
     def update_position(self):
         # Update c_p position
         self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_pos'][self.axis]))
-        self.c_p['piezo_current_position'][self.axis] = self.piezo_channel.GetPosition()
+        self.c_p['piezo_current_position'][self.axis] = float(str(self.piezo_channel.GetPosition()))
 
     def run(self):
         '''
@@ -768,8 +768,12 @@ class XYZ_piezo_stage_motor(Thread):
         self.__del__()
 
     def __del__(self):
-        self.piezo_channel.StopPolling() # TODO investigate error when closing piezos
-        self.piezo_channel.Disconnect()
+        try:
+            self.piezo_channel.StopPolling()
+            self.piezo_channel.Disconnect()
+        except:
+            # TODO solve this properly. No risk for error but looks bad
+            print('Device has already been disconnected')
 
 def ConnectBenchtopStepperController(serialNo):
     '''
