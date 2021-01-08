@@ -13,7 +13,7 @@ pyfftw.interfaces.cache.enable()
 def get_fft_object(image_shape):
     a = pyfftw.empty_aligned(image_shape, dtype='complex64') # TODO test if complex64 works
     b = pyfftw.empty_aligned(image_shape, dtype='complex64')
-    
+
     # Over the both axes
     fft_object = pyfftw.FFTW(a, b, axes=(0,1))
     return fft_object
@@ -78,7 +78,7 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     global image_shape, mask, outer_mask, filter_radii, fft_object
 
     d = np.shape(image)
-    
+
     if not d == image_shape or not inner_filter_width == filter_radii[0]\
         or not outer_filter_width == filter_radii[1]:
         s = [0,0]
@@ -106,7 +106,7 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     return inv
 
 
-def find_QDs(image, inner_filter_width=20, outer_filter_width=100,threshold=0.2, #6,
+def find_QDs(image, inner_filter_width=50, outer_filter_width=500,threshold=0.1,
     particle_size_threshold=30, particle_upper_size_threshold=5000, edge=80):
     '''
     Function for detecting the quantum dots.
