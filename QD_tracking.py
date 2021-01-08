@@ -290,7 +290,9 @@ class QD_Tracking_Thread(Thread):
                image, image_extracted = self.extract_piezo_image()
                if not image_extracted:
                    pass
-               x, y, tracked_image = find_QDs(image)
+               x, y = find_QDs(self.c_p['image'])
+               if len(x)>0:
+                   print('x: ', x)
                self.c_p['particle_centers'] = [x, y]
                # Check trapping status
                self.trapped_now()
@@ -302,6 +304,7 @@ class QD_Tracking_Thread(Thread):
                        self.stick_quantum_dot()
                else:
                    self.trap_quantum_dot()
+
                # Check if particle is trapped or has been trapped in the last number of frames
                # if so then try to move it to target position.
                #print('Tracked in', time()-start, ' seconds.')
