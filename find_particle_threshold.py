@@ -4,7 +4,16 @@ from matplotlib import pyplot as plt
 import scipy.ndimage as ndi
 from skimage import measure
 import time
-#from numba import jit
+from numba import jit
+
+
+@jit
+def center_of_mass(image):
+    pos = np.nonzero(image)
+    tot = np.sum(image)
+    x = sum(pos[0][:])
+    y = sum(pos[1][:])
+    return x/tot, y/tot
 
 def find_single_particle_center(img,threshold=127):
     """
@@ -25,6 +34,33 @@ def threshold_image(image,threshold=120,bright_particle=True):
             ret,thresholded_image = cv2.threshold(img_temp,threshold,255,cv2.THRESH_BINARY_INV)
             return thresholded_image
 
+def find_groups_of_interest(counts, particle_upper_size_threshold, particle_size_threshold, separate_particles_image):
+    '''
+    Exctract the particles into separate images to be center_of_massed in parallel
+    '''
+    particle_images = []
+    #target_groups = []
+    for group, pixel_count in enumerate(counts): # First will be background
+        if particle_upper_size_threshold>pixel_count>particle_size_threshold:
+            #target_groups.append(group)
+            particle_images.append(separate_particles_image==group)
+    return particle_images
+
+
+def get_x_y(counts, particle_upper_size_threshold, particle_size_threshold, separate_particles_image):
+    x = []
+    y = []
+    for group, pixel_count in enumerate(counts): # First will be background
+        if particle_upper_size_threshold>pixel_count>particle_size_threshold:
+            # TODO: Parallelize this thing        
+            # Particle found, locate center of mass of the particle
+            cy, cx = ndi.center_of_mass(separate_particles_image==group)
+
+            x.append(cx)
+            y.append(cy)
+    return x, y
+
+#@jit
 def find_particle_centers(image,threshold=120,particle_size_threshold=200,particle_upper_size_threshold=5000,bright_particle=True):
     """
     Function which locates particle centers using thresholding.
@@ -39,29 +75,27 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
     """
 
     # Do thresholding of the image
-    img_temp = cv2.medianBlur(image,5)
-    if bright_particle:
-        ret,thresholded_image = cv2.threshold(img_temp,threshold,255,cv2.THRESH_BINARY)
-    else:
-        ret,thresholded_image = cv2.threshold(img_temp,threshold,255,cv2.THRESH_BINARY_INV)
+    thresholded_image = image > threshold
 
     # Separate the thresholded image into different sections
     separate_particles_image = measure.label(thresholded_image)
+    # use cv2.findContours instead?
     # Count the number of pixels in each section
     counts = np.bincount(np.reshape(separate_particles_image,(np.shape(separate_particles_image)[0]*np.shape(separate_particles_image)[1])))
+
     x = []
     y = []
     #group = 0
 
     # Check for pixel sections which are larger than particle_size_threshold.
     # TODO parallelize?
+
     for group, pixel_count in enumerate(counts): # First will be background
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
             # Particle found, locate center of mass of the particle
-            cy, cx = ndi.center_of_mass(separate_particles_image==group)
+            cy, cx = ndi.center_of_mass(separate_particles_image==group) # This is slow
             x.append(cx)
             y.append(cy)
 
-        #group +=1
 
-    return x,y
+    return x, y, thresholded_image

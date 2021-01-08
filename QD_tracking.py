@@ -5,14 +5,31 @@ from find_particle_threshold import find_particle_centers
 from numba import jit
 from threading import  Thread
 from time import sleep, time
+import pyfftw
+pyfftw.interfaces.cache.enable()
+# TODO incorporate also radial symmetry in the tracking.
+
+
+def get_fft_object(image_shape):
+    a = pyfftw.empty_aligned(image_shape, dtype='complex64') # TODO test if complex64 works
+    b = pyfftw.empty_aligned(image_shape, dtype='complex64')
+    
+    # Over the both axes
+    fft_object = pyfftw.FFTW(a, b, axes=(0,1))
+    return fft_object
+
+image_shape = [3008, 3600]
+fft_object = get_fft_object(image_shape)
+
 
 @jit
 def normalize_image(image):
     # Normalizes the image to be in range 0,1
     #image = image/np.max(image)
-    #image = image -np.mean(image)
+    # image = image -np.mean(image)
     image -= np.min(image)
     image /= np.max(image)
+    image = image -np.mean(image)
     return image
 
 def create_circular_mask(h, w, center=None, radius=20):
@@ -37,7 +54,14 @@ def create_circular_mask_inverse(h, w, center=None, radius=100):
     mask = dist_from_center >= radius
     return mask
 
-@jit
+# Create default mask to speed things up
+filter_radii = [20, 100]
+s = [0,0]
+s[0] = int(image_shape[1]/2)
+s[1] = int(image_shape[0]/2)
+mask = create_circular_mask(image_shape[0],image_shape[1],s,filter_radii[0])
+outer_mask = create_circular_mask_inverse(image_shape[0],image_shape[1],s,filter_radii[1])
+
 def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     '''
     Function which filters outs the low frequency componentes of a image.
@@ -50,28 +74,39 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     Outputs:
         Filtered image
     '''
+    # Make use of global object to avoid having to recreate them at each call.
+    global image_shape, mask, outer_mask, filter_radii, fft_object
 
-    # TODO replace fft with fftw
-    ff = np.fft.fft2(image)
-    fshift = np.fft.fftshift(ff)
     d = np.shape(image)
-    s = [0,0]
-    s[0] = int(d[1] / 2)
-    s[1] = int(d[0] / 2)
+    
+    if not d == image_shape or not inner_filter_width == filter_radii[0]\
+        or not outer_filter_width == filter_radii[1]:
+        s = [0,0]
+        s[0] = int(d[1] / 2)
+        s[1] = int(d[0] / 2)
+        filter_radii[0] = inner_filter_width
+        mask = create_circular_mask(d[0], d[1], s, inner_filter_width)
 
-    # TODO put this on top so I do not need to create it on each call
-    mask = create_circular_mask(d[0],d[1],s,inner_filter_width)
-    outer_mask = create_circular_mask_inverse(d[0],d[1],s,outer_filter_width)
+        filter_radii[1] = outer_filter_width
+        outer_mask = create_circular_mask_inverse(d[0], d[1], s, outer_filter_width)
+
+    if not d == image_shape:
+        image_shape = d
+        fft_object = get_fft_object(image_shape)
+
+    ff = fft_object(image)
+    fshift = np.fft.fftshift(ff)
+
 
     fshift[mask] = 0 # set center to 0
-    fshift[outer_mask] = 0 # set center to 0
+    fshift[outer_mask] = 0 # set outer region to 0
 
     inv = np.fft.ifftshift(fshift)
-    inv = np.fft.fft2(inv)
+    inv = fft_object(inv)
     return inv
 
 
-def find_QDs(image, inner_filter_width=20, outer_filter_width=100,threshold=0.6,
+def find_QDs(image, inner_filter_width=20, outer_filter_width=100,threshold=0.2, #6,
     particle_size_threshold=30, particle_upper_size_threshold=5000, edge=80):
     '''
     Function for detecting the quantum dots.
@@ -85,21 +120,22 @@ def find_QDs(image, inner_filter_width=20, outer_filter_width=100,threshold=0.6,
                 Usefull for debugging and finding suitable paramters to give this
                 function for optimizing tracking.
     '''
-
+    # TODO make this function also discover printed areas.
+    # NOTE: Threshold lowered since normalize image has been changed to set the mean of the image to 0.
     if image is None:
-        return [], [], []
+        return [], []
     else:
         s = np.shape(image)
         if s[0] < edge*2 or s[1] < edge*2:
             return [], [], []
     image = fourier_filter(image, inner_filter_width=inner_filter_width, outer_filter_width=outer_filter_width)
-    image = np.float32(normalize_image(image)) # Can edge removal be added here already?
+    image = normalize_image(np.float32(image)) # Can edge removal be added here already?
 
-    x,y = find_particle_centers(image[edge:-edge,edge:-edge], threshold=threshold, particle_size_threshold=particle_size_threshold, particle_upper_size_threshold=particle_upper_size_threshold)
+    x,y,ret_img = find_particle_centers(image[edge:-edge,edge:-edge], threshold=threshold, particle_size_threshold=particle_size_threshold, particle_upper_size_threshold=particle_upper_size_threshold)
 
     px = [s[1] - x_i - edge for x_i in x]
     py = [s[0] - y_i - edge for y_i in y]
-    return px, py, image
+    return px, py#, image
 
 def get_QD_tracking_c_p():
     '''
@@ -170,11 +206,9 @@ class QD_Tracking_Thread(Thread):
        '''
        Function for transporting a quantum dot to target location.
        '''
-<<<<<<< HEAD
        print('Trying to move to target location')
        # TODO add so that this function automatically moves the QD to target location
        pass
-=======
 
        # Update target position of piezo in x-direction
        x_move = self.c_p['QD_target_loc_x'][self.c_p['nbr_quantum_dots_stuck']] - \
@@ -191,7 +225,6 @@ class QD_Tracking_Thread(Thread):
            self.c_p['piezo_target_pos'][1] += max(y_move, -self.c_p['step_size'])
        else:
            self.c_p['piezo_target_pos'][1] += min(y_move, self.c_p['step_size'])
->>>>>>> 58accfba5eee12f921424889267f41936bc8b1f2
 
    def look_for_quantum_dot(self):
        pass
