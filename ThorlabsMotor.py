@@ -744,7 +744,6 @@ class XYZ_piezo_stage_motor(Thread):
         self.setDaemon(True)
         self.channel = channel
         self.axis = axis
-        print('I am here')
         self.sleep_time = sleep_time
         if controller_device is None:
             controller_device = ConnectBenchtopPiezoController(serialNo)

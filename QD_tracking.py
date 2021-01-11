@@ -15,7 +15,9 @@ def get_fft_object(image_shape):
     b = pyfftw.empty_aligned(image_shape, dtype='complex64')
 
     # Over the both axes
+    print('Creating FFT object')
     fft_object = pyfftw.FFTW(a, b, axes=(0,1))
+    print('FFTW object returned')
     return fft_object
 
 image_shape = [3008, 3600]
@@ -127,10 +129,11 @@ def find_QDs(image, inner_filter_width=50, outer_filter_width=500,threshold=0.1,
     else:
         s = np.shape(image)
         if s[0] < edge*2 or s[1] < edge*2:
-            return [], [], []
+            return [], []
+    print('Fouriering ')
     image = fourier_filter(image, inner_filter_width=inner_filter_width, outer_filter_width=outer_filter_width)
     image = normalize_image(np.float32(image)) # Can edge removal be added here already?
-
+    print('Fourier done')
     x,y,ret_img = find_particle_centers(image[edge:-edge,edge:-edge], threshold=threshold, particle_size_threshold=particle_size_threshold, particle_upper_size_threshold=particle_upper_size_threshold)
 
     px = [s[1] - x_i - edge for x_i in x]
@@ -288,22 +291,23 @@ class QD_Tracking_Thread(Thread):
                # Note that the tracking algorithm can easily be replaced if need be
 
                image, image_extracted = self.extract_piezo_image()
-               if not image_extracted:
-                   pass
+               # if not image_extracted:
+               #     pass
+               print('Starting tracking ', np.shape(self.c_p['image']))
                x, y = find_QDs(self.c_p['image'])
                if len(x)>0:
                    print('x: ', x)
                self.c_p['particle_centers'] = [x, y]
                # Check trapping status
-               self.trapped_now()
-
-               if self.c_p['QD_trapped']:
-                   self.move_to_target_location()
-                   if self.ready_to_stick():
-                       print('Sticking QD no:', self.c_p['nbr_quantum_dots_stuck'])
-                       self.stick_quantum_dot()
-               else:
-                   self.trap_quantum_dot()
+               # self.trapped_now()
+               #
+               # if self.c_p['QD_trapped']:
+               #     self.move_to_target_location()
+               #     if self.ready_to_stick():
+               #         print('Sticking QD no:', self.c_p['nbr_quantum_dots_stuck'])
+               #         self.stick_quantum_dot()
+               # else:
+               #     self.trap_quantum_dot()
 
                # Check if particle is trapped or has been trapped in the last number of frames
                # if so then try to move it to target position.

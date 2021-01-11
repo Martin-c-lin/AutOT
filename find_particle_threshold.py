@@ -61,7 +61,7 @@ def get_x_y(counts, particle_upper_size_threshold, particle_size_threshold, sepa
     y = []
     for group, pixel_count in enumerate(counts): # First will be background
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
-            # TODO: Parallelize this thing        
+            # TODO: Parallelize this thing
             # Particle found, locate center of mass of the particle
             cy, cx = ndi.center_of_mass(separate_particles_image==group)
 
@@ -84,7 +84,7 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
     """
 
     # Do thresholding of the image
-    thresholded_image = image > threshold
+    thresholded_image = cv2.medianBlur(image, 5) > threshold # Added thresholding here
 
     # Separate the thresholded image into different sections
     separate_particles_image = measure.label(thresholded_image)
@@ -102,6 +102,7 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
     #                                           particle_size_threshold, \
     #                                           separate_particles_image)
     # x, y = parallel_center_of_masses(particle_images)
+    print('Shape of counts', np.shape(counts))
     for group, pixel_count in enumerate(counts): # First will be background
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
             # Particle found, locate center of mass of the particle

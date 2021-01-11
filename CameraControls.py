@@ -335,5 +335,5 @@ def zoom_out(c_p):
     elif c_p['camera_model'] == 'basler_fast':
         set_AOI(c_p, left=0, right=672, up=0, down=512)
     elif c_p['camera_model'] == 'basler_large':
-        set_AOI(c_p, left=0, right=3600, up=0, down=3000)
+        set_AOI(c_p, left=0, right=3600, up=0, down=3008)
     c_p['new_settings_camera'] = True

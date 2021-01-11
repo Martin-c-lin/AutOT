@@ -294,7 +294,7 @@ class UserInterface:
         # Define new mini-image
         mini_image = np.zeros((200,240,3))
         scale_factor = c_p['AOI'][1]/240
-        scale_factor = 5
+        #scale_factor = 5
 
         l = int(round(AOI[2]/scale_factor))  # left
         r = int(round(AOI[3]/scale_factor))  # right
@@ -1608,6 +1608,7 @@ def snapshot(label=None):
     else:
         image_name = c_p['recording_path'] + '/' + label + '.jpg'
     cv2.imwrite(image_name, cv2.cvtColor(c_p['image'], cv2.COLOR_RGB2BGR))
+    np.save(image_name[:-5], c_p['image'])
     print('Took a snapshot of the experiment.')
 
 
