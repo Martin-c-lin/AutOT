@@ -367,6 +367,18 @@ class UserInterface:
     def toggle_move_by_clicking(self):
         c_p['mouse_move_allowed'] = not c_p['mouse_move_allowed']
 
+    def increment_QD_count(self):
+        if len(c_p['QD_target_loc_x']) > (c_p['QDs_placed'] + 1):
+            c_p['QDs_placed'] += 1
+        else:
+            print('Already at final location')
+
+    def decrement_QD_count(self):
+        if c_p['QDs_placed'] > 0:
+            c_p['QDs_placed'] -= 1
+        else:
+            print('Already at first location')
+
     def create_buttons(self, top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -567,6 +579,14 @@ class UserInterface:
             self.open_shutter_button = tkinter.Button(
                 top, text='Open shutter', command=open_shutter)
             self.open_shutter_button.place(x=x_position_2, y=y_position_2.__next__())
+
+        next_qd_button = tkinter.Button(top, text='Next QD position',
+            command=self.increment_QD_count)
+        previous_qd_button = tkinter.Button(top, text='Previous QD position',
+            command=self.decrement_QD_count)
+
+        next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+        previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
 
     def create_SLM_window(self, _class):
         try:
@@ -775,13 +795,13 @@ class UserInterface:
         y = int(c_p['traps_relative_pos'][0][0])
 
         # Calculate distance from laser to target location
-        separation_x = c_p['QD_target_loc_x']['QDs_placed'] * c_p['mmToPixel'] - x
-        separation_y = c_p['QD_target_loc_y']['QDs_placed'] * c_p['mmToPixel'] - y
+        separation_x = c_p['QD_target_loc_x'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - x
+        separation_y = c_p['QD_target_loc_y'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - y
         cross = np.int32(np.linspace(-5,5,11))
         for x_loc, y_loc in zip(c_p['QD_target_loc_x'],c_p['QD_target_loc_y']):
             # Calcualte where in the image the markers should be put
-            xc = int(x_loc - separation_x)
-            yc = int(y_loc - separation_y)
+            xc = int(x_loc * c_p['mmToPixel']/1000 - separation_x)
+            yc = int(y_loc * c_p['mmToPixel']/1000 - separation_y)
             # Check that the marker lies inside the image
             if 5<xc<s[0] and 5<yc<s[1]:
                 # Update the image with the markers
@@ -807,8 +827,8 @@ class UserInterface:
          if c_p['display_laser_position']:
              self.add_laser_cross(image)
 
-        if c_p['display_target_QD_positions']:
-            self.add_target_QD_locs(image)
+         if c_p['display_target_QD_positions']:
+             self.add_target_QD_locs(image)
 
          if c_p['phasemask_updated']:
               print('New phasemask')
@@ -1691,7 +1711,8 @@ def zoom_in(margin=60, use_traps=False):
         down = min(max(c_p['traps_absolute_pos'][1]) + margin, 1000)
         down = int(down // 20 * 20)
 
-    elif c_p['camera_model'] == 'basler_large': # TODO finish this
+    elif c_p['camera_model'] == 'basler_large':
+        # TODO finish this so it tries to zoom in on relevant locations
         margin = 240
         left = max(min(c_p['traps_absolute_pos'][0]) - margin, 0)
         left = int(left // 16 * 16)

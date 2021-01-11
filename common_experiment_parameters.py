@@ -126,9 +126,8 @@ def get_default_c_p(recording_path=None):
         'mouse_move_allowed':True, # Determines if one is allowed to move motors
         # by clicking on the screen.
         'display_laser_position':True,
-        'display_target_QD_positions':False,
+        'display_target_QD_positions':True,
         'nbr_experiments':1,
-        'QDs_placed':0,
         'tracking_on': False,
         'setpoint_temperature': 25,
         'current_temperature': 25,
@@ -146,6 +145,7 @@ def get_default_c_p(recording_path=None):
         'target_trap_pos': [500, 500],
         'QD_target_loc_x':[0,10,20],
         'QD_target_loc_y':[0,0,0],
+        'QDs_placed': 1,
         'motor_movements': [0, 0],  # How much x and y motor should be moved
         'motor_starting_pos': [0, 0],  # Startng position of x-y motors,
         # needed for z-compensation
