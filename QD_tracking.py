@@ -108,8 +108,8 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     return inv
 
 
-def find_QDs(image, inner_filter_width=50, outer_filter_width=500,threshold=0.1,
-    particle_size_threshold=30, particle_upper_size_threshold=5000, edge=80):
+def find_QDs(image, inner_filter_width=15, outer_filter_width=300,threshold=0.11,
+    particle_size_threshold=60, particle_upper_size_threshold=400, edge=80):
     '''
     Function for detecting the quantum dots.
 
