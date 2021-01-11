@@ -11,6 +11,7 @@ def get_camera_c_p():
     '''
     Function for retrieving the c_p relevant for controlling the camera
     '''
+    # TODO make it so that the AOI of the basler camera is not hardcoded
     camera_c_p = {
         'new_video':False,
         'recording_duration':3000,
@@ -187,7 +188,7 @@ class CameraThread(threading.Thread):
 
             self.cam.OffsetX = 0
             self.cam.Width = width
-            self.cam.OffsetX = 1000#offset_x
+            self.cam.OffsetX = 1000
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = offset_y

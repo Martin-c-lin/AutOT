@@ -762,6 +762,32 @@ class UserInterface:
          except:
              print('Warning could not display laser position',x,y,np.size(image))
 
+    def add_target_QD_locs(self, image):
+        '''
+        Draws the locations in which there should be QDs. The locations are drawn
+        relative to the laser.
+        TODO: Make the markers a different color
+        '''
+        # TODO convert from QD_target_loc_x to pixels
+        s = np.shape(image)
+        # Extract laser position
+        x = int(c_p['traps_relative_pos'][1][0])
+        y = int(c_p['traps_relative_pos'][0][0])
+
+        # Calculate distance from laser to target location
+        separation_x = c_p['QD_target_loc_x']['QDs_placed'] * c_p['mmToPixel'] - x
+        separation_y = c_p['QD_target_loc_y']['QDs_placed'] * c_p['mmToPixel'] - y
+        cross = np.int32(np.linspace(-5,5,11))
+        for x_loc, y_loc in zip(c_p['QD_target_loc_x'],c_p['QD_target_loc_y']):
+            # Calcualte where in the image the markers should be put
+            xc = int(x_loc - separation_x)
+            yc = int(y_loc - separation_y)
+            # Check that the marker lies inside the image
+            if 5<xc<s[0] and 5<yc<s[1]:
+                # Update the image with the markers
+                image[xc+cross, yc+cross] = 0
+                image[xc+cross, yc-cross] = 0
+
     def add_particle_positions_to_image(self, image):
         for x,y in zip(c_p['particle_centers'][0], c_p['particle_centers'][1]):
             try:
@@ -780,6 +806,9 @@ class UserInterface:
 
          if c_p['display_laser_position']:
              self.add_laser_cross(image)
+
+        if c_p['display_target_QD_positions']:
+            self.add_target_QD_locs(image)
 
          if c_p['phasemask_updated']:
               print('New phasemask')

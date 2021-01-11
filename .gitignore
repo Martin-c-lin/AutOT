@@ -11,3 +11,4 @@ Automatic*
 *.ipynb*
 Notes*
 src
+center_of_masses.py

@@ -138,7 +138,7 @@ def find_QDs(image, inner_filter_width=50, outer_filter_width=500,threshold=0.1,
 
     px = [s[1] - x_i - edge for x_i in x]
     py = [s[0] - y_i - edge for y_i in y]
-    return px, py#, image
+    return px, py, ret_img
 
 def get_QD_tracking_c_p():
     '''
