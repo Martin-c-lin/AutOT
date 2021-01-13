@@ -722,6 +722,7 @@ def get_default_piezo_c_p():
     'piezo_current_position':[0,0,0],
     'stage_piezo_connected':[False,False,False],
     'running':True,
+    'piezo_move_to_target':[False,False],
     }
     return piezo_c_p
 
@@ -734,7 +735,7 @@ class XYZ_piezo_stage_motor(Thread):
     # TODO make it possible to connect/disconnect these motors on the fly.
     # TODO change motor speed to slow.
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='71165844', sleep_time=0.3):
+        serialNo='71165844', sleep_time=0.1):
         """
 
         """
@@ -761,8 +762,22 @@ class XYZ_piezo_stage_motor(Thread):
 
     def run(self):
         '''
+        Main loop of program
         '''
+        target_key = 'QD_target_loc_x' if self.axis == 0 else 'QD_target_loc_y'
+        step = 0.1
         while self.c_p['program_running']:
+
+            # Check if we should move the piezo to a specific location.
+            if self.axis<2 and self.c_p['piezo_move_to_target'][self.axis]:
+                # TODO check that target location is ok for piezo
+                d =  self.c_p['piezo_current_position'][self.axis] - self.c_p[target_key][self.c_p['QDs_placed']]
+                if d < 0:
+                    self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-step, d)
+                else:
+                    self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(step, d)
+                if np.abs(d)<0.1:
+                    self.c_p['piezo_move_to_target'][self.axis] = False
             self.update_position()
             sleep(self.sleep_time)
         self.__del__()
