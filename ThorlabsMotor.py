@@ -714,6 +714,7 @@ def ConnectPiezoStageChannel(device, channel):
     return channel
 
 def get_default_piezo_c_p():
+    # TODO use pos and position consitently
     piezo_c_p = {
     'piezo_serial_no':'71165844',
     'starting_position_piezo_xyz':[0,0,0],

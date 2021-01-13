@@ -120,7 +120,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_piezo_x']:
         # OBS assumes that the x-motor is connected to channel 1
         try:
-            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 2,0, c_p,
+            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 1,0, c_p,
                 controller_device=controller_device_piezo)
             thread_piezo_x.start()
             thread_list.append(thread_piezo_x)
@@ -132,7 +132,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_piezo_y']:
         # OBS assumes that the y-motor is connected to channel 2
         try:
-            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 1,1, c_p,
+            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 2,1, c_p,
                 controller_device=controller_device_piezo)
             thread_piezo_y.start()
             thread_list.append(thread_piezo_y)
@@ -643,6 +643,11 @@ class UserInterface:
             position_text += ' Motor-Y is ' + y_connected + '\n'
             position_text += ' Focus (z) motor is ' + z_connected + '\n'
 
+        if c_p['stage_piezos']:
+            position_text += 'Piezo x: ' + str(c_p['piezo_current_position'][0]) + '\n'
+            position_text += 'Piezo y: ' + str(c_p['piezo_current_position'][1]) + '\n'
+            position_text += 'Piezo z: ' + str(c_p['piezo_current_position'][2]) + '\n'
+
         position_text += '\n Experiments run ' + str(c_p['experiment_progress'])
         position_text += ' out of ' + str(c_p['nbr_experiments'])
         position_text += '  ' + str(c_p['experiment_runtime']) + 's run out of ' + str(c_p['recording_duration'])
@@ -766,12 +771,18 @@ class UserInterface:
         else: # Right
             # Not implemented yet
             pass
-        c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - \
-            (c_p['traps_absolute_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel'])
+        # Calculate travel distance
+        dx = (c_p['traps_absolute_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
+        dy = (c_p['traps_absolute_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
+        #
+        if c_p['stage_piezos']:
+            if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
+                c_p['piezo_target_pos'][0] -= (dx * 1000)
+            if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 18:
+                c_p['piezo_target_pos'][1] -= (dy * 1000)
+        #c_p['stepper_target_position'][0] = c_p['stepper_current_pos'][0] - dx
+        #c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - dy
 
-        c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - \
-            (c_p['traps_absolute_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel'])
-        print(self.image_scale*c_p['mouse_position'][0], self.image_scale*c_p['mouse_position'][1], c_p['stepper_current_pos'][1])
 
     def add_laser_cross(self, image):
          try:
@@ -788,7 +799,6 @@ class UserInterface:
         relative to the laser.
         TODO: Make the markers a different color
         '''
-        # TODO convert from QD_target_loc_x to pixels
         s = np.shape(image)
         # Extract laser position
         x = int(c_p['traps_relative_pos'][1][0])
@@ -798,12 +808,12 @@ class UserInterface:
         separation_x = c_p['QD_target_loc_x'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - x
         separation_y = c_p['QD_target_loc_y'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - y
         cross = np.int32(np.linspace(-5,5,11))
-        for x_loc, y_loc in zip(c_p['QD_target_loc_x'],c_p['QD_target_loc_y']):
+        for x_loc, y_loc in zip(c_p['QD_target_loc_x'], c_p['QD_target_loc_y']):
             # Calcualte where in the image the markers should be put
             xc = int(x_loc * c_p['mmToPixel']/1000 - separation_x)
             yc = int(y_loc * c_p['mmToPixel']/1000 - separation_y)
             # Check that the marker lies inside the image
-            if 5<xc<s[0] and 5<yc<s[1]:
+            if 5 < xc < s[0] and 5 < yc < s[1]:
                 # Update the image with the markers
                 image[xc+cross, yc+cross] = 0
                 image[xc+cross, yc-cross] = 0
