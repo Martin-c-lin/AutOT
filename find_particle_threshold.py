@@ -102,7 +102,8 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
     #                                           particle_size_threshold, \
     #                                           separate_particles_image)
     # x, y = parallel_center_of_masses(particle_images)
-    print('Shape of counts', np.shape(counts))
+
+    # TODO Calcualte image-moments to determine shape
     for group, pixel_count in enumerate(counts): # First will be background
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
             # Particle found, locate center of mass of the particle

@@ -112,10 +112,6 @@ def get_default_c_p(recording_path=None):
         'polling_rate': 100,
         'program_running': True,  # True if camera etc should keep updating
         'motor_running': True,  # Should the motor thread keep running
-#        'zoomed_in': False,  # Keeps track of whether the image is cropped or
-        # not
-        # 'recording': False,  # True if recording is on
-        # 'AOI': [0, 672, 0, 512], # Default for basler camera [0,1200,0,1000] TC
         'image': np.zeros((1080,1080,1)),
         'new_settings_camera': False,
         'new_AOI_display': False,
@@ -129,6 +125,7 @@ def get_default_c_p(recording_path=None):
         'display_target_QD_positions':True,
         'nbr_experiments':1,
         'tracking_on': False,
+        'crop_in':False,
         'setpoint_temperature': 25,
         'current_temperature': 25,
         'starting_temperature': 25,
@@ -143,8 +140,8 @@ def get_default_c_p(recording_path=None):
         # currently are trying to trap. Used to minimize changes in code when
         # updating to multiparticle tracking.
         'target_trap_pos': [500, 500],
-        'QD_target_loc_x':[0,10,20],
-        'QD_target_loc_y':[0,0,0],
+        'QD_target_loc_x':[1,5,15],
+        'QD_target_loc_y':[2,2,2],
         'QDs_placed': 1,
         'motor_movements': [0, 0],  # How much x and y motor should be moved
         'motor_starting_pos': [0, 0],  # Startng position of x-y motors,

@@ -8,7 +8,7 @@ import read_dict_from_file as rdff
 import ThorlabsShutter as TS
 import CameraControls
 from CameraControls import update_traps_relative_pos # Moved this function
-from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p
+from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p, get_save_path
 from instrumental import u
 import numpy as np
 import threading, time, cv2, queue, copy, sys, tkinter, os, pickle
@@ -120,7 +120,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_piezo_x']:
         # OBS assumes that the x-motor is connected to channel 1
         try:
-            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 2,0, c_p,
+            thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 1,0, c_p,
                 controller_device=controller_device_piezo)
             thread_piezo_x.start()
             thread_list.append(thread_piezo_x)
@@ -132,7 +132,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_piezo_y']:
         # OBS assumes that the y-motor is connected to channel 2
         try:
-            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 1,1, c_p,
+            thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 2,1, c_p,
                 controller_device=controller_device_piezo)
             thread_piezo_y.start()
             thread_list.append(thread_piezo_y)
@@ -276,6 +276,7 @@ class UserInterface:
                 c_p['tracking_on'] = True
             else:
                 c_p['experiment_progress'] = 0
+            update_c_p(experiment_list[0]) # TODO make this more dynamic
             c_p['nbr_experiments'] = len(c_p['experiment_schedule'])
             # Update recording path
             name = filepath[filepath.rfind('/')+1:filepath.rfind('.')]
@@ -378,6 +379,15 @@ class UserInterface:
             c_p['QDs_placed'] -= 1
         else:
             print('Already at first location')
+
+    def toggle_crop_in(self):
+        c_p['crop_in'] = not c_p['crop_in']
+
+    def toggle_move_piezo_to_target(self):
+        if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
+            c_p['piezo_move_to_target'] = [False, False]
+        else:
+            c_p['piezo_move_to_target'] = [True, True]
 
     def create_buttons(self, top=None):
         '''
@@ -527,6 +537,8 @@ class UserInterface:
             self.down_button.place(x=x_position, y=y_position.__next__())
             self.right_button.place(x=x_position, y=y_position.__next__())
             self.left_button.place(x=x_position, y=y_position.__next__())
+            self.move_to_target_button = tkinter.Button(top, \
+                text='Toggle move to target', command=self.toggle_move_piezo_to_target)
 
             focus_up_button = tkinter.Button(
                 top, text='Move focus up', command=focus_up)
@@ -534,6 +546,9 @@ class UserInterface:
                 top, text='Move focus down', command=focus_down)
             focus_up_button.place(x=x_position, y=y_position.__next__())
             focus_down_button.place(x=x_position, y=y_position.__next__())
+            self.move_to_target_button = tkinter.Button(top, \
+                text='Toggle move to target', command=self.toggle_move_piezo_to_target)
+            self.move_to_target_button.place(x=x_position, y=y_position.__next__())
 
         if c_p['using_stepper_motors']:
             self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
@@ -580,13 +595,20 @@ class UserInterface:
                 top, text='Open shutter', command=open_shutter)
             self.open_shutter_button.place(x=x_position_2, y=y_position_2.__next__())
 
-        next_qd_button = tkinter.Button(top, text='Next QD position',
-            command=self.increment_QD_count)
-        previous_qd_button = tkinter.Button(top, text='Previous QD position',
-            command=self.decrement_QD_count)
+        if c_p['QD_tracking']:
+            next_qd_button = tkinter.Button(top, text='Next QD position',
+                command=self.increment_QD_count)
+            previous_qd_button = tkinter.Button(top, text='Previous QD position',
+                command=self.decrement_QD_count)
 
-        next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
-        previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+            next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+            previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+
+        if c_p['camera_model'] == 'basler_large':
+            self.crop_in_button = tkinter.Button(top, text='crop in',
+                command=self.toggle_crop_in)
+            self.crop_in_button.place(x=x_position_2, y=y_position_2.__next__())
+
 
     def create_SLM_window(self, _class):
         try:
@@ -643,6 +665,11 @@ class UserInterface:
             position_text += ' Motor-Y is ' + y_connected + '\n'
             position_text += ' Focus (z) motor is ' + z_connected + '\n'
 
+        if c_p['stage_piezos']:
+            position_text += 'Piezo x: ' + str(c_p['piezo_current_position'][0]) + '\n'
+            position_text += 'Piezo y: ' + str(c_p['piezo_current_position'][1]) + '\n'
+            position_text += 'Piezo z: ' + str(c_p['piezo_current_position'][2]) + '\n'
+
         position_text += '\n Experiments run ' + str(c_p['experiment_progress'])
         position_text += ' out of ' + str(c_p['nbr_experiments'])
         position_text += '  ' + str(c_p['experiment_runtime']) + 's run out of ' + str(c_p['recording_duration'])
@@ -692,6 +719,7 @@ class UserInterface:
         else:
             self.recording_button.config(text='Turn on recording', bg='red')
 
+        # Update tracking status indication
         if c_p['tracking_on']:
             self.tracking_label.config(text='particle tracking is on',bg='green')
         else:
@@ -701,6 +729,15 @@ class UserInterface:
             self.diplay_laser_button.config(bg='green')
         else:
             self.diplay_laser_button.config(bg='red')
+
+        # Update "move to target button", may not exist
+        try:
+            if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
+                self.move_to_target_button.config(bg='green')
+            else:
+                self.move_to_target_button.config(bg='red')
+        except:
+            pass
 
         self.temperature_label.config(text=self.get_temperature_info())
 
@@ -766,12 +803,23 @@ class UserInterface:
         else: # Right
             # Not implemented yet
             pass
-        c_p['stepper_target_position'][0] = (c_p['stepper_current_pos'][0] - \
-            (c_p['traps_absolute_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel'])
+        # Calculate travel distance
+        dx = (c_p['traps_absolute_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
 
-        c_p['stepper_target_position'][1] = (c_p['stepper_current_pos'][1] - \
-            (c_p['traps_absolute_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel'])
-        print(self.image_scale*c_p['mouse_position'][0], self.image_scale*c_p['mouse_position'][1], c_p['stepper_current_pos'][1])
+        dy = (c_p['traps_absolute_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
+        #
+        if c_p['stage_piezos']:
+
+            if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
+                c_p['piezo_target_pos'][0] -= (dx * 1000)
+            else:
+                c_p['stepper_target_position'][0] = c_p['stepper_current_pos'][0] - dx
+
+            if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 18:
+                c_p['piezo_target_pos'][1] -= (dy * 1000)
+            else:
+                c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - dy
+
 
     def add_laser_cross(self, image):
          try:
@@ -788,25 +836,34 @@ class UserInterface:
         relative to the laser.
         TODO: Make the markers a different color
         '''
-        # TODO convert from QD_target_loc_x to pixels
         s = np.shape(image)
         # Extract laser position
-        x = int(c_p['traps_relative_pos'][1][0])
-        y = int(c_p['traps_relative_pos'][0][0])
+        x = int(c_p['traps_relative_pos'][0][0]) #[1][0]
+        y = int(c_p['traps_relative_pos'][1][0]) #[1][0]
 
         # Calculate distance from laser to target location
         separation_x = c_p['QD_target_loc_x'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - x
         separation_y = c_p['QD_target_loc_y'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - y
         cross = np.int32(np.linspace(-5,5,11))
-        for x_loc, y_loc in zip(c_p['QD_target_loc_x'],c_p['QD_target_loc_y']):
+        for x_loc, y_loc in zip(c_p['QD_target_loc_x'], c_p['QD_target_loc_y']):
             # Calcualte where in the image the markers should be put
-            xc = int(x_loc * c_p['mmToPixel']/1000 - separation_x)
-            yc = int(y_loc * c_p['mmToPixel']/1000 - separation_y)
+            yc = int(x_loc * c_p['mmToPixel']/1000 - separation_x)
+            xc = int(y_loc * c_p['mmToPixel']/1000 - separation_y)
             # Check that the marker lies inside the image
-            if 5<xc<s[0] and 5<yc<s[1]:
+            if 5 < xc < s[0] and 5 < yc < s[1]:
                 # Update the image with the markers
                 image[xc+cross, yc+cross] = 0
                 image[xc+cross, yc-cross] = 0
+
+    def crop_in(self, image, edge=500):
+        """
+        Crops in on an area around the laser for easier viewing.
+        """
+        top = int(max(c_p['traps_relative_pos'][0][0]-edge, 0))
+        bottom = int(min(c_p['traps_relative_pos'][0][0]+edge, np.shape(image)[0]))
+        left = int(max(c_p['traps_relative_pos'][1][0]-edge, 0))
+        right = int(min(c_p['traps_relative_pos'][1][0]+edge, np.shape(image)[1]))
+        return image[left:right, top:bottom]
 
     def add_particle_positions_to_image(self, image):
         for x,y in zip(c_p['particle_centers'][0], c_p['particle_centers'][1]):
@@ -829,7 +886,9 @@ class UserInterface:
 
          if c_p['display_target_QD_positions']:
              self.add_target_QD_locs(image)
-
+         if c_p['crop_in']:
+             # TODO fix mouse click when cropped in
+             image = self.crop_in(image)
          if c_p['phasemask_updated']:
               print('New phasemask')
               self.SLM_Window.update()
@@ -1327,7 +1386,7 @@ def update_c_p(update_dict, wait_for_completion=True):
     ok_parameters = ['use_LGO', 'LGO_order', 'xm', 'ym', 'zm', 'setpoint_temperature',
     'recording_duration', 'target_experiment_z', 'SLM_iterations',
     'temperature_output_on','activate_traps_one_by_one','need_T_stable',
-    'measurement_name','phasemask']
+    'measurement_name','phasemask','QD_target_loc_x','QD_target_loc_y']
 
     requires_new_phasemask = ['use_LGO', 'LGO_order', 'xm', 'ym', 'zm', 'SLM_iterations']
 
@@ -1404,23 +1463,6 @@ def count_interior_particles(margin=30):
         interior_particles += 1
 
     return interior_particles
-
-
-def find_focus():
-    """
-    Function which uses the laser to find a focus point
-    """
-
-    # Idea - Search for a focus, first down 1000-ticks then up 2000 ticks from down pos
-    # Take small steps :10-20 per step. Between each step check if intensity
-    # Around the traps have increased enough
-    #Direction focus down
-    #
-    focus_found = False
-    while not focus_found:
-
-
-        print('a')
 
 
 def in_focus(margin=40):
@@ -1823,7 +1865,6 @@ def save_phasemask():
         c_p['measurement_name'] + '-' + str(now.hour) + '-' + str(now.minute) +\
         '-' + str(now.second) + '.npy'
     np.save(phasemask_name, c_p['phasemask'], allow_pickle=True)
-
 
 def move_particles_slowly(last_d=30e-6):
     # Function for moving the particles between the center and the edges
