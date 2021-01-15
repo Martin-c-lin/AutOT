@@ -1,10 +1,10 @@
 int incomingByte;
 const int LED=12;
 void setup() { 
-  Serial.begin(9600);                               //initialize serial COM at 9600 baudrate
-  pinMode(LED, OUTPUT);                    //declare the LED pin (13) as output
-  digitalWrite(LED, HIGH);
-  delay(500);
+  Serial.begin(9600);                      //initialize serial COM at 9600 baudrate
+  pinMode(LED, OUTPUT);                    //declare the LED pin (12) as output
+  digitalWrite(LED, LOW);
+  delay(100);
   Serial.println("Hello!,How are you Python ?");
 }
 

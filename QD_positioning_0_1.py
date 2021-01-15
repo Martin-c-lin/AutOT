@@ -625,10 +625,10 @@ class UserInterface:
             next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
             previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
 
-        if c_p['camera_model'] == 'basler_large':
-            self.crop_in_button = tkinter.Button(top, text='crop in',
-                command=self.toggle_crop_in)
-            self.crop_in_button.place(x=x_position_2, y=y_position_2.__next__())
+        # if c_p['camera_model'] == 'basler_large':
+        #     self.crop_in_button = tkinter.Button(top, text='crop in',
+        #         command=self.toggle_crop_in)
+        #     self.crop_in_button.place(x=x_position_2, y=y_position_2.__next__())
 
 
     def create_SLM_window(self, _class):
@@ -831,9 +831,9 @@ class UserInterface:
             # Not implemented yet
             pass
         # Calculate travel distance
-        dx = (c_p['traps_absolute_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
-
-        dy = (c_p['traps_absolute_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
+        # TODO: Can relative position be used here?
+        dx = (c_p['traps_relative_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
+        dy = (c_p['traps_relative_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
         #
         if c_p['stage_piezos']:
 
@@ -846,6 +846,9 @@ class UserInterface:
                 c_p['piezo_target_pos'][1] -= (dy * 1000)
             else:
                 c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - dy
+        else:
+            c_p['stepper_target_position'][0] = c_p['stepper_current_pos'][0] - dx
+            c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - dy
 
 
     def add_laser_cross(self, image):
@@ -886,11 +889,17 @@ class UserInterface:
         """
         Crops in on an area around the laser for easier viewing.
         """
-        top = int(max(c_p['traps_relative_pos'][0][0]-edge, 0))
-        bottom = int(min(c_p['traps_relative_pos'][0][0]+edge, np.shape(image)[0]))
-        left = int(max(c_p['traps_relative_pos'][1][0]-edge, 0))
-        right = int(min(c_p['traps_relative_pos'][1][0]+edge, np.shape(image)[1]))
+        # Check if we can do crop
+        top = int(max(c_p['traps_absolute_pos'][0][0]-edge, 0))
+        bottom = int(min(c_p['traps_absolute_pos'][0][0]+edge, np.shape(image)[0]))
+        left = int(max(c_p['traps_absolute_pos'][1][0]-edge, 0))
+        right = int(min(c_p['traps_absolute_pos'][1][0]+edge, np.shape(image)[1]))
+        c_p['traps_relative_pos'][0,0] = bottom - c_p['traps_absolute_pos'][0][0]
+        c_p['traps_relative_pos'][1,0] = right - c_p['traps_absolute_pos'][1][0]
+        print(c_p['traps_relative_pos'][0,0], c_p['traps_relative_pos'][1,0])
+
         return image[left:right, top:bottom]
+
 
     def add_particle_positions_to_image(self, image):
         for x,y in zip(c_p['particle_centers'][0], c_p['particle_centers'][1]):
@@ -1794,6 +1803,7 @@ def zoom_in(margin=60, use_traps=False):
         up = int(up // 16 * 16)
         down = min(max(c_p['traps_absolute_pos'][1]) + margin, 3008)
         down = int(down // 16 * 16)
+        print('basler large zoom in')
     else:
         left = max(min(c_p['traps_absolute_pos'][0]) - margin, 0)
         left = int(left // 16 * 16)
@@ -1951,16 +1961,13 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
+# c_p['stage_piezo_x'] = True
+# c_p['stage_piezo_y'] = True
+# c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
 
 T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
-
-# UserInterface(tkinter.Tk(), "Control display", c_p, thread_list,
-#     stage_piezo_x=True,stage_piezo_y=True, stage_piezo_z=True)
 
 sys.exit()

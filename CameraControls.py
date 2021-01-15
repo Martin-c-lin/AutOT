@@ -178,20 +178,21 @@ class CameraThread(threading.Thread):
 
             camera_width = 3600 if self.c_p['camera_model']=='basler_large' else 672
             camera_height = 3008 if self.c_p['camera_model']=='basler_large' else 512# 512 for small camer
-            c_p['AOI'][1] -= np.mod(c_p['AOI'][1]-c_p['AOI'][0],16)
-            c_p['AOI'][3] -= np.mod(c_p['AOI'][3]-c_p['AOI'][2],16)
+            #c_p['AOI'][1] -= np.mod(c_p['AOI'][1]-c_p['AOI'][0],16)
+            #c_p['AOI'][3] -= np.mod(c_p['AOI'][3]-c_p['AOI'][2],16)
 
             width = int(c_p['AOI'][1] - c_p['AOI'][0])
-            offset_x = camera_width - width - c_p['AOI'][0]
+            offset_x = c_p['AOI'][0]#camera_width - width - c_p['AOI'][0]
             height = int(c_p['AOI'][3] - c_p['AOI'][2])
-            offset_y = camera_height - height - c_p['AOI'][2]
+            offset_y = c_p['AOI'][2]#camera_height - height - c_p['AOI'][2]
 
             self.cam.OffsetX = 0
             self.cam.Width = width
-            self.cam.OffsetX = 1000
+            self.cam.OffsetX = 1000 + offset_x#1000
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = offset_y
+            print('Offsets: ', offset_x, offset_y)
 
        except Exception as e:
            print('AOI not accepted',c_p['AOI'])

@@ -22,9 +22,10 @@ class ArduinoLEDControlThread(Thread):
         self.ArduinoUnoSerial = serial.Serial(port, 9600)
         self.last_write = False
 
-
-    def __del__(self):
-        self.ArduinoUnoSerial.close()
+    # 
+    # def __del__(self):
+    #     # Turn off LED and close connection.
+    #     self.ArduinoUnoSerial.close()
 
     def run(self):
 
@@ -36,4 +37,6 @@ class ArduinoLEDControlThread(Thread):
             # TODO make this thread listen to the change rather than just wait.
             # Check the speed of this function.
             time.sleep(self.sleep_time)
-        self.__del__()
+        self.ArduinoUnoSerial.write(b'L')
+        self.ArduinoUnoSerial.close()
+        #self.__del__()
