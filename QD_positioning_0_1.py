@@ -7,6 +7,7 @@ import find_particle_threshold as fpt
 import read_dict_from_file as rdff
 import ThorlabsShutter as TS
 import CameraControls
+from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p
 from CameraControls import update_traps_relative_pos # Moved this function
 from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p, get_save_path
 from instrumental import u
@@ -210,6 +211,18 @@ def start_threads(c_p, thread_list):
         except:
             print('Could not start quantum dot tracking thread')
 
+    if c_p['arduino_LED']:
+        append_c_p(c_p, get_arduino_c_p())
+        try:
+            ArcuinoThread = ArduinoLEDControlThread(16, 'ArduinoLEDThread',\
+                c_p=c_p)
+            ArcuinoThread.start()
+            thread_list.append(ArcuinoThread)
+            print('Arduino com thread started!')
+        except:
+            print('Could not start arduino thread')
+
+
 
 class UserInterface:
 
@@ -388,6 +401,9 @@ class UserInterface:
             c_p['piezo_move_to_target'] = [False, False]
         else:
             c_p['piezo_move_to_target'] = [True, True]
+
+    def toggle_polymerization_LED(self):
+        c_p['polymerzation_LED'] = not c_p['polymerzation_LED']
 
     def create_buttons(self, top=None):
         '''
@@ -595,6 +611,11 @@ class UserInterface:
                 top, text='Open shutter', command=open_shutter)
             self.open_shutter_button.place(x=x_position_2, y=y_position_2.__next__())
 
+        if c_p['arduino_LED']:
+            self.arduino_LED_button = tkinter.Button(
+                top, text='Toggle LED', command=self.toggle_polymerization_LED)
+            self.arduino_LED_button.place(x=x_position_2, y=y_position_2.__next__())
+
         if c_p['QD_tracking']:
             next_qd_button = tkinter.Button(top, text='Next QD position',
                 command=self.increment_QD_count)
@@ -729,6 +750,12 @@ class UserInterface:
             self.diplay_laser_button.config(bg='green')
         else:
             self.diplay_laser_button.config(bg='red')
+
+        if c_p['arduino_LED']:
+            if c_p['polymerzation_LED']:
+                self.arduino_LED_button.config(bg='green')
+            else:
+                self.arduino_LED_button.config(bg='red')
 
         # Update "move to target button", may not exist
         try:
@@ -1924,7 +1951,7 @@ c_p['stage_stepper_z'] = True
 c_p['stage_piezo_x'] = True
 c_p['stage_piezo_y'] = True
 c_p['stage_piezo_z'] = True
-c_p['shutter'] = True
+c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
 
