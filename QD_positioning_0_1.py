@@ -289,7 +289,7 @@ class UserInterface:
                 c_p['tracking_on'] = True
             else:
                 c_p['experiment_progress'] = 0
-            update_c_p(experiment_list[0]) # TODO make this more dynamic
+            update_c_p(experiment_list[0])
             c_p['nbr_experiments'] = len(c_p['experiment_schedule'])
             # Update recording path
             name = filepath[filepath.rfind('/')+1:filepath.rfind('.')]
@@ -897,9 +897,9 @@ class UserInterface:
             try:
                 x = int(x)
                 y = int(y)
-                # TODO change to different shape to color
                 image[x-10:x+10, y] = 0
                 image[x, y-10:y+10] = 0
+                image[x-3:x+3, y-3:y+3] = 0
             except:
                 print(' Warning could not display particle at position: ', x, y)
 
@@ -913,23 +913,26 @@ class UserInterface:
 
          if c_p['display_target_QD_positions']:
              self.add_target_QD_locs(image)
+
          if c_p['crop_in']:
              # TODO fix mouse click when cropped in
              image = self.crop_in(image)
+
          if c_p['phasemask_updated']:
               print('New phasemask')
               self.SLM_Window.update()
               c_p['phasemask_updated'] = False
+
          self.update_indicators()
-         # TODO make it possible to overlay the positions of the trapped particles and the
-         # estimated positions of the target positions
          self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.resize_display_image(image)))
-         self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW) # need to use a compatible image type
+         # need to use a compatible image type
+         self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW)
 
          # Update mini-window
          self.create_trap_image()
          self.mini_photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.mini_image, mode='RGB'))
-         self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW) # need to use a compatible image type
+         # need to use a compatible image type
+         self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW)
          self.window.after(self.delay, self.update)
 
 
@@ -955,8 +958,8 @@ class SLM_window(Frame):
         self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(self.c_p['phasemask']))
         del self.img.image
         self.img = Label(self, image=self.photo)
-        self.img.image = self.photo # This ate lots of memory
-        self.img.place(x=420, y=0) # Do not think this is needed
+        self.img.image = self.photo
+        self.img.place(x=420, y=0)
 
 
 def compensate_focus():
@@ -1782,7 +1785,7 @@ def zoom_in(margin=60, use_traps=False):
 
     elif c_p['camera_model'] == 'basler_large':
         # TODO finish this so it tries to zoom in on relevant locations
-        margin = 240
+        margin = 500
         left = max(min(c_p['traps_absolute_pos'][0]) - margin, 0)
         left = int(left // 16 * 16)
         right = min(max(c_p['traps_absolute_pos'][0]) + margin, 3600)

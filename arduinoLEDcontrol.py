@@ -34,5 +34,6 @@ class ArduinoLEDControlThread(Thread):
             else:
                 self.ArduinoUnoSerial.write(b'L')
             # TODO make this thread listen to the change rather than just wait.
+            # Check the speed of this function.
             time.sleep(self.sleep_time)
         self.__del__()

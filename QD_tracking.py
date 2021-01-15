@@ -11,7 +11,7 @@ pyfftw.interfaces.cache.enable()
 
 
 def get_fft_object(image_shape):
-    a = pyfftw.empty_aligned(image_shape, dtype='complex64') # TODO test if complex64 works
+    a = pyfftw.empty_aligned(image_shape, dtype='complex64')
     b = pyfftw.empty_aligned(image_shape, dtype='complex64')
 
     # Over the both axes
@@ -211,6 +211,7 @@ class QD_Tracking_Thread(Thread):
        '''
        print('Trying to move to target location')
        # TODO add so that this function automatically moves the QD to target location
+       # Has been solved by setting the paramter 'piezo_move_to_target' to true
        pass
 
        # Update target position of piezo in x-direction
@@ -267,10 +268,12 @@ class QD_Tracking_Thread(Thread):
        return np.abs(x) < self.c_p['tolerance'] and np.abs(y) < self.c_p['tolerance']
 
    def extract_piezo_image(self):
+       '''
+       Exctracts the part of the image onto which the piezos can move.
+       '''
        x_0 = self.c_p['traps_relative_pos'][0][0]
        y_0 = self.c_p['traps_relative_pos'][1][0]
 
-       # TODO check orientation of piezos etc relative to camera
        # Also check what happens when zoomed in
        # should there be a factor 1000 somewhere here?
        x_start = int(x_0 - self.c_p['piezo_current_position'][0] * self.c_p['mmToPixel'] / 1000)

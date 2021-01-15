@@ -100,9 +100,7 @@ def get_default_c_p(recording_path=None):
     # TODO : Consider to change this into a class.
     # Make this object possible to pickle and unpickle to make it easier to
     # reuse settings.
-    # TODO: Replace xm,ym, zm with single array or similar. Potentilly by
-    # Removing them completely and having only pixel coordinates in the code
-    # And converting on the fly for the SLM.
+    # TODO: Replace xm,ym, zm with single array or similar.
     if recording_path is None:
         recording_path = get_save_path()
     c_p = {

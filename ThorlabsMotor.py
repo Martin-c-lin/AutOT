@@ -733,7 +733,6 @@ class XYZ_piezo_stage_motor(Thread):
     '''
 
     # TODO make it possible to connect/disconnect these motors on the fly.
-    # TODO change motor speed to slow.
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
         serialNo='71165844', sleep_time=0.1):
         """
@@ -757,12 +756,16 @@ class XYZ_piezo_stage_motor(Thread):
 
     def update_position(self):
         # Update c_p position
-        self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_pos'][self.axis]))
-        self.c_p['piezo_current_position'][self.axis] = float(str(self.piezo_channel.GetPosition()))
+        if 0 < self.c_p['piezo_target_pos'][self.axis] < 20:
+            self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_pos'][self.axis]))
+            self.c_p['piezo_current_position'][self.axis] = float(str(self.piezo_channel.GetPosition()))
+        else:
+            print('Trying to move piezo to position out of bounds!')
 
     def run(self):
         '''
-        Main loop of program
+        Main loop of program. Used to automatically move the piezo in response
+        to changes in c_p made by main program.
         '''
         target_key = 'QD_target_loc_x' if self.axis == 0 else 'QD_target_loc_y'
         step = 0.1
@@ -770,14 +773,17 @@ class XYZ_piezo_stage_motor(Thread):
 
             # Check if we should move the piezo to a specific location.
             if self.axis<2 and self.c_p['piezo_move_to_target'][self.axis]:
-                # TODO check that target location is ok for piezo
                 d =  self.c_p['piezo_current_position'][self.axis] - self.c_p[target_key][self.c_p['QDs_placed']]
+
                 if d < 0:
                     self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-step, d)
+
                 else:
                     self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(step, d)
-                if np.abs(d)<0.1:
+
+                if np.abs(d) < 0.1:
                     self.c_p['piezo_move_to_target'][self.axis] = False
+
             self.update_position()
             sleep(self.sleep_time)
         self.__del__()
@@ -808,18 +814,18 @@ def ConnectBenchtopStepperChannel(device, channel, polling_rate=100):
     '''
 
     channel = device.GetChannel(channel)
-
     channel.WaitForSettingsInitialized(5000)
-
     channel.StartPolling(polling_rate)
+
     # Needs a delay so that the current enabled state can be obtained
     motorConfiguration = channel.LoadMotorConfiguration(channel.DeviceID)
     currentDeviceSettings = channel.MotorDeviceSettings# as ThorlabsBenchtopStepperMotorSettings;
     channel.SetSettings(currentDeviceSettings, True, False)
-
     deviceInfo = channel.GetDeviceInfo()
+
     # Enable the channel otherwise any move is ignored
     channel.EnableDevice()
+
     return channel
 
 
@@ -833,7 +839,7 @@ def get_default_stepper_c_p():
         'starting_position_stepper_xyz':[0, 0, 0],
         'stage_stepper_connected':[False, False, False],
         'stepper_current_pos':[0, 0, 0],
-        'stepper_target_position':[2.3, 2.3, 0],# Has trouble moving at edge
+        'stepper_target_position':[2.3, 2.3, 0],
         'stepper_next_move':[0, 0, 0],
         'stepper_max_speed':[0.01, 0.01, 0.01],
         'stepper_acc':[0.005, 0.005, 0.005],
