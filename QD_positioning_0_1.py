@@ -403,7 +403,7 @@ class UserInterface:
             c_p['piezo_move_to_target'] = [True, True]
 
     def toggle_polymerization_LED(self):
-        c_p['polymerzation_LED'] = not c_p['polymerzation_LED']
+        c_p['polymerization_LED'] = not c_p['polymerization_LED']
 
     def create_buttons(self, top=None):
         '''
@@ -752,7 +752,7 @@ class UserInterface:
             self.diplay_laser_button.config(bg='red')
 
         if c_p['arduino_LED']:
-            if c_p['polymerzation_LED']:
+            if c_p['polymerization_LED']:
                 self.arduino_LED_button.config(bg='green')
             else:
                 self.arduino_LED_button.config(bg='red')
@@ -1961,9 +1961,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-# c_p['stage_piezo_x'] = True
-# c_p['stage_piezo_y'] = True
-# c_p['stage_piezo_z'] = True
+c_p['stage_piezo_x'] = True
+c_p['stage_piezo_y'] = True
+c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 

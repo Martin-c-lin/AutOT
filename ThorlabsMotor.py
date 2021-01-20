@@ -760,7 +760,8 @@ class XYZ_piezo_stage_motor(Thread):
             self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_pos'][self.axis]))
             self.c_p['piezo_current_position'][self.axis] = float(str(self.piezo_channel.GetPosition()))
         else:
-            print('Trying to move piezo to position out of bounds!')
+            pass
+            #print('Trying to move piezo to position out of bounds!')
 
     def run(self):
         '''
