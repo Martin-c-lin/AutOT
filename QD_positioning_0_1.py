@@ -1767,15 +1767,16 @@ def focus_up():
     '''
     Used for focus button to shift focus slightly up
     '''
-    c_p['z_starting_position'] += 5
+    #c_p['z_starting_position'] += 5
+    c_p['piezo_target_pos'][2] += 0.1
 
 
 def focus_down():
     '''
     Used for focus button to shift focus slightly up
     '''
-    c_p['z_starting_position'] -= 5
-
+    #c_p['z_starting_position'] -= 5
+    c_p['piezo_target_pos'][2] -= 0.1
 
 def zoom_in(margin=60, use_traps=False):
     '''

@@ -297,7 +297,7 @@ class QD_Tracking_Thread(Thread):
                # if not image_extracted:
                #     pass
                print('Starting tracking ', np.shape(self.c_p['image']))
-               x, y = find_QDs(self.c_p['image'])
+               x, y, tmp = find_QDs(self.c_p['image'])
                if len(x)>0:
                    print('x: ', x)
                self.c_p['particle_centers'] = [x, y]
