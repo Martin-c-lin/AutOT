@@ -721,6 +721,7 @@ def get_default_piezo_c_p():
     'piezo_target_pos':[0,0,0],
     'piezo_current_position':[0,0,0],
     'stage_piezo_connected':[False,False,False],
+    'piezos_activated':True,
     'running':True,
     'piezo_move_to_target':[False,False],
     }

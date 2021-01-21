@@ -13,7 +13,6 @@ from common_experiment_parameters import get_default_c_p, get_thread_activation_
 from instrumental import u
 import numpy as np
 import threading, time, cv2, queue, copy, sys, tkinter, os, pickle
-from tkinter import messagebox
 from tkinter import filedialog as fd
 from functools import partial
 from datetime import datetime
@@ -625,11 +624,10 @@ class UserInterface:
             next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
             previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
 
-        # if c_p['camera_model'] == 'basler_large':
-        #     self.crop_in_button = tkinter.Button(top, text='crop in',
-        #         command=self.toggle_crop_in)
-        #     self.crop_in_button.place(x=x_position_2, y=y_position_2.__next__())
-
+        if c_p['using_stepper_motors'] and c_p['stage_piezos']:
+            self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
+            variable=c_p['piezos_activated'],onvalue=True, offvalue=False)
+            self.piezo_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
 
     def create_SLM_window(self, _class):
         try:
@@ -942,6 +940,7 @@ class UserInterface:
          self.mini_photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.mini_image, mode='RGB'))
          # need to use a compatible image type
          self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW)
+         print(c_p['piezos_activated'])
          self.window.after(self.delay, self.update)
 
 
