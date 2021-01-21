@@ -8,6 +8,9 @@ def get_arduino_c_p():
     }
     return arduino_c_p
 
+# TODO: This probably does not need to be a separate thread.
+
+
 class ArduinoLEDControlThread(Thread):
     '''
     Thread which controls the arduinos output. Turns on/off the polymerization LED
@@ -30,15 +33,14 @@ class ArduinoLEDControlThread(Thread):
     def run(self):
 
         while self.c_p['program_running']:
+            # This function is made significantly faster by this check.
             if not self.last_write == self.c_p['polymerization_LED']:
                 self.last_write = self.c_p['polymerization_LED']
-
                 if self.c_p['polymerization_LED']:
                     self.ArduinoUnoSerial.write(b'H')
                 else:
                     self.ArduinoUnoSerial.write(b'L')
-                # TODO make this thread listen to the change rather than just wait.
-                # Check the speed of this function.
+
             time.sleep(self.sleep_time)
         self.ArduinoUnoSerial.write(b'L')
         self.ArduinoUnoSerial.close()
