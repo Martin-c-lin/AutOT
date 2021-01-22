@@ -292,10 +292,7 @@ class QD_Tracking_Thread(Thread):
                start = time()
                # Do the particle tracking.
                # Note that the tracking algorithm can easily be replaced if need be
-
-               image, image_extracted = self.extract_piezo_image()
-               # if not image_extracted:
-               #     pass
+               
                print('Starting tracking ', np.shape(self.c_p['image']))
                x, y, tmp = find_QDs(self.c_p['image'])
                if len(x)>0:

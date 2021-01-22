@@ -157,6 +157,8 @@ def start_threads(c_p, thread_list):
         c_p['using_stepper_motors'] = True
         append_c_p(c_p, TM.get_default_stepper_c_p())
         controller_device_stepper = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
+        # self.stepper_activated = tkinter.BooleanVar()
+        # self.stepper_activated.set(True)
     else:
         c_p['using_stepper_motors'] = False
 
@@ -230,6 +232,7 @@ class UserInterface:
         self.window.title(window_title)
         start_threads(c_p, thread_list)
         # Create a canvas that can fit the above video source size
+
         self.canvas_width = 1200
         self.canvas_height = 1000
 
@@ -253,7 +256,7 @@ class UserInterface:
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
         self.image_scale = 1 # scale of image being displayed
-        self.delay = 50 # how often to update view in ms intervals
+        self.delay = 10 #50 standard how often to update view in ms intervals
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
@@ -346,7 +349,6 @@ class UserInterface:
             mini_image[0:-1,-1,1:2] = 255  # Bottom edge
 
         self.mini_image = mini_image.astype('uint8')
-
 
     def get_standard_move_buttons(self, top):
         self.up_button = tkinter.Button(top, text='Move up',
@@ -624,10 +626,18 @@ class UserInterface:
             next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
             previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
 
-        if c_p['using_stepper_motors'] and c_p['stage_piezos']:
+        if c_p['stage_piezos']:
+            # TODO make the checkbox variable "piezos_activated" part of GUI and not c_p
+            c_p['piezos_activated'] = tkinter.BooleanVar()
             self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
-            variable=c_p['piezos_activated'],onvalue=True, offvalue=False)
+            variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
             self.piezo_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
+
+        if c_p['using_stepper_motors']:
+            c_p['stepper_activated'] = tkinter.BooleanVar()
+            self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
+            variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
+            self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
 
     def create_SLM_window(self, _class):
         try:
@@ -829,11 +839,14 @@ class UserInterface:
             # Not implemented yet
             pass
         # Calculate travel distance
-        # TODO: Can relative position be used here?
         dx = (c_p['traps_relative_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
         dy = (c_p['traps_relative_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
-        #
-        if c_p['stage_piezos']:
+
+        # TODO check what happens if we don't have both?
+
+        # Checks which motors are connected and activated, acts accordingly.
+        if c_p['stage_piezos'] and c_p['using_stepper_motors'] and \
+        c_p['piezos_activated'].get() and c_p['stepper_activated'].get():
 
             if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
                 c_p['piezo_target_pos'][0] -= (dx * 1000)
@@ -844,10 +857,16 @@ class UserInterface:
                 c_p['piezo_target_pos'][1] -= (dy * 1000)
             else:
                 c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - dy
-        else:
+
+        elif c_p['stage_piezos'] and c_p['piezos_activated'].get():
+            if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
+                c_p['piezo_target_pos'][0] -= (dx * 1000)
+            if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 18:
+                c_p['piezo_target_pos'][1] -= (dy * 1000)
+
+        elif c_p['using_stepper_motors'] and c_p['stepper_activated'].get():
             c_p['stepper_target_position'][0] = c_p['stepper_current_pos'][0] - dx
             c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - dy
-
 
     def add_laser_cross(self, image):
          try:
@@ -898,7 +917,6 @@ class UserInterface:
 
         return image[left:right, top:bottom]
 
-
     def add_particle_positions_to_image(self, image):
         for x,y in zip(c_p['particle_centers'][0], c_p['particle_centers'][1]):
             try:
@@ -940,7 +958,6 @@ class UserInterface:
          self.mini_photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.mini_image, mode='RGB'))
          # need to use a compatible image type
          self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW)
-         print(c_p['piezos_activated'])
          self.window.after(self.delay, self.update)
 
 
@@ -1961,9 +1978,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
+c_p['stage_piezo_x'] = False#True
+c_p['stage_piezo_y'] = False#True
+c_p['stage_piezo_z'] = False#True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
