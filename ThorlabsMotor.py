@@ -42,7 +42,7 @@ class PiezoMotor():
     Piezo motor class.
     '''
 
-    def __init__(self, serialNumber, channel, pollingRate=250, timeout=10000):
+    def __init__(self, serialNumber, channel, pollingRate=20, timeout=10000):
         self.serial_number = serialNumber
         self.polling_rate = pollingRate
         self.connect_piezo_motor()
@@ -690,7 +690,7 @@ def ConnectBenchtopPiezoController(serialNo):
     device.Connect(serialNo)
     return device
 
-def ConnectPiezoStageChannel(device, channel):
+def ConnectPiezoStageChannel(device, channel, polling_rate=20):
     # DeviceManagerCLI.BuildDeviceList()
     # DeviceManagerCLI.GetDeviceListSize()
     # device = BenchtopPiezo.CreateBenchtopPiezo(serialNo)
@@ -703,7 +703,7 @@ def ConnectPiezoStageChannel(device, channel):
 
     channel.WaitForSettingsInitialized(5000)
 
-    channel.StartPolling(100)#(250)
+    channel.StartPolling(polling_rate)#(250)
     # Needs a delay so that the current enabled state can be obtained
 
     deviceInfo = channel.GetDeviceInfo()
@@ -734,7 +734,7 @@ class XYZ_piezo_stage_motor(Thread):
 
     # TODO make it possible to connect/disconnect these motors on the fly.
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='71165844', sleep_time=0.1):
+        serialNo='71165844', sleep_time=0.05):
         """
 
         """
@@ -809,7 +809,7 @@ def ConnectBenchtopStepperController(serialNo):
     return device
 
 
-def ConnectBenchtopStepperChannel(device, channel, polling_rate=100):
+def ConnectBenchtopStepperChannel(device, channel, polling_rate=20):
     '''
     Connects to the stepper motor of BenchtopStepperController on channel "channel".
     '''
@@ -852,7 +852,7 @@ def get_default_stepper_c_p():
 class XYZ_stepper_stage_motor(Thread):
 
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='70167314', sleep_time=0.1):
+        serialNo='70167314', sleep_time=0.05):
         """
 
         """

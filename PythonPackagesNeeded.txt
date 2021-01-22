@@ -17,6 +17,7 @@ swig (run "conda install -c anaconda siwg" before installing pypylon)
 pypylon - follow instructions in website. Used
 pypylon-1.5.4-cp37-cp37m-win_amd64.whl . Might also need setup-tools
 
+pynput - mouse controlls
 	- Generally can just google any errors that occur.
 	First or second proposed solution most often fixes the problem.
 

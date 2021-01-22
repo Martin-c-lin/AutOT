@@ -227,13 +227,13 @@ def start_threads(c_p, thread_list):
 
     if c_p['stage_piezos'] or c_p['using_stepper_motors']:
         # Start thread for controlling z-position using the mouse scroll-wheel.
-        try:
+        # try:
             from MouseInputThread import mouseInputThread
-            mouseInputTrd = mouseInputThread(1,'mouse thread', c_p)
-            mouseInputThread.start()
-            thread_list.append(QD_Tracking_Thread)
-        except:
-            print('Could not start mouse input thread')
+            mouseInputTrd = mouseInputThread(17,'mouse thread', c_p)
+            mouseInputTrd.start()
+            thread_list.append(mouseInputTrd)
+        # except:
+        #     print('Could not start mouse input thread')
 
 class UserInterface:
 
@@ -651,9 +651,10 @@ class UserInterface:
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
             # TODO make this work only when mouse is on the canvas
-            c_p['scroll_for_z'] = tkinter.BooleanVar()
+            #c_p['scroll_for_z'] = tkinter.BooleanVar()
+            self.z_scrolling = tkinter.BooleanVar()
             self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
-            variable=c_p['scroll_for_z'], onvalue=True, offvalue=False)
+            variable=self.z_scrolling, onvalue=True, offvalue=False)
             self.z_scrolling_button.place(x=x_position_2, y=y_position_2.__next__())
 
 
@@ -965,6 +966,9 @@ class UserInterface:
               print('New phasemask')
               self.SLM_Window.update()
               c_p['phasemask_updated'] = False
+
+         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
+             c_p['scroll_for_z'] = self.z_scrolling.get()
 
          self.update_indicators()
          self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.resize_display_image(image)))
