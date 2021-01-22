@@ -650,6 +650,7 @@ class UserInterface:
             self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
+            # TODO make this work only when mouse is on the canvas
             c_p['scroll_for_z'] = tkinter.BooleanVar()
             self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
             variable=c_p['scroll_for_z'], onvalue=True, offvalue=False)
