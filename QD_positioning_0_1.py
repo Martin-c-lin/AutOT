@@ -10,6 +10,7 @@ import CameraControls
 from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p
 from CameraControls import update_traps_relative_pos # Moved this function
 from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p, get_save_path
+
 from instrumental import u
 import numpy as np
 import threading, time, cv2, queue, copy, sys, tkinter, os, pickle
@@ -20,6 +21,7 @@ from cv2 import VideoWriter, VideoWriter_fourcc
 from tkinter import *  # TODO Should avoid this type of import statements.
 import PIL.Image, PIL.ImageTk
 from pypylon import pylon
+
 
 def terminate_threads(thread_list, c_p):
     '''
@@ -41,12 +43,12 @@ def terminate_threads(thread_list, c_p):
 
 
 def start_threads(c_p, thread_list):
-    # Make it so that c_p automagically extends to include the c_p needed for the
-    # various threads. Updates only the parameters needed. Already implemented for
-    # the shutter and piezo-stage.
     """
-    Function for starting all the threads, should only be called once!
+    Function for starting all the threads, should only be called once.
+
     """
+    # TODO Consider moving some import statements here so we do not import more
+    # than we actually need
 
     if c_p['cam']:
         append_c_p(c_p, CameraControls.get_camera_c_p())
@@ -223,7 +225,15 @@ def start_threads(c_p, thread_list):
         except:
             print('Could not start arduino thread')
 
-
+    if c_p['stage_piezos'] or c_p['using_stepper_motors']:
+        # Start thread for controlling z-position using the mouse scroll-wheel.
+        try:
+            from MouseInputThread import mouseInputThread
+            mouseInputTrd = mouseInputThread(1,'mouse thread', c_p)
+            mouseInputThread.start()
+            thread_list.append(QD_Tracking_Thread)
+        except:
+            print('Could not start mouse input thread')
 
 class UserInterface:
 
@@ -267,7 +277,7 @@ class UserInterface:
         self.__del__()
 
     def __del__(self):
-        # Close the program
+        # Closes the program
         c_p['program_running'] = False
         c_p['motor_running'] = False
         c_p['tracking_on'] = False
@@ -299,8 +309,10 @@ class UserInterface:
         else:
             print('Invalid or empty file.')
 
-
     def create_trap_image(self):
+        # Creates a mini image which shows the AOI and the relative position
+        # of traps and particles(estimated from tracking thread)
+
         global c_p
         trap_x = c_p['traps_absolute_pos'][0]
         trap_y = c_p['traps_absolute_pos'][1]
@@ -361,8 +373,6 @@ class UserInterface:
                                      command=partial(move_button, 3))
 
     def get_stage_move_buttons(self, top):
-        # TODO - double check axis and distance in actual experiment.
-        # Add possibility for precision movement with the piezos.
         self.up_button = tkinter.Button(top, text='Move up',
                                    command=partial(stage_piezo_manual_move, axis=1, distance=1))
         self.down_button = tkinter.Button(top, text='Move down',
@@ -638,6 +648,13 @@ class UserInterface:
             self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
             variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
             self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
+
+        if c_p['stage_piezos'] or c_p['using_stepper_motors']:
+            c_p['scroll_for_z'] = tkinter.BooleanVar()
+            self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
+            variable=c_p['scroll_for_z'], onvalue=True, offvalue=False)
+            self.z_scrolling_button.place(x=x_position_2, y=y_position_2.__next__())
+
 
     def create_SLM_window(self, _class):
         try:
