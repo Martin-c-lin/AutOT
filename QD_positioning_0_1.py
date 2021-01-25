@@ -644,6 +644,7 @@ class UserInterface:
             self.piezo_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['using_stepper_motors']:
+            # TODO make the checkbox variable "stepper_activated" part of GUI and not c_p
             c_p['stepper_activated'] = tkinter.BooleanVar()
             self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
             variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
@@ -656,7 +657,6 @@ class UserInterface:
             self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
             variable=self.z_scrolling, onvalue=True, offvalue=False)
             self.z_scrolling_button.place(x=x_position_2, y=y_position_2.__next__())
-
 
     def create_SLM_window(self, _class):
         try:
@@ -752,9 +752,9 @@ class UserInterface:
         self.tracking_label.place(x=1220, y=780)
 
         self.position_label = Label(self.window, text=self.get_position_info())
-        self.position_label.place(x=1420, y=400)
+        self.position_label.place(x=1420, y=540)
         self.temperature_label = Label(self.window, text=self.get_temperature_info())
-        self.temperature_label.place(x=1420, y=540)
+        self.temperature_label.place(x=1420, y=720)
 
     def update_indicators(self):
         '''
@@ -2000,9 +2000,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = False#True
-c_p['stage_piezo_y'] = False#True
-c_p['stage_piezo_z'] = False#True
+c_p['stage_piezo_x'] = True
+c_p['stage_piezo_y'] = True
+c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
