@@ -2003,7 +2003,7 @@ c_p['stage_stepper_z'] = True
 c_p['stage_piezo_x'] = True
 c_p['stage_piezo_y'] = True
 c_p['stage_piezo_z'] = True
-c_p['arduino_LED'] = False
+c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
 

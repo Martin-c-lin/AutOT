@@ -79,7 +79,7 @@ def set_defualt_trap_position(c_p):
     c_p['ym'] = [200]
 
     # Laser position
-    c_p['traps_absolute_pos'][0][0] = 2270#2251
+    c_p['traps_absolute_pos'][0][0] = 2183#2251
     c_p['traps_absolute_pos'][1][0] = 1805#1822
     c_p['traps_relative_pos'][0][0] = c_p['traps_absolute_pos'][0][0]
     c_p['traps_relative_pos'][1][0] = c_p['traps_absolute_pos'][1][0]

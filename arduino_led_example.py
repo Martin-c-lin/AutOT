@@ -1,6 +1,6 @@
 import serial, time
 from random import randint
-ArduinoUnoSerial = serial.Serial('com4',9600) # may need to adapt this
+ArduinoUnoSerial = serial.Serial('com3',9600) # may need to adapt this
 
 #print(ArduinoUnoSerial.readline())
 
