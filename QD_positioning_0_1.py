@@ -163,7 +163,7 @@ def start_threads(c_p, thread_list):
         # self.stepper_activated.set(True)
     else:
         c_p['using_stepper_motors'] = False
-
+    # TODO handle exceptions in this function better
     if c_p['stage_stepper_x']:
         try:
             thread_stepper_x = TM.XYZ_stepper_stage_motor(11, 'stepper_X',1,0,
@@ -2003,7 +2003,7 @@ c_p['stage_stepper_z'] = True
 c_p['stage_piezo_x'] = True
 c_p['stage_piezo_y'] = True
 c_p['stage_piezo_z'] = True
-c_p['arduino_LED'] = True
+c_p['arduino_LED'] = False
 c_p['QD_tracking'] = True
 
 
