@@ -243,8 +243,8 @@ class UserInterface:
         start_threads(c_p, thread_list)
         # Create a canvas that can fit the above video source size
 
-        self.canvas_width = 1200
-        self.canvas_height = 1000
+        self.canvas_width = 1300
+        self.canvas_height = 1120
 
         self.mini_canvas_width = 240
         self.mini_canvas_height = 200
@@ -255,14 +255,14 @@ class UserInterface:
 
         self.mini_canvas = tkinter.Canvas(
             window, width=self.mini_canvas_width, height=self.mini_canvas_height)
-        self.mini_canvas.place(x=1200, y=800)
+        self.mini_canvas.place(x=self.canvas_width, y=800)
         self.mini_image = np.zeros((200,240,3))
         # Button that lets the user take a snapshot
         self.btn_snapshot = tkinter.Button(
             window, text="Snapshot", command=snapshot)
         self.btn_snapshot.place(x=1300, y=0)
         self.create_buttons(self.window)
-        self.window.geometry('1700x1000')
+        self.window.geometry(str(self.canvas_width+500)+'x'+str(self.canvas_height))#('1700x1000')
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
         self.image_scale = 1 # scale of image being displayed
@@ -414,7 +414,11 @@ class UserInterface:
             c_p['piezo_move_to_target'] = [True, True]
 
     def toggle_polymerization_LED(self):
-        c_p['polymerization_LED'] = not c_p['polymerization_LED']
+        if c_p['polymerization_LED'] == 'L':
+            c_p['polymerization_LED'] = 'H'
+        else:
+            c_p['polymerization_LED'] = 'L'
+        #c_p['polymerization_LED'] = not c_p['polymerization_LED']
 
     def connect_disconnect_motorX(self):
         global c_p
@@ -440,6 +444,12 @@ class UserInterface:
             yield start + (distance * index)
             index += 1
 
+    def timed_polymerization(self):
+        global c_p
+        c_p['polymerization_LED'] = 'T'
+
+    # TODO add possibility to restore z-position of sample.
+
     def create_buttons(self, top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -452,14 +462,6 @@ class UserInterface:
         self.canvas.bind("<Button-1>", self.screen_click)
         if top is None:
             top = self.window
-
-        # def get_y_separation(start=50, distance=40):
-        #     # Simple generator to avoid printing all the y-positions of the
-        #     # buttons
-        #     index = 0
-        #     while True:
-        #         yield start + (distance * index)
-        #         index += 1
 
         def home_z_command():
             c_p['return_z_home'] = not c_p['return_z_home']
@@ -566,8 +568,8 @@ class UserInterface:
         self.diplay_laser_button = tkinter.Button(top, \
             text='Toggle laser indicator', command=self.toggle_laser_cross)
 
-        x_position = 1220
-        x_position_2 = 1420
+        x_position = 1310
+        x_position_2 = 1500
         y_position = self.get_y_separation()
         y_position_2 = self.get_y_separation()
 
@@ -756,13 +758,14 @@ class UserInterface:
     def create_indicators(self):
         global c_p
         # Update if recording is turned on or not
+        # TODO make it so that positions of buttons are not hardcoded
         if c_p['tracking_on']:
              self.tracking_label = Label(
                  self.window, text='particle tracking is on', bg='green')
         else:
             self.tracking_label = Label(
                 self.window, text='particle tracking is off', bg='red')
-        self.tracking_label.place(x=1220, y=780)
+        self.tracking_label.place(x=1320, y=780)
 
         self.position_label = Label(self.window, text=self.get_position_info())
         self.position_label.place(x=1420, y=540)
@@ -792,7 +795,7 @@ class UserInterface:
             self.diplay_laser_button.config(bg='red')
 
         if c_p['arduino_LED']:
-            if c_p['polymerization_LED']:
+            if c_p['polymerization_LED'] == 'H':
                 self.arduino_LED_button.config(bg='green')
             else:
                 self.arduino_LED_button.config(bg='red')
@@ -2006,9 +2009,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = False
-c_p['stage_piezo_y'] = False
-c_p['stage_piezo_z'] = False
+c_p['stage_piezo_x'] = True
+c_p['stage_piezo_y'] = True
+c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 

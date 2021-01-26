@@ -4,7 +4,7 @@ from threading import Thread
 
 def get_arduino_c_p():
     arduino_c_p = {
-    'polymerization_LED':False,
+    'polymerization_LED':'L',
     }
     return arduino_c_p
 
@@ -25,21 +25,20 @@ class ArduinoLEDControlThread(Thread):
         self.ArduinoUnoSerial = serial.Serial(port, 9600)
         self.last_write = False
 
-    #
-    # def __del__(self):
-    #     # Turn off LED and close connection.
-    #     self.ArduinoUnoSerial.close()
-
     def run(self):
-
+        # TODO add radio buttons for different led on times
         while self.c_p['program_running']:
             # This function is made significantly faster by this check.
             if not self.last_write == self.c_p['polymerization_LED']:
                 self.last_write = self.c_p['polymerization_LED']
-                if self.c_p['polymerization_LED']:
-                    self.ArduinoUnoSerial.write(b'H')
-                else:
-                    self.ArduinoUnoSerial.write(b'L')
+                message = self.last_write.encode('utf-8')
+                self.ArduinoUnoSerial.write(message)
+
+                # if self.c_p['polymerization_LED']:
+                #     self.ArduinoUnoSerial.write(b'H')
+                # else:
+                #     self.ArduinoUnoSerial.write(b'L')
+                print(self.ArduinoUnoSerial.readline())
 
             time.sleep(self.sleep_time)
         self.ArduinoUnoSerial.write(b'L')

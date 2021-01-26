@@ -1,11 +1,13 @@
 int incomingByte;
 const int LED=12;
+int onTime;
 void setup() { 
   Serial.begin(9600);                      //initialize serial COM at 9600 baudrate
   pinMode(LED, OUTPUT);                    //declare the LED pin (12) as output
   digitalWrite(LED, LOW);
   delay(100);
   Serial.println("Hello!,How are you Python ?");
+  onTime = 1000;
 }
 
 void loop() {
@@ -23,6 +25,25 @@ void loop() {
     if (incomingByte == 'L') {
       digitalWrite(LED, LOW);
       Serial.println("Turning off");
+    }
+    if (incomingByte == 'T') {
+      digitalWrite(LED, HIGH);
+      Serial.println("Turning on");
+      delay(onTime);
+      digitalWrite(LED, LOW);
+      Serial.println("Turning off");
+    }
+    if (incomingByte == '1') {
+      onTime = 1000;
+    }
+    if (incomingByte == '2') {
+      onTime = 2000;
+    }
+    if (incomingByte == '3') {
+      onTime = 3000;
+    }
+    if (incomingByte == '5') {
+      onTime = 5000;
     }
   }
 }

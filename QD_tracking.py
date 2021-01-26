@@ -292,11 +292,10 @@ class QD_Tracking_Thread(Thread):
                start = time()
                # Do the particle tracking.
                # Note that the tracking algorithm can easily be replaced if need be
-               
-               print('Starting tracking ', np.shape(self.c_p['image']))
+
+               #print('Starting tracking ', np.shape(self.c_p['image']))
                x, y, tmp = find_QDs(self.c_p['image'])
-               if len(x)>0:
-                   print('x: ', x)
+
                self.c_p['particle_centers'] = [x, y]
                # Check trapping status
                # self.trapped_now()

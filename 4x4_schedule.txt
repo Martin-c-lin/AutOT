@@ -1,0 +1,5 @@
+1:
+#To add comments write on lines without data. Do not use colon in the comments.
+# one can use either pixels or "SLM coordinates" to position the traps.
+QD_target_loc_y:2,2,2,2,7,7,7,7,12,12,12,12,17,17,17,17
+QD_target_loc_x:2,7,12,17,2,7,12,17,2,7,12,17,2,7,12,17
