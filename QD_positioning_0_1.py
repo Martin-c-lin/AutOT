@@ -163,7 +163,7 @@ def start_threads(c_p, thread_list):
         # self.stepper_activated.set(True)
     else:
         c_p['using_stepper_motors'] = False
-    # TODO handle exceptions in this function better
+
     if c_p['stage_stepper_x']:
         try:
             thread_stepper_x = TM.XYZ_stepper_stage_motor(11, 'stepper_X',1,0,
@@ -416,6 +416,30 @@ class UserInterface:
     def toggle_polymerization_LED(self):
         c_p['polymerization_LED'] = not c_p['polymerization_LED']
 
+    def connect_disconnect_motorX(self):
+        global c_p
+        c_p['connect_motor'][0] = not c_p['connect_motor'][0]
+
+    def connect_disconnect_motorY(self):
+        global c_p
+        c_p['connect_motor'][1] = not c_p['connect_motor'][1]
+
+    def connect_disconnect_piezo(self):
+        global c_p
+        c_p['connect_motor'][2] = not c_p['connect_motor'][2]
+
+    def open_shutter(self):
+        global c_p
+        c_p['should_shutter_open'] = True
+
+    def get_y_separation(self, start=50, distance=40):
+        # Simple generator to avoid printing all the y-positions of the
+        # buttons
+        index = 0
+        while True:
+            yield start + (distance * index)
+            index += 1
+
     def create_buttons(self, top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -429,13 +453,13 @@ class UserInterface:
         if top is None:
             top = self.window
 
-        def get_y_separation(start=50, distance=40):
-            # Simple generator to avoid printing all the y-positions of the
-            # buttons
-            index = 0
-            while True:
-                yield start + (distance * index)
-                index += 1
+        # def get_y_separation(start=50, distance=40):
+        #     # Simple generator to avoid printing all the y-positions of the
+        #     # buttons
+        #     index = 0
+        #     while True:
+        #         yield start + (distance * index)
+        #         index += 1
 
         def home_z_command():
             c_p['return_z_home'] = not c_p['return_z_home']
@@ -445,9 +469,11 @@ class UserInterface:
             self.get_standard_move_buttons(top)
         elif c_p['stage_piezos']:
             self.get_stage_move_buttons(top)
-        if c_p['using_stepper_motors']:
-            self.move_by_clicking_button = tkinter.Button(top, text='move by clicking',
-                                             command=self.toggle_move_by_clicking)
+
+        self.move_by_clicking = tkinter.BooleanVar()
+        if c_p['using_stepper_motors'] or c_p['stage_piezos']:
+            self.move_by_clicking_button = tkinter.Checkbutton(top, text='move by clicking',\
+            variable=self.move_by_clicking, onvalue=True, offvalue=False)
 
         self.recording_button = tkinter.Button(top, text='Start recording',
                                              command=toggle_recording)
@@ -460,10 +486,9 @@ class UserInterface:
         threshold_entry = tkinter.Entry(top, bd=5)
         self.temperature_entry = tkinter.Entry(top, bd=5)
         exposure_entry = tkinter.Entry(top, bd=5)
-
-        toggle_tracking_button = tkinter.Button(
-            top, text='Toggle particle tracking', command=toggle_tracking)
-
+        self.tracking_toggled = tkinter.BooleanVar()
+        self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
+        variable=self.tracking_toggled, onvalue=True, offvalue=False)
         def set_threshold():
             entry = threshold_entry.get()
             try:
@@ -518,18 +543,6 @@ class UserInterface:
                     print('Cannot convert entry to integer')
                 exposure_entry.delete(0, last=5000)
 
-        def connect_disconnect_motorX():
-            c_p['connect_motor'][0] = not c_p['connect_motor'][0]
-
-        def connect_disconnect_motorY():
-            c_p['connect_motor'][1] = not c_p['connect_motor'][1]
-
-        def connect_disconnect_piezo():
-            c_p['connect_motor'][2] = not c_p['connect_motor'][2]
-
-        def open_shutter():
-            c_p['should_shutter_open'] = True
-
         threshold_button = tkinter.Button(
             top, text='Set threshold', command=set_threshold)
         temperature_button = tkinter.Button(
@@ -555,8 +568,8 @@ class UserInterface:
 
         x_position = 1220
         x_position_2 = 1420
-        y_position = get_y_separation()
-        y_position_2 = get_y_separation()
+        y_position = self.get_y_separation()
+        y_position_2 = self.get_y_separation()
 
         # Place all the buttons, starting with first column
         if c_p['standard_motors'] or c_p['stage_piezos']:
@@ -578,7 +591,7 @@ class UserInterface:
             self.move_to_target_button.place(x=x_position, y=y_position.__next__())
 
         if c_p['using_stepper_motors']:
-            self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
+            #self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
             self.sample_up_button = tkinter.Button(top, text='Sample up', command=stepper_button_move_upp)
             self.sample_down_button = tkinter.Button(top, text='Sample down', command=stepper_button_move_down)
             self.sample_up_button.place(x=x_position, y=y_position.__next__())
@@ -592,7 +605,7 @@ class UserInterface:
         toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
         threshold_entry.place(x=x_position, y=y_position.__next__())
         threshold_button.place(x=x_position, y=y_position.__next__())
-        toggle_tracking_button.place(x=x_position, y=y_position.__next__())
+        self.toggle_tracking_button.place(x=x_position, y=y_position.__next__())
 
         zoom_in_button.place(x=x_position, y=y_position.__next__())
         zoom_out_button.place(x=x_position, y=y_position.__next__())
@@ -607,11 +620,11 @@ class UserInterface:
         # the description text of them.
         if c_p['standard_motors']:
             self.toggle_motorX_button = tkinter.Button(
-                top, text='Connect motor x', command=connect_disconnect_motorX)
+                top, text='Connect motor x', command=self.connect_disconnect_motorX)
             self.toggle_motorY_button = tkinter.Button(
-                top, text='Connect motor y', command=connect_disconnect_motorY)
+                top, text='Connect motor y', command=self.connect_disconnect_motorY)
             self.toggle_piezo_button = tkinter.Button(
-                top, text='Connect piezo motor', command=connect_disconnect_piezo)
+                top, text='Connect piezo motor', command=self.connect_disconnect_piezo)
             self.toggle_motorX_button.place(x=x_position_2, y=y_position_2.__next__())
             self.toggle_motorY_button.place(x=x_position_2, y=y_position_2.__next__())
             self.toggle_piezo_button.place(x=x_position_2, y=y_position_2.__next__())
@@ -619,7 +632,7 @@ class UserInterface:
 
         if c_p['shutter']:
             self.open_shutter_button = tkinter.Button(
-                top, text='Open shutter', command=open_shutter)
+                top, text='Open shutter', command=self.open_shutter)
             self.open_shutter_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['arduino_LED']:
@@ -651,12 +664,12 @@ class UserInterface:
             self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
-            # TODO make this work only when mouse is on the canvas
-            #c_p['scroll_for_z'] = tkinter.BooleanVar()
+            # TODO make the scrolling work only when mouse is on the canvas
             self.z_scrolling = tkinter.BooleanVar()
             self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
             variable=self.z_scrolling, onvalue=True, offvalue=False)
             self.z_scrolling_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.move_by_clicking_button.place(x=x_position_2, y=y_position_2.__next__())
 
     def create_SLM_window(self, _class):
         try:
@@ -809,11 +822,8 @@ class UserInterface:
             self.update_motor_buttons()
             self.update_home_button()
 
-        if c_p['using_stepper_motors']:
-            if c_p['mouse_move_allowed']:
-                self.move_by_clicking_button.config(bg='green')
-            else:
-                self.move_by_clicking_button.config(bg='red')
+        if c_p['using_stepper_motors'] or c_p['stage_piezos']:
+            c_p['mouse_move_allowed'] = self.move_by_clicking.get()
 
     def resize_display_image(self, img):
         img_size = np.shape(img)
@@ -971,6 +981,7 @@ class UserInterface:
              c_p['scroll_for_z'] = self.z_scrolling.get()
 
          self.update_indicators()
+         c_p['tracking_on'] = self.tracking_toggled.get()
          self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.resize_display_image(image)))
          # need to use a compatible image type
          self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW)
@@ -1796,11 +1807,6 @@ def toggle_bright_particle():
     print("c_p['bright_particle'] set to",c_p['bright_particle'])
 
 
-def toggle_tracking():
-    c_p['tracking_on'] = not c_p['tracking_on']
-    print("Tracking is ",c_p['tracking_on'])
-
-
 def focus_up():
     '''
     Used for focus button to shift focus slightly up
@@ -2000,9 +2006,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
+c_p['stage_piezo_x'] = False
+c_p['stage_piezo_y'] = False
+c_p['stage_piezo_z'] = False
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
