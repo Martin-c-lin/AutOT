@@ -5,6 +5,7 @@ from threading import Thread
 def get_arduino_c_p():
     arduino_c_p = {
     'polymerization_LED':'L',
+    'polymerization_LED_status':'OFF'
     }
     return arduino_c_p
 
@@ -34,12 +35,9 @@ class ArduinoLEDControlThread(Thread):
                 message = self.last_write.encode('utf-8')
                 self.ArduinoUnoSerial.write(message)
 
-                # if self.c_p['polymerization_LED']:
-                #     self.ArduinoUnoSerial.write(b'H')
-                # else:
-                #     self.ArduinoUnoSerial.write(b'L')
                 print(self.ArduinoUnoSerial.readline())
-
+                if self.c_p['polymerization_LED'] != 'H' and self.c_p['polymerization_LED'] != 'L':
+                    self.c_p['polymerization_LED'] = 'L'
             time.sleep(self.sleep_time)
         self.ArduinoUnoSerial.write(b'L')
         self.ArduinoUnoSerial.close()

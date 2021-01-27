@@ -123,7 +123,8 @@ def start_threads(c_p, thread_list):
         # OBS assumes that the x-motor is connected to channel 1
         try:
             thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 1,0, c_p,
-                controller_device=controller_device_piezo)
+                controller_device=controller_device_piezo,
+                target_key='QD_target_loc_x')
             thread_piezo_x.start()
             thread_list.append(thread_piezo_x)
 
@@ -135,7 +136,8 @@ def start_threads(c_p, thread_list):
         # OBS assumes that the y-motor is connected to channel 2
         try:
             thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 2,1, c_p,
-                controller_device=controller_device_piezo)
+                controller_device=controller_device_piezo,
+                target_key='QD_target_loc_y')
             thread_piezo_y.start()
             thread_list.append(thread_piezo_y)
             print('Started piezo y-thread')
@@ -146,7 +148,8 @@ def start_threads(c_p, thread_list):
         # OBS assumes that the z-motor is connected to channel 3
         try:
             thread_piezo_z = TM.XYZ_piezo_stage_motor(10, 'piezo_z', 3,2, c_p,
-                controller_device=controller_device_piezo)
+                controller_device=controller_device_piezo,
+                target_key='QD_target_loc_z', step=0.025)
             thread_piezo_z.start()
             thread_list.append(thread_piezo_z)
             print('Started piezo z-thread')
@@ -255,7 +258,7 @@ class UserInterface:
 
         self.mini_canvas = tkinter.Canvas(
             window, width=self.mini_canvas_width, height=self.mini_canvas_height)
-        self.mini_canvas.place(x=self.canvas_width, y=800)
+        self.mini_canvas.place(x=self.canvas_width, y=self.canvas_height-200)
         self.mini_image = np.zeros((200,240,3))
         # Button that lets the user take a snapshot
         self.btn_snapshot = tkinter.Button(
@@ -386,8 +389,8 @@ class UserInterface:
         if c_p['mouse_move_allowed']:
             self.mouse_command_move()
 
-    def toggle_laser_cross(self):
-        c_p['display_laser_position'] = not c_p['display_laser_position']
+    # def toggle_laser_cross(self):
+    #     c_p['display_laser_position'] = not c_p['display_laser_position']
 
     def toggle_move_by_clicking(self):
         c_p['mouse_move_allowed'] = not c_p['mouse_move_allowed']
@@ -404,14 +407,20 @@ class UserInterface:
         else:
             print('Already at first location')
 
-    def toggle_crop_in(self):
-        c_p['crop_in'] = not c_p['crop_in']
+    def save_starting_z(self):
+        global c_p
+        c_p['QD_target_loc_z'][0] = c_p['piezo_current_position'][2]
+        print(c_p['QD_target_loc_z'])
+
+    def to_focus(self):
+        global c_p
+        c_p['piezo_move_to_target'][2] = True
 
     def toggle_move_piezo_to_target(self):
         if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
-            c_p['piezo_move_to_target'] = [False, False]
+            c_p['piezo_move_to_target'] = [False, False, False]
         else:
-            c_p['piezo_move_to_target'] = [True, True]
+            c_p['piezo_move_to_target'] = [True, True, False]
 
     def toggle_polymerization_LED(self):
         if c_p['polymerization_LED'] == 'L':
@@ -565,8 +574,12 @@ class UserInterface:
             text='Select experiment schedule',
             command=self.read_experiment_dictionary
             )
-        self.diplay_laser_button = tkinter.Button(top, \
-            text='Toggle laser indicator', command=self.toggle_laser_cross)
+        self.display_laser = tkinter.BooleanVar()
+        self.diplay_laser_button = tkinter.Checkbutton(top, text='Laser indicator',\
+        variable=self.display_laser, onvalue=True, offvalue=False)
+        self.display_laser.set(True)
+        # tkinter.Button(top, \
+        #     text='Toggle laser indicator', command=self.toggle_laser_cross)
 
         x_position = 1310
         x_position_2 = 1500
@@ -642,6 +655,11 @@ class UserInterface:
                 top, text='Toggle LED', command=self.toggle_polymerization_LED)
             self.arduino_LED_button.place(x=x_position_2, y=y_position_2.__next__())
 
+            #self.timed_polymerization
+            self.arduino_LED_pulse_button = tkinter.Button(
+                top, text='Pulse LED', command=self.timed_polymerization)
+            self.arduino_LED_pulse_button.place(x=x_position_2, y=y_position_2.__next__())
+
         if c_p['QD_tracking']:
             next_qd_button = tkinter.Button(top, text='Next QD position',
                 command=self.increment_QD_count)
@@ -652,6 +670,16 @@ class UserInterface:
             previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['stage_piezos']:
+            self.save_z_button = tkinter.Button(
+                top, text='Save piezo z pos', command=self.save_starting_z)
+            y_pos = y_position_2.__next__()
+            self.save_z_button.place(x=x_position_2, y=y_pos)
+
+            self.to_focus_button = tkinter.Button(
+                top, text='To focus', command=self.to_focus)
+            self.to_focus_button.place(x=x_position_2+70, y=y_pos)
+
+
             # TODO make the checkbox variable "piezos_activated" part of GUI and not c_p
             c_p['piezos_activated'] = tkinter.BooleanVar()
             self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
@@ -759,18 +787,11 @@ class UserInterface:
         global c_p
         # Update if recording is turned on or not
         # TODO make it so that positions of buttons are not hardcoded
-        if c_p['tracking_on']:
-             self.tracking_label = Label(
-                 self.window, text='particle tracking is on', bg='green')
-        else:
-            self.tracking_label = Label(
-                self.window, text='particle tracking is off', bg='red')
-        self.tracking_label.place(x=1320, y=780)
 
         self.position_label = Label(self.window, text=self.get_position_info())
-        self.position_label.place(x=1420, y=540)
+        self.position_label.place(x=1420, y=740)
         self.temperature_label = Label(self.window, text=self.get_temperature_info())
-        self.temperature_label.place(x=1420, y=720)
+        self.temperature_label.place(x=1420, y=900)
 
     def update_indicators(self):
         '''
@@ -782,17 +803,6 @@ class UserInterface:
             self.recording_button.config(text='Turn off recording', bg='green')
         else:
             self.recording_button.config(text='Turn on recording', bg='red')
-
-        # Update tracking status indication
-        if c_p['tracking_on']:
-            self.tracking_label.config(text='particle tracking is on',bg='green')
-        else:
-            self.tracking_label.config(text='particle tracking is off', bg='red')
-
-        if c_p['display_laser_position']:
-            self.diplay_laser_button.config(bg='green')
-        else:
-            self.diplay_laser_button.config(bg='red')
 
         if c_p['arduino_LED']:
             if c_p['polymerization_LED'] == 'H':
@@ -965,7 +975,7 @@ class UserInterface:
          image = np.asarray(c_p['image'])
          image = image.astype('uint8')
 
-         if c_p['display_laser_position']:
+         if self.display_laser.get():
              self.add_laser_cross(image)
 
          if c_p['display_target_QD_positions']:

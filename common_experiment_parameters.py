@@ -79,7 +79,7 @@ def set_defualt_trap_position(c_p):
     c_p['ym'] = [200]
 
     # Laser position
-    c_p['traps_absolute_pos'][0][0] = 2175#2251
+    c_p['traps_absolute_pos'][0][0] = 2135#2251
     c_p['traps_absolute_pos'][1][0] = 1823#1822
     c_p['traps_relative_pos'][0][0] = c_p['traps_absolute_pos'][0][0]
     c_p['traps_relative_pos'][1][0] = c_p['traps_absolute_pos'][1][0]
@@ -141,6 +141,7 @@ def get_default_c_p(recording_path=None):
         'target_trap_pos': [500, 500],
         'QD_target_loc_x':[1,5,15],
         'QD_target_loc_y':[2,2,2],
+        'QD_target_loc_z':[10],
         'QDs_placed': 1,
         'motor_movements': [0, 0],  # How much x and y motor should be moved
         'motor_starting_pos': [0, 0],  # Startng position of x-y motors,

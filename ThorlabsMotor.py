@@ -690,7 +690,7 @@ def ConnectBenchtopPiezoController(serialNo):
     device.Connect(serialNo)
     return device
 
-def ConnectPiezoStageChannel(device, channel, polling_rate=20):
+def ConnectPiezoStageChannel(device, channel, polling_rate=50):
     # DeviceManagerCLI.BuildDeviceList()
     # DeviceManagerCLI.GetDeviceListSize()
     # device = BenchtopPiezo.CreateBenchtopPiezo(serialNo)
@@ -717,12 +717,12 @@ def get_default_piezo_c_p():
     # TODO use pos and position consitently
     piezo_c_p = {
     'piezo_serial_no':'71165844',
-    'starting_position_piezo_xyz':[0,0,0],
-    'piezo_target_pos':[0,0,0],
-    'piezo_current_position':[0,0,0],
-    'stage_piezo_connected':[False,False,False],
+    'starting_position_piezo_xyz':[0, 0, 0],
+    'piezo_target_pos':[0, 0, 0],
+    'piezo_current_position':[0, 0, 0],
+    'stage_piezo_connected':[False, False, False],
     'running':True,
-    'piezo_move_to_target':[False,False],
+    'piezo_move_to_target':[False, False, False],
     }
     return piezo_c_p
 
@@ -733,8 +733,8 @@ class XYZ_piezo_stage_motor(Thread):
     '''
 
     # TODO make it possible to connect/disconnect these motors on the fly.
-    def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='71165844', sleep_time=0.05):
+    def __init__(self, threadID, name, channel, axis, c_p,target_key,
+        controller_device=None, serialNo='71165844', sleep_time=0.05, step=0.1):
         """
 
         """
@@ -746,6 +746,8 @@ class XYZ_piezo_stage_motor(Thread):
         self.channel = channel
         self.axis = axis
         self.sleep_time = sleep_time
+        self.target_key = target_key
+        self.step = step
         if controller_device is None:
             controller_device = ConnectBenchtopPiezoController(serialNo)
         self.controller_device = controller_device
@@ -769,27 +771,27 @@ class XYZ_piezo_stage_motor(Thread):
         Main loop of program. Used to automatically move the piezo in response
         to changes in c_p made by main program.
         '''
-        target_key = 'QD_target_loc_x' if self.axis == 0 else 'QD_target_loc_y'
-        step = 0.1
         while self.c_p['program_running']:
 
             # Check if we should move the piezo to a specific location.
-            if self.axis<2 and self.c_p['piezo_move_to_target'][self.axis]:
-                d =  self.c_p['piezo_current_position'][self.axis] - self.c_p[target_key][self.c_p['QDs_placed']]
+            if self.c_p['piezo_move_to_target'][self.axis]:
+                index = self.c_p['QDs_placed'] if self.axis < 2 else 0
+                d =  self.c_p['piezo_current_position'][self.axis] - self.c_p[self.target_key][index]
 
                 if d < 0:
-                    self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-step, d)
+                    self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-self.step, d)
 
                 else:
-                    self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(step, d)
+                    self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(self.step, d)
 
-                if np.abs(d) < 0.1:
+                if np.abs(d) < 0.05:
                     self.c_p['piezo_move_to_target'][self.axis] = False
 
             self.update_position()
             sleep(self.sleep_time)
-        self.__del__()
 
+    # Had trouble with piezos not reconnecting after restartng program.
+    # May have had something to do with the __del__ function.
     def __del__(self):
         try:
             self.piezo_channel.StopPolling()

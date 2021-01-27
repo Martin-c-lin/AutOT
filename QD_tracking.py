@@ -15,9 +15,8 @@ def get_fft_object(image_shape):
     b = pyfftw.empty_aligned(image_shape, dtype='complex64')
 
     # Over the both axes
-    print('Creating FFT object')
+    print('Creating FFTW object')
     fft_object = pyfftw.FFTW(a, b, axes=(0,1))
-    print('FFTW object returned')
     return fft_object
 
 image_shape = [3008, 3600]
@@ -27,8 +26,6 @@ fft_object = get_fft_object(image_shape)
 @jit
 def normalize_image(image):
     # Normalizes the image to be in range 0,1
-    #image = image/np.max(image)
-    # image = image -np.mean(image)
     image -= np.min(image)
     image /= np.max(image)
     image = image -np.mean(image)
@@ -130,10 +127,8 @@ def find_QDs(image, inner_filter_width=15, outer_filter_width=300,threshold=0.11
         s = np.shape(image)
         if s[0] < edge*2 or s[1] < edge*2:
             return [], []
-    print('Fouriering ')
     image = fourier_filter(image, inner_filter_width=inner_filter_width, outer_filter_width=outer_filter_width)
     image = normalize_image(np.float32(image)) # Can edge removal be added here already?
-    print('Fourier done')
     x,y,ret_img = find_particle_centers(image[edge:-edge,edge:-edge], threshold=threshold, particle_size_threshold=particle_size_threshold, particle_upper_size_threshold=particle_upper_size_threshold)
 
     px = [s[1] - x_i - edge for x_i in x]
