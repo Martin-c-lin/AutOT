@@ -414,7 +414,7 @@ class UserInterface:
 
     def to_focus(self):
         global c_p
-        c_p['piezo_move_to_target'][2] = True
+        c_p['piezo_move_to_target'][2] = not c_p['piezo_move_to_target'][2]
 
     def toggle_move_piezo_to_target(self):
         if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
@@ -818,6 +818,10 @@ class UserInterface:
                 self.move_to_target_button.config(bg='red')
         except:
             pass
+        if c_p['piezo_move_to_target'][2]:
+            self.to_focus_button.config(bg='green')
+        else:
+            self.to_focus_button.config(bg='red')
 
         self.temperature_label.config(text=self.get_temperature_info())
 
