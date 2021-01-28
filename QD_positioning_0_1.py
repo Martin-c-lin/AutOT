@@ -389,9 +389,6 @@ class UserInterface:
         if c_p['mouse_move_allowed']:
             self.mouse_command_move()
 
-    # def toggle_laser_cross(self):
-    #     c_p['display_laser_position'] = not c_p['display_laser_position']
-
     def toggle_move_by_clicking(self):
         c_p['mouse_move_allowed'] = not c_p['mouse_move_allowed']
 
@@ -457,7 +454,9 @@ class UserInterface:
         global c_p
         c_p['polymerization_LED'] = 'T'
 
-    # TODO add possibility to restore z-position of sample.
+    def add_stepper_buttons(self, top, generator_y, position_x):
+
+        pass
 
     def create_buttons(self, top=None):
         '''
@@ -605,13 +604,6 @@ class UserInterface:
                 text='Toggle move to target', command=self.toggle_move_piezo_to_target)
             self.move_to_target_button.place(x=x_position, y=y_position.__next__())
 
-        if c_p['using_stepper_motors']:
-            #self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
-            self.sample_up_button = tkinter.Button(top, text='Sample up', command=stepper_button_move_upp)
-            self.sample_down_button = tkinter.Button(top, text='Sample down', command=stepper_button_move_down)
-            self.sample_up_button.place(x=x_position, y=y_position.__next__())
-            self.sample_down_button.place(x=x_position, y=y_position.__next__())
-
         if c_p['temp']:
             self.temperature_entry.place(x=x_position, y=y_position.__next__())
             temperature_button.place(x=x_position, y=y_position.__next__())
@@ -692,6 +684,11 @@ class UserInterface:
             self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
             variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
             self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
+
+            self.stepper_slowmotion = tkinter.BooleanVar()
+            self.stepper_slowmotion_checkbox = tkinter.Checkbutton(top, text='Stepper slowmotion',\
+            variable=self.stepper_slowmotion, onvalue=True, offvalue=False)
+            self.stepper_slowmotion_checkbox.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
             # TODO make the scrolling work only when mouse is on the canvas
@@ -811,17 +808,15 @@ class UserInterface:
                 self.arduino_LED_button.config(bg='red')
 
         # Update "move to target button", may not exist
-        try:
+        if c_p['stage_piezos']:
             if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
                 self.move_to_target_button.config(bg='green')
             else:
                 self.move_to_target_button.config(bg='red')
-        except:
-            pass
-        if c_p['piezo_move_to_target'][2]:
-            self.to_focus_button.config(bg='green')
-        else:
-            self.to_focus_button.config(bg='red')
+            if c_p['piezo_move_to_target'][2]:
+                self.to_focus_button.config(bg='green')
+            else:
+                self.to_focus_button.config(bg='red')
 
         self.temperature_label.config(text=self.get_temperature_info())
 
@@ -996,6 +991,11 @@ class UserInterface:
 
          if c_p['stage_piezos'] or c_p['using_stepper_motors']:
              c_p['scroll_for_z'] = self.z_scrolling.get()
+         if c_p['using_stepper_motors']:
+             if self.stepper_slowmotion.get():
+                 c_p['stepper_move_to_target'] = [True, True, True]
+             else:
+                 c_p['stepper_move_to_target'] = [False, False, False]
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
@@ -2023,9 +2023,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
+# c_p['stage_piezo_x'] = True
+# c_p['stage_piezo_y'] = True
+# c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 

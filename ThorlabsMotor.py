@@ -842,6 +842,7 @@ def get_default_stepper_c_p():
         'stage_stepper_connected':[False, False, False],
         'stepper_current_pos':[0, 0, 0],
         'stepper_target_position':[2.3, 2.3, 0],
+        'stepper_move_to_target':[False, False, False],
         'stepper_next_move':[0, 0, 0],
         'stepper_max_speed':[0.01, 0.01, 0.01],
         'stepper_acc':[0.005, 0.005, 0.005],
@@ -853,7 +854,7 @@ def get_default_stepper_c_p():
 class XYZ_stepper_stage_motor(Thread):
 
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='70167314', sleep_time=0.05):
+        serialNo='70167314', sleep_time=0.05, step=0.0005):
         """
 
         """
@@ -865,6 +866,7 @@ class XYZ_stepper_stage_motor(Thread):
         self.channel = channel
         self.axis = axis
         self.sleep_time = sleep_time
+        self.step = step
         if controller_device is None:
             controller_device = ConnectBenchtopStepperController(serialNo)
         self.controller_device = controller_device
@@ -881,7 +883,6 @@ class XYZ_stepper_stage_motor(Thread):
     def move_absolute(self):
         target_pos = Decimal(float(self.c_p['stepper_target_position'][self.axis]))
         self.stepper_channel.MoveTo(target_pos,Int32(100000))
-        #self.stepper_channel.MoveAbsolute(Int32(100000))
 
     def move_distance(self, distance):
         self.stepper_channel.MoveRelative(1, Decimal(distance), Int32(100000))
@@ -891,9 +892,12 @@ class XYZ_stepper_stage_motor(Thread):
         distance = position - self.c_p['stepper_current_pos'][self.axis]
         self.move_distance(float(distance))
 
-    def jog_move(self):
-        # Does not work well at the moment
+    def get_jog_distance(self):
         jog_distance = self.c_p['stepper_target_position'][self.axis] - self.c_p['stepper_current_pos'][self.axis]
+        return jog_distance
+    def jog_move(self, jog_distance):
+        # Does not work well at the moment
+
         if np.abs(jog_distance)>1e-4:
             self.stepper_channel.SetJogStepSize(Decimal(float(jog_distance)))
             self.stepper_channel.MoveJog(1, Int32(10000))
@@ -914,17 +918,21 @@ class XYZ_stepper_stage_motor(Thread):
             print('Could not set velocity params.')
 
     def run(self):
-        self.set_jog_velocity_params()#set_velocity_params()
+        self.set_jog_velocity_params()
         self.move_absolute()
         while self.c_p['program_running']:
             if self.c_p['new_stepper_velocity_params']:
-                self.set_jog_velocity_params()#set_velocity_params()
+                self.set_jog_velocity_params()
                 self.c_p['new_stepper_velocity_params'] = False
-            #self.update_current_position()
-            #self.move_to_position(self.c_p['stepper_target_position'][self.axis])
-            #self.move_absolute()
             try:
-                self.jog_move()
+                jog_distance = self.get_jog_distance()
+                if self.c_p['stepper_move_to_target'][self.axis]:
+                    if jog_distance > 0:
+                        jog_distance = min(self.step, jog_distance)
+                    else:
+                        jog_distance = max(-self.step, jog_distance)
+                self.jog_move(jog_distance)
+
             except:
                 print('movement error')
             self.update_current_position()
