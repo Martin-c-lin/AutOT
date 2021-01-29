@@ -270,6 +270,7 @@ class UserInterface:
         # called every delay milliseconds
         self.image_scale = 1 # scale of image being displayed
         self.delay = 10 #50 standard how often to update view in ms intervals
+        self.zoomed_in = False
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
@@ -457,7 +458,13 @@ class UserInterface:
     def add_stepper_buttons(self, top, generator_y, position_x):
 
         pass
-
+    def toggle_zoom(self):
+        if self.zoomed_in:
+            CameraControls.zoom_out(c_p)
+            self.zoomed_in = False
+        else:
+            zoom_in()
+            self.zoomed_in = True
     def create_buttons(self, top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -558,10 +565,10 @@ class UserInterface:
         temperature_button = tkinter.Button(
             top, text='Set setpoint temperature', command=set_temperature)
 
-        zoom_in_button = tkinter.Button(top, text='Zoom in', command=zoom_in)
+        self.zoom_button = tkinter.Button(top, text='Zoom in', command=self.toggle_zoom)
 
-        zoom_out_button = tkinter.Button(top, text='Zoom out',
-            command=partial(CameraControls.zoom_out, c_p=c_p) )
+        # zoom_out_button = tkinter.Button(top, text='Zoom out',
+        #     command=partial(CameraControls.zoom_out, c_p=c_p) )
 
         temperature_output_button = tkinter.Button(top,
             text='toggle temperature output', command=toggle_temperature_output)
@@ -613,9 +620,9 @@ class UserInterface:
         threshold_entry.place(x=x_position, y=y_position.__next__())
         threshold_button.place(x=x_position, y=y_position.__next__())
         self.toggle_tracking_button.place(x=x_position, y=y_position.__next__())
-
-        zoom_in_button.place(x=x_position, y=y_position.__next__())
-        zoom_out_button.place(x=x_position, y=y_position.__next__())
+        self.zoom_button.place(x=x_position, y=y_position.__next__())
+        # zoom_in_button.place(x=x_position, y=y_position.__next__())
+        # zoom_out_button.place(x=x_position, y=y_position.__next__())
 
         # Second column
         exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
@@ -817,6 +824,10 @@ class UserInterface:
                 self.to_focus_button.config(bg='green')
             else:
                 self.to_focus_button.config(bg='red')
+        if self.zoomed_in:
+            self.zoom_button.config(text='Zoom out')
+        else:
+            self.zoom_button.config(text='Zoom in')
 
         self.temperature_label.config(text=self.get_temperature_info())
 
@@ -993,9 +1004,16 @@ class UserInterface:
              c_p['scroll_for_z'] = self.z_scrolling.get()
          if c_p['using_stepper_motors']:
              if self.stepper_slowmotion.get():
-                 c_p['stepper_move_to_target'] = [True, True, True]
+                 if not c_p['stepper_max_speed']  == [0.001, 0.001, 0.001]:
+                     c_p['stepper_max_speed'] = [0.001, 0.001, 0.001]
+                     c_p['stepper_acc']:[0.001, 0.001, 0.001]
+                     c_p['new_stepper_velocity_params'] = True
+                     print('Activating slowmotion')
              else:
-                 c_p['stepper_move_to_target'] = [False, False, False]
+                 if not c_p['stepper_max_speed']  == [0.01, 0.01, 0.01]:
+                     c_p['stepper_max_speed'] = [0.01, 0.01, 0.01]
+                     c_p['stepper_acc']:[0.01, 0.01, 0.01]
+                     c_p['new_stepper_velocity_params'] = True
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()

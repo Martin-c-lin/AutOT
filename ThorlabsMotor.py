@@ -854,7 +854,7 @@ def get_default_stepper_c_p():
 class XYZ_stepper_stage_motor(Thread):
 
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='70167314', sleep_time=0.05, step=0.0005):
+        serialNo='70167314', sleep_time=0.05, step=0.0002):
         """
 
         """
@@ -867,6 +867,8 @@ class XYZ_stepper_stage_motor(Thread):
         self.axis = axis
         self.sleep_time = sleep_time
         self.step = step
+        self.is_moving = False
+        self.move_direction = 1
         if controller_device is None:
             controller_device = ConnectBenchtopStepperController(serialNo)
         self.controller_device = controller_device
@@ -907,6 +909,7 @@ class XYZ_stepper_stage_motor(Thread):
             self.stepper_channel.SetVelocityParams(
                 Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
                 Decimal(float(self.c_p['stepper_acc'][self.axis])))
+            print('New velocity params accepted')
         except:
             print('Could not set velocity params.')
     def set_jog_velocity_params(self):
@@ -919,26 +922,36 @@ class XYZ_stepper_stage_motor(Thread):
 
     def run(self):
         self.set_jog_velocity_params()
+        self.set_velocity_params()
         self.move_absolute()
         while self.c_p['program_running']:
             if self.c_p['new_stepper_velocity_params']:
+                self.stepper_channel.StopImmediate()
                 self.set_jog_velocity_params()
+                sleep(self.sleep_time)
+                self.set_velocity_params()
                 self.c_p['new_stepper_velocity_params'] = False
-            try:
-                jog_distance = self.get_jog_distance()
-                if self.c_p['stepper_move_to_target'][self.axis]:
-                    if jog_distance > 0:
-                        jog_distance = min(self.step, jog_distance)
-                    else:
-                        jog_distance = max(-self.step, jog_distance)
-                self.jog_move(jog_distance)
-
-            except:
-                print('movement error')
             self.update_current_position()
+            jog_distance = self.get_jog_distance()
+            move_dir = 1 if np.sign(jog_distance) > 0 else 2
+
+            if move_dir != self.move_direction:
+                self.stepper_channel.StopImmediate()
+                self.is_moving = False
+                self.move_direction = move_dir
+
+            if not self.is_moving and np.abs(jog_distance) > self.step:
+                self.stepper_channel.MoveContinuous(self.move_direction)
+                self.is_moving = True
+
+            elif np.abs(jog_distance) < self.step:
+                self.stepper_channel.StopImmediate()
+                self.is_moving = False
             sleep(self.sleep_time)
+        self.stepper_channel.StopImmediate()
         self.__del__()
 
     def __del__(self):
+        self.stepper_channel.StopImmediate()
         self.stepper_channel.StopPolling()
         self.stepper_channel.Disconnect()
