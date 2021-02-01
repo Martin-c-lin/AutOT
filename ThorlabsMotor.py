@@ -846,7 +846,7 @@ def get_default_stepper_c_p():
         'stepper_next_move':[0, 0, 0],
         'stepper_max_speed':[0.01, 0.01, 0.01],
         'stepper_acc':[0.005, 0.005, 0.005],
-        'new_stepper_velocity_params':False,
+        'new_stepper_velocity_params':[False,False,False]
     }
     return stepper_c_p
 
@@ -905,13 +905,23 @@ class XYZ_stepper_stage_motor(Thread):
             self.stepper_channel.MoveJog(1, Int32(10000))
 
     def set_velocity_params(self):
-        try:
-            self.stepper_channel.SetVelocityParams(
-                Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
-                Decimal(float(self.c_p['stepper_acc'][self.axis])))
-            print('New velocity params accepted')
-        except:
-            print('Could not set velocity params.')
+        tmp = self.stepper_channel.GetVelocityParams()
+        stepper_speed = float(str(tmp.MaxVelocity))
+        trials = 0
+        while stepper_speed != self.c_p['stepper_max_speed'][self.axis] and trials < 100:
+            try:
+                self.stepper_channel.SetVelocityParams(
+                    Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
+                    Decimal(float(self.c_p['stepper_acc'][self.axis])))
+                print('New velocity params accepted')
+            except:
+                print('Could not set velocity params.')
+            tmp = self.stepper_channel.GetVelocityParams()
+            stepper_speed = float(str(tmp.MaxVelocity))
+            trials += 1
+            sleep(self.sleep_time)
+        print(tmp.MaxVelocity, tmp.Acceleration, trials)
+
     def set_jog_velocity_params(self):
         try:
             self.stepper_channel.SetJogVelocityParams(
@@ -925,12 +935,14 @@ class XYZ_stepper_stage_motor(Thread):
         self.set_velocity_params()
         self.move_absolute()
         while self.c_p['program_running']:
-            if self.c_p['new_stepper_velocity_params']:
+            if self.c_p['new_stepper_velocity_params'][self.axis]:
+                self.c_p['new_stepper_velocity_params'][self.axis] = False
                 self.stepper_channel.StopImmediate()
-                self.set_jog_velocity_params()
+                #self.set_jog_velocity_params()
                 sleep(self.sleep_time)
                 self.set_velocity_params()
-                self.c_p['new_stepper_velocity_params'] = False
+                sleep(self.sleep_time)
+
             self.update_current_position()
             jog_distance = self.get_jog_distance()
             move_dir = 1 if np.sign(jog_distance) > 0 else 2

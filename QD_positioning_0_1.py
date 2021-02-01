@@ -238,6 +238,7 @@ def start_threads(c_p, thread_list):
         # except:
         #     print('Could not start mouse input thread')
 
+
 class UserInterface:
 
     def __init__(self, window, window_title, c_p, thread_list, use_SLM=False):
@@ -245,7 +246,8 @@ class UserInterface:
         self.window.title(window_title)
         start_threads(c_p, thread_list)
         # Create a canvas that can fit the above video source size
-
+        # TODO: Add scrollbar for adjusting motor speed and a simpler way to
+        # label outputs(videos, images etc) from the program
         self.canvas_width = 1300
         self.canvas_height = 1120
 
@@ -458,6 +460,7 @@ class UserInterface:
     def add_stepper_buttons(self, top, generator_y, position_x):
 
         pass
+
     def toggle_zoom(self):
         if self.zoomed_in:
             CameraControls.zoom_out(c_p)
@@ -465,6 +468,21 @@ class UserInterface:
         else:
             zoom_in()
             self.zoomed_in = True
+
+    def motor_scale_command(self, value):
+        global c_p
+        value = float(value)/ 1000
+        c_p['stepper_max_speed'] = [value, value, value]
+        c_p['stepper_acc']:[value*2, value*2, value*2]
+        c_p['new_stepper_velocity_params'] = [True,True,True]
+        print('setting speed to: ',value,' mum/s')
+
+    def place_motor_speed_scale(self,top,x,y):
+        self.motor_speed = tkinter.DoubleVar()
+        self.motor_scale = tkinter.Scale(top, command=self.motor_scale_command,
+        orient=HORIZONTAL, from_=0.5, to=50, resolution=0.5)
+        self.motor_scale.place(x=x,y=y)
+
     def create_buttons(self, top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -693,9 +711,10 @@ class UserInterface:
             self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
 
             self.stepper_slowmotion = tkinter.BooleanVar()
-            self.stepper_slowmotion_checkbox = tkinter.Checkbutton(top, text='Stepper slowmotion',\
-            variable=self.stepper_slowmotion, onvalue=True, offvalue=False)
-            self.stepper_slowmotion_checkbox.place(x=x_position_2, y=y_position_2.__next__())
+            # self.stepper_slowmotion_checkbox = tkinter.Checkbutton(top, text='Stepper slowmotion',\
+            # variable=self.stepper_slowmotion, onvalue=True, offvalue=False)
+            # self.stepper_slowmotion_checkbox.place(x=x_position_2, y=y_position_2.__next__())
+            self.place_motor_speed_scale(top,x=x_position_2,y=y_position_2.__next__())
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
             # TODO make the scrolling work only when mouse is on the canvas
@@ -1002,18 +1021,19 @@ class UserInterface:
 
          if c_p['stage_piezos'] or c_p['using_stepper_motors']:
              c_p['scroll_for_z'] = self.z_scrolling.get()
-         if c_p['using_stepper_motors']:
-             if self.stepper_slowmotion.get():
-                 if not c_p['stepper_max_speed']  == [0.001, 0.001, 0.001]:
-                     c_p['stepper_max_speed'] = [0.001, 0.001, 0.001]
-                     c_p['stepper_acc']:[0.001, 0.001, 0.001]
-                     c_p['new_stepper_velocity_params'] = True
-                     print('Activating slowmotion')
-             else:
-                 if not c_p['stepper_max_speed']  == [0.01, 0.01, 0.01]:
-                     c_p['stepper_max_speed'] = [0.01, 0.01, 0.01]
-                     c_p['stepper_acc']:[0.01, 0.01, 0.01]
-                     c_p['new_stepper_velocity_params'] = True
+
+         # if c_p['using_stepper_motors']:
+         #     if self.stepper_slowmotion.get():
+         #         if not c_p['stepper_max_speed']  == [0.001, 0.001, 0.001]:
+         #             c_p['stepper_max_speed'] = [0.001, 0.001, 0.001]
+         #             c_p['stepper_acc']:[0.001, 0.001, 0.001]
+         #             c_p['new_stepper_velocity_params'] = [True,True,True]
+         #             print('Activating slowmotion')
+         #     else:
+         #         if not c_p['stepper_max_speed']  == [0.01, 0.01, 0.01]:
+         #             c_p['stepper_max_speed'] = [0.01, 0.01, 0.01]
+         #             c_p['stepper_acc']:[0.01, 0.01, 0.01]
+         #             c_p['new_stepper_velocity_params'] = [True,True,True]
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
@@ -1846,7 +1866,6 @@ def focus_up():
     '''
     Used for focus button to shift focus slightly up
     '''
-    #c_p['z_starting_position'] += 5
     c_p['piezo_target_pos'][2] += 0.1
 
 
@@ -1854,7 +1873,6 @@ def focus_down():
     '''
     Used for focus button to shift focus slightly up
     '''
-    #c_p['z_starting_position'] -= 5
     c_p['piezo_target_pos'][2] -= 0.1
 
 def zoom_in(margin=60, use_traps=False):
@@ -1873,7 +1891,6 @@ def zoom_in(margin=60, use_traps=False):
         down = int(down // 20 * 20)
 
     elif c_p['camera_model'] == 'basler_large':
-        # TODO finish this so it tries to zoom in on relevant locations
         margin = 500
         left = max(min(c_p['traps_absolute_pos'][0]) - margin, 0)
         left = int(left // 16 * 16)
@@ -1893,7 +1910,6 @@ def zoom_in(margin=60, use_traps=False):
         up = int(up // 16 * 16)
         down = min(max(c_p['traps_absolute_pos'][1]) + margin, 512)
         down = int(down // 16 * 16)
-    #c_p['framerate'] = 500
     # Note calculated framerate is automagically saved.
     CameraControls.set_AOI(c_p, left=left, right=right, up=up, down=down)
     update_traps_relative_pos(c_p)

@@ -3,7 +3,10 @@ from threading import Thread
 from time import sleep
 
 class mouseInputThread(Thread):
-
+    '''
+    Thread for getting mouse input. Used to read scroll-wheel and thus
+    lower/raise the sample.
+    '''
     def __init__(self, threadID, name, c_p, stepper_step_distance=0.0002,
             piezo_step_distance=0.02, sleep_time=0.01):
         Thread.__init__(self)
@@ -16,10 +19,16 @@ class mouseInputThread(Thread):
         self.sleep_time = sleep_time
 
     def on_move(self, x, y):
+        """
+        Used to check if the program is still running.
+        """
         return self.c_p['program_running']
 
     def on_scroll(self, x, y, dx, dy):
-
+        '''
+        Moves the stage up/down depending on scroll. Will automagically shift
+        between using steppers and piezos depending on which are activated.
+        '''
         if self.c_p['scroll_for_z']:
             if self.c_p['stage_piezos'] and self.c_p['piezos_activated'].get():
                 if dy<0:

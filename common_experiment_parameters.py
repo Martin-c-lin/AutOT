@@ -142,7 +142,7 @@ def get_default_c_p(recording_path=None):
         'QD_target_loc_x':[1,5,15],
         'QD_target_loc_y':[2,2,2],
         'QD_target_loc_z':[10],
-        'QDs_placed': 1,
+        'QDs_placed': 0,
         'motor_movements': [0, 0],  # How much x and y motor should be moved
         'motor_starting_pos': [0, 0],  # Startng position of x-y motors,
         # needed for z-compensation
