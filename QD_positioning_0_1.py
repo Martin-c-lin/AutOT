@@ -409,12 +409,17 @@ class UserInterface:
 
     def save_starting_z(self):
         global c_p
-        c_p['QD_target_loc_z'][0] = c_p['piezo_current_position'][2]
-        print(c_p['QD_target_loc_z'])
+        if c_p['stage_piezos']:
+            c_p['QD_target_loc_z'][0] = c_p['piezo_current_position'][2]
+        if c_p['using_stepper_motors']:
+            c_p['stepper_starting_position'][2] = c_p['stepper_current_position'][2]
 
     def to_focus(self):
         global c_p
-        c_p['piezo_move_to_target'][2] = not c_p['piezo_move_to_target'][2]
+        if c_p['stage_piezos']:
+            c_p['piezo_move_to_target'][2] = not c_p['piezo_move_to_target'][2]
+        if c_p['using_stepper_motors']:
+            c_p['stepper_target_position'][2] = c_p['stepper_starting_position'][2]
 
     def toggle_move_piezo_to_target(self):
         if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
@@ -474,13 +479,14 @@ class UserInterface:
         value = float(value)/ 1000
         c_p['stepper_max_speed'] = [value, value, value]
         c_p['stepper_acc']:[value*2, value*2, value*2]
-        c_p['new_stepper_velocity_params'] = [True,True,True]
-        print('setting speed to: ',value,' mum/s')
+        c_p['new_stepper_velocity_params'] = [True, True, True]
 
     def place_motor_speed_scale(self,top,x,y):
         self.motor_speed = tkinter.DoubleVar()
         self.motor_scale = tkinter.Scale(top, command=self.motor_scale_command,
         orient=HORIZONTAL, from_=0.5, to=50, resolution=0.5)
+        self.motor_speed_label = Label(self.window, text="Stepper speed [microns/s]")
+        self.motor_speed_label.place(x=x-10, y=y-15)
         self.motor_scale.place(x=x,y=y)
 
     def create_buttons(self, top=None):
@@ -504,11 +510,6 @@ class UserInterface:
             self.get_standard_move_buttons(top)
         elif c_p['stage_piezos']:
             self.get_stage_move_buttons(top)
-
-        self.move_by_clicking = tkinter.BooleanVar()
-        if c_p['using_stepper_motors'] or c_p['stage_piezos']:
-            self.move_by_clicking_button = tkinter.Checkbutton(top, text='move by clicking',\
-            variable=self.move_by_clicking, onvalue=True, offvalue=False)
 
         self.recording_button = tkinter.Button(top, text='Start recording',
                                              command=toggle_recording)
@@ -585,9 +586,6 @@ class UserInterface:
 
         self.zoom_button = tkinter.Button(top, text='Zoom in', command=self.toggle_zoom)
 
-        # zoom_out_button = tkinter.Button(top, text='Zoom out',
-        #     command=partial(CameraControls.zoom_out, c_p=c_p) )
-
         temperature_output_button = tkinter.Button(top,
             text='toggle temperature output', command=toggle_temperature_output)
 
@@ -602,8 +600,6 @@ class UserInterface:
         self.diplay_laser_button = tkinter.Checkbutton(top, text='Laser indicator',\
         variable=self.display_laser, onvalue=True, offvalue=False)
         self.display_laser.set(True)
-        # tkinter.Button(top, \
-        #     text='Toggle laser indicator', command=self.toggle_laser_cross)
 
         x_position = 1310
         x_position_2 = 1500
@@ -639,8 +635,6 @@ class UserInterface:
         threshold_button.place(x=x_position, y=y_position.__next__())
         self.toggle_tracking_button.place(x=x_position, y=y_position.__next__())
         self.zoom_button.place(x=x_position, y=y_position.__next__())
-        # zoom_in_button.place(x=x_position, y=y_position.__next__())
-        # zoom_out_button.place(x=x_position, y=y_position.__next__())
 
         # Second column
         exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
@@ -687,15 +681,6 @@ class UserInterface:
             previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['stage_piezos']:
-            self.save_z_button = tkinter.Button(
-                top, text='Save piezo z pos', command=self.save_starting_z)
-            y_pos = y_position_2.__next__()
-            self.save_z_button.place(x=x_position_2, y=y_pos)
-
-            self.to_focus_button = tkinter.Button(
-                top, text='To focus', command=self.to_focus)
-            self.to_focus_button.place(x=x_position_2+70, y=y_pos)
-
 
             # TODO make the checkbox variable "piezos_activated" part of GUI and not c_p
             c_p['piezos_activated'] = tkinter.BooleanVar()
@@ -709,15 +694,25 @@ class UserInterface:
             self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
             variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
             self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
-
-            self.stepper_slowmotion = tkinter.BooleanVar()
-            # self.stepper_slowmotion_checkbox = tkinter.Checkbutton(top, text='Stepper slowmotion',\
-            # variable=self.stepper_slowmotion, onvalue=True, offvalue=False)
-            # self.stepper_slowmotion_checkbox.place(x=x_position_2, y=y_position_2.__next__())
             self.place_motor_speed_scale(top,x=x_position_2,y=y_position_2.__next__())
+            c_p['stepper_activated'].set(True)
+
+        self.move_by_clicking = tkinter.BooleanVar()
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
+            self.save_z_button = tkinter.Button(
+                top, text='Save z pos', command=self.save_starting_z)
+            y_pos = y_position_2.__next__()
+            self.save_z_button.place(x=x_position_2, y=y_pos)
+
+            self.to_focus_button = tkinter.Button(
+                top, text='To focus', command=self.to_focus)
+            self.to_focus_button.place(x=x_position_2+70, y=y_pos)
+
             # TODO make the scrolling work only when mouse is on the canvas
+            self.move_by_clicking_button = tkinter.Checkbutton(top, text='move by clicking',\
+            variable=self.move_by_clicking, onvalue=True, offvalue=False)
+            self.move_by_clicking.set(True)
             self.z_scrolling = tkinter.BooleanVar()
             self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
             variable=self.z_scrolling, onvalue=True, offvalue=False)
@@ -762,7 +757,7 @@ class UserInterface:
             target_key_motor = 'motor_current_pos'
             target_key_connection = 'motors_connected'
         elif  c_p['using_stepper_motors']:
-            target_key_motor = 'stepper_current_pos'
+            target_key_motor = 'stepper_current_position'
             target_key_connection = 'stage_stepper_connected'
 
         if target_key_motor is not None:
@@ -922,12 +917,12 @@ class UserInterface:
             if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
                 c_p['piezo_target_pos'][0] -= (dx * 1000)
             else:
-                c_p['stepper_target_position'][0] = c_p['stepper_current_pos'][0] - dx
+                c_p['stepper_target_position'][0] = c_p['stepper_current_position'][0] - dx
 
             if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 18:
                 c_p['piezo_target_pos'][1] -= (dy * 1000)
             else:
-                c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - dy
+                c_p['stepper_target_position'][1] = c_p['stepper_current_position'][1] - dy
 
         elif c_p['stage_piezos'] and c_p['piezos_activated'].get():
             if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
@@ -936,8 +931,8 @@ class UserInterface:
                 c_p['piezo_target_pos'][1] -= (dy * 1000)
 
         elif c_p['using_stepper_motors'] and c_p['stepper_activated'].get():
-            c_p['stepper_target_position'][0] = c_p['stepper_current_pos'][0] - dx
-            c_p['stepper_target_position'][1] = c_p['stepper_current_pos'][1] - dy
+            c_p['stepper_target_position'][0] = c_p['stepper_current_position'][0] - dx
+            c_p['stepper_target_position'][1] = c_p['stepper_current_position'][1] - dy
 
     def add_laser_cross(self, image):
          try:
@@ -956,8 +951,8 @@ class UserInterface:
         '''
         s = np.shape(image)
         # Extract laser position
-        x = int(c_p['traps_relative_pos'][0][0]) #[1][0]
-        y = int(c_p['traps_relative_pos'][1][0]) #[1][0]
+        x = int(c_p['traps_relative_pos'][0][0])
+        y = int(c_p['traps_relative_pos'][1][0])
 
         # Calculate distance from laser to target location
         separation_x = c_p['QD_target_loc_x'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - x
@@ -1021,19 +1016,6 @@ class UserInterface:
 
          if c_p['stage_piezos'] or c_p['using_stepper_motors']:
              c_p['scroll_for_z'] = self.z_scrolling.get()
-
-         # if c_p['using_stepper_motors']:
-         #     if self.stepper_slowmotion.get():
-         #         if not c_p['stepper_max_speed']  == [0.001, 0.001, 0.001]:
-         #             c_p['stepper_max_speed'] = [0.001, 0.001, 0.001]
-         #             c_p['stepper_acc']:[0.001, 0.001, 0.001]
-         #             c_p['new_stepper_velocity_params'] = [True,True,True]
-         #             print('Activating slowmotion')
-         #     else:
-         #         if not c_p['stepper_max_speed']  == [0.01, 0.01, 0.01]:
-         #             c_p['stepper_max_speed'] = [0.01, 0.01, 0.01]
-         #             c_p['stepper_acc']:[0.01, 0.01, 0.01]
-         #             c_p['new_stepper_velocity_params'] = [True,True,True]
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
@@ -1806,10 +1788,10 @@ def stage_piezo_manual_move(axis, distance):
 
 def stage_stepper_manual_move(axis, distance):
     # Move the stepper motor distance (measured in mm)
-    c_p['stepper_target_pos'][axis] += distance
+    c_p['stepper_target_position'][axis] += distance
     # Check if move was ok
-    c_p['stepper_target_pos'][axis] = max(0, c_p['stepper_target_pos'][axis] )
-    c_p['stepper_target_pos'][axis] = min(20, c_p['stepper_target_pos'][axis] )
+    c_p['stepper_target_position'][axis] = max(0, c_p['stepper_target_position'][axis] )
+    c_p['stepper_target_position'][axis] = min(20, c_p['stepper_target_position'][axis] )
 
 def toggle_recording():
     '''
@@ -1916,12 +1898,12 @@ def zoom_in(margin=60, use_traps=False):
 
 def stepper_button_move_down(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
-    c_p['stepper_target_position'][2] = c_p['stepper_current_pos'][2] - distance
+    c_p['stepper_target_position'][2] = c_p['stepper_current_position'][2] - distance
 
 
 def stepper_button_move_upp(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
-    c_p['stepper_target_position'][2] = c_p['stepper_current_pos'][2] + distance
+    c_p['stepper_target_position'][2] = c_p['stepper_current_position'][2] + distance
 
 def search_for_particles():
     '''
