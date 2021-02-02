@@ -342,8 +342,9 @@ class UserInterface:
                 x = int(round(x/scale_factor))
                 y = int(round(y/scale_factor))
 
-                if 1 <= x <= 239 and 1 <= y <= 199:
-                    mini_image[(y-1):(y+2),(x-1):(x+2),0] = 255
+                if 2 <= x <= 238 and 2 <= y <= 198:
+                    mini_image[(y-2):(y+3),x,0] = 255
+                    mini_image[y,(x-2):(x+3),0] = 255
 
         # Draw the particles
         if  len(particle_x) > 0 and len(particle_x) == len(particle_y):
@@ -407,12 +408,12 @@ class UserInterface:
         else:
             print('Already at first location')
 
-    def save_starting_z(self):
+    def save_starting_position(self):
         global c_p
         if c_p['stage_piezos']:
             c_p['QD_target_loc_z'][0] = c_p['piezo_current_position'][2]
         if c_p['using_stepper_motors']:
-            c_p['stepper_starting_position'][2] = c_p['stepper_current_position'][2]
+            c_p['stepper_starting_position'] = c_p['stepper_current_position']
 
     def to_focus(self):
         global c_p
@@ -432,7 +433,6 @@ class UserInterface:
             c_p['polymerization_LED'] = 'H'
         else:
             c_p['polymerization_LED'] = 'L'
-        #c_p['polymerization_LED'] = not c_p['polymerization_LED']
 
     def connect_disconnect_motorX(self):
         global c_p
@@ -701,7 +701,7 @@ class UserInterface:
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
             self.save_z_button = tkinter.Button(
-                top, text='Save z pos', command=self.save_starting_z)
+                top, text='Save z pos', command=self.save_starting_position)
             y_pos = y_position_2.__next__()
             self.save_z_button.place(x=x_position_2, y=y_pos)
 

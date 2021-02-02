@@ -7,6 +7,8 @@ from threading import  Thread
 from time import sleep, time
 import pyfftw
 pyfftw.interfaces.cache.enable()
+from math import isclose
+
 # TODO incorporate also radial symmetry in the tracking.
 
 
@@ -168,37 +170,44 @@ def is_trapped(c_p, trap_dist):
     Calculate distance between trap and particle centers.
     '''
     if len(c_p['particle_centers'][0]) < 1:
-        return False, None
+        c_p['QD_currently_trapped'] = False
+        c_p['closest_QD'] = None
+        return None
+
     dists_x = np.asarray(c_p['particle_centers'][0] - c_p['traps_absolute_pos'][0][0])
     dists_y = np.asarray(c_p['particle_centers'][1] - c_p['traps_absolute_pos'][1][0])
     dists_tot = dists_x**2 + dists_y**2
-    return min(dists_tot) < trap_dist
+    min_val = min(dists_tot)
+    c_p['QD_currently_trapped'] = min_val < trap_dist
+    c_p['closest_QD'] = dists_tot.index(min_val)
+    return min_val < trap_dist
 
 class QD_Tracking_Thread(Thread):
    '''
    Thread which does the tracking and placement of quantum dots automatically.
 
    '''
-   def __init__(self, threadID, name, c_p, sleep_time=0.01):
+   def __init__(self, threadID, name, c_p, sleep_time=0.01, tolerance=0.0005):
         Thread.__init__(self)
         self.threadID = threadID
         self.name = name
         self.c_p = c_p
         self.sleep_time = sleep_time
+        self.tolerance = tolerance
         self.setDaemon(True)
 
    def __del__(self):
        self.c_p['tracking_on'] = False
 
    def trapped_now(self):
-       self.c_p['QD_currently_trapped'], self.c_p['closest_QD'] = is_trapped(self.c_p, 15)
+       is_trapped(self.c_p, 10)
        if self.c_p['QD_currently_trapped']:
            self.c_p['QD_trapped'] = True
            self.c_p['QD_trapped_counter'] = 0
        else:
            self.c_p['QD_trapped_counter'] += 1
            if self.c_p['QD_trapped_counter'] >= self.c_p['max_trapped_counter']:
-              self.c_p['QD_trapped'] = False
+
 
    def move_to_target_location(self):
        '''
@@ -227,6 +236,43 @@ class QD_Tracking_Thread(Thread):
 
    def look_for_quantum_dot(self):
        pass
+
+   def move_QD_to_location_rough(self, x, y, step = 0.0005):
+       # 1 check if quantum dot is trapped
+       # 2.1 quantum dot trapped -> take step towards target location
+       # 2.2 QD not trapped.
+       # 2.2.1 QDs in view
+       self.trapped_now()
+       if c_p['closest_QD'] is not None::
+
+           # Calcualte distance to target position
+           if c_p['QD_trapped']:
+               d = self.c_p['stepper_current_position'][0:1] - [x, y]
+           else:
+               # No QD is trapped but there are other visible in frame
+               dx = self.c_p['particle_centers'][0][self.c_p['closest_QD']] - self.c_p['traps_absolute_pos'][0][0])
+               dy = self.c_p['particle_centers'][1][self.c_p['closest_QD']] - self.c_p['traps_absolute_pos'][1][0]
+               # TODO finish this function, increase step?
+               d = [dx, dy] / self.c_p['mmToPixel']
+
+           # If we are close enough to target location, return
+           if d[0]**2 + d[1]**2 < self.tolerance**2:
+                return True
+
+           # Move a small step towards target location or QD
+           if d[0] < 0:
+               self.c_p['stepper_target_position'][0] += max(-step, d[0])
+           else:
+               self.c_p['stepper_target_position'][0] += min(step, d[0])
+           if d[1] < 0:
+               self.c_p['stepper_target_position'][1] += max(-step, d[1])
+           else:
+               self.c_p['stepper_target_position'][1] += min(step, d[1])
+           return False
+
+       else:
+           # look for other particle
+           pass
 
    def stick_quantum_dot(self):
 
@@ -292,6 +338,10 @@ class QD_Tracking_Thread(Thread):
                x, y, tmp = find_QDs(self.c_p['image'])
 
                self.c_p['particle_centers'] = [x, y]
+
+               if self.c_p['']:
+                   self.move_QD_to_location()
+
                # Check trapping status
                # self.trapped_now()
                #
