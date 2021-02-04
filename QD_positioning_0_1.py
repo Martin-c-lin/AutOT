@@ -381,13 +381,13 @@ class UserInterface:
 
     def get_stage_move_buttons(self, top):
         self.up_button = tkinter.Button(top, text='Move up',
-                                   command=partial(stage_piezo_manual_move, axis=1, distance=1))
+                                   command=partial(stage_piezo_manual_move, axis=1, distance=0.2))
         self.down_button = tkinter.Button(top, text='Move down',
-                                     command=partial(stage_piezo_manual_move, axis=1, distance=-1))
+                                     command=partial(stage_piezo_manual_move, axis=1, distance=-0.2))
         self.right_button = tkinter.Button(top, text='Move right',
-                                      command=partial(stage_piezo_manual_move, axis=0, distance=1))
+                                      command=partial(stage_piezo_manual_move, axis=0, distance=0.2))
         self.left_button = tkinter.Button(top, text='Move left',
-                                     command=partial(stage_piezo_manual_move, axis=0, distance=-1))
+                                     command=partial(stage_piezo_manual_move, axis=0, distance=-0.2))
 
     def screen_click(self, event):
         if c_p['mouse_move_allowed']:
@@ -412,13 +412,18 @@ class UserInterface:
         global c_p
         if c_p['stage_piezos']:
             c_p['QD_target_loc_z'][0] = c_p['piezo_current_position'][2]
+            #c_p['piezo_starting_position'][0] = c_p['piezo_current_position'][0]
+            #c_p['piezo_starting_position'][1] = c_p['piezo_current_position'][1]
         if c_p['using_stepper_motors']:
-            c_p['stepper_starting_position'] = c_p['stepper_current_position']
+            c_p['stepper_starting_position'][0] = c_p['stepper_current_position'][0]
+            c_p['stepper_starting_position'][1] = c_p['stepper_current_position'][1]
+            c_p['stepper_starting_position'][2] = c_p['stepper_current_position'][2]
 
     def to_focus(self):
         global c_p
         if c_p['stage_piezos']:
             c_p['piezo_move_to_target'][2] = not c_p['piezo_move_to_target'][2]
+
         if c_p['using_stepper_motors']:
             c_p['stepper_target_position'][2] = c_p['stepper_starting_position'][2]
 
@@ -612,8 +617,6 @@ class UserInterface:
             self.down_button.place(x=x_position, y=y_position.__next__())
             self.right_button.place(x=x_position, y=y_position.__next__())
             self.left_button.place(x=x_position, y=y_position.__next__())
-            self.move_to_target_button = tkinter.Button(top, \
-                text='Toggle move to target', command=self.toggle_move_piezo_to_target)
 
             focus_up_button = tkinter.Button(
                 top, text='Move focus up', command=focus_up)
@@ -679,6 +682,9 @@ class UserInterface:
 
             next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
             previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.auto_move_button = tkinter.Checkbutton(top, text='Move QDs automatically',
+                variable=c_p['move_QDs'], onvalue=True, offvalue=False)
+            self.auto_move_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['stage_piezos']:
 
@@ -905,8 +911,8 @@ class UserInterface:
             # Not implemented yet
             pass
         # Calculate travel distance
-        dx = (c_p['traps_relative_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
-        dy = (c_p['traps_relative_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
+        dx = float(c_p['traps_relative_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
+        dy = float(c_p['traps_relative_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
 
         # TODO check what happens if we don't have both?
 
@@ -915,20 +921,20 @@ class UserInterface:
         c_p['piezos_activated'].get() and c_p['stepper_activated'].get():
 
             if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
-                c_p['piezo_target_pos'][0] -= (dx * 1000)
+                c_p['piezo_target_position'][0] -= (dx * 1000.0)
             else:
                 c_p['stepper_target_position'][0] = c_p['stepper_current_position'][0] - dx
 
             if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 18:
-                c_p['piezo_target_pos'][1] -= (dy * 1000)
+                c_p['piezo_target_position'][1] -= (dy * 1000.0)
             else:
                 c_p['stepper_target_position'][1] = c_p['stepper_current_position'][1] - dy
 
         elif c_p['stage_piezos'] and c_p['piezos_activated'].get():
             if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
-                c_p['piezo_target_pos'][0] -= (dx * 1000)
+                c_p['piezo_target_position'][0] -= (dx * 1000.0)
             if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 18:
-                c_p['piezo_target_pos'][1] -= (dy * 1000)
+                c_p['piezo_target_position'][1] -= (dy * 1000.0)
 
         elif c_p['using_stepper_motors'] and c_p['stepper_activated'].get():
             c_p['stepper_target_position'][0] = c_p['stepper_current_position'][0] - dx
@@ -1781,10 +1787,10 @@ def move_button(move_direction):
 
 def stage_piezo_manual_move(axis, distance):
     # Manually move the piezos a given distance(in microns)
-    c_p['piezo_target_pos'][axis] += distance
+    c_p['piezo_target_position'][axis] += distance
     # Check if intended move is out of bounds
-    c_p['piezo_target_pos'][axis] = max(0, c_p['piezo_target_pos'][axis])
-    c_p['piezo_target_pos'][axis] = min(20, c_p['piezo_target_pos'][axis])
+    c_p['piezo_target_position'][axis] = max(0.0, c_p['piezo_target_position'][axis])
+    c_p['piezo_target_position'][axis] = min(20.0, c_p['piezo_target_position'][axis])
 
 def stage_stepper_manual_move(axis, distance):
     # Move the stepper motor distance (measured in mm)
@@ -1848,14 +1854,14 @@ def focus_up():
     '''
     Used for focus button to shift focus slightly up
     '''
-    c_p['piezo_target_pos'][2] += 0.1
+    c_p['piezo_target_position'][2] += 0.1
 
 
 def focus_down():
     '''
     Used for focus button to shift focus slightly up
     '''
-    c_p['piezo_target_pos'][2] -= 0.1
+    c_p['piezo_target_position'][2] -= 0.1
 
 def zoom_in(margin=60, use_traps=False):
     '''
@@ -1895,6 +1901,7 @@ def zoom_in(margin=60, use_traps=False):
     # Note calculated framerate is automagically saved.
     CameraControls.set_AOI(c_p, left=left, right=right, up=up, down=down)
     update_traps_relative_pos(c_p)
+    print(c_p['traps_relative_pos'][0][0], c_p['traps_relative_pos'][1][0])
 
 def stepper_button_move_down(distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
@@ -2039,9 +2046,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-# c_p['stage_piezo_x'] = True
-# c_p['stage_piezo_y'] = True
-# c_p['stage_piezo_z'] = True
+c_p['stage_piezo_x'] = True
+c_p['stage_piezo_y'] = True
+c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 

@@ -8,7 +8,7 @@ from time import sleep, time
 import pyfftw
 pyfftw.interfaces.cache.enable()
 from math import isclose
-
+from tkinter import BooleanVar
 # TODO incorporate also radial symmetry in the tracking.
 
 
@@ -148,10 +148,11 @@ def get_QD_tracking_c_p():
         'outer_filter_width': 100,
         'particle_size_threshold': 30,
         'particle_upper_size_threshold': 5000,
-        'max_trapped_counter':5, # Maximum number of missed detections allowed before
+        'max_trapped_counter':3, # Maximum number of missed detections allowed before
         # particle is considered untrapped.
         'QD_trapped': False, # True if a QD has been trapped, will still be true if it has been trapped in the last few frames
         'QD_currently_trapped': False, # True if the QD was in the trap the last frame
+        'move_QDs':BooleanVar(),
         'QD_trapped_counter': 0,
         'QD_polymerization_time': 2, # time during which the polymerization laser will be turned on.
         'closest_QD': None, # index of quantum dot closest to the trap
@@ -174,20 +175,21 @@ def is_trapped(c_p, trap_dist):
         c_p['closest_QD'] = None
         return None
 
-    dists_x = np.asarray(c_p['particle_centers'][0] - c_p['traps_absolute_pos'][0][0])
-    dists_y = np.asarray(c_p['particle_centers'][1] - c_p['traps_absolute_pos'][1][0])
+    dists_x = np.asarray(c_p['particle_centers'][0] - c_p['traps_relative_pos'][0][0])
+    dists_y = np.asarray(c_p['particle_centers'][1] - c_p['traps_relative_pos'][1][0])
     dists_tot = dists_x**2 + dists_y**2
     min_val = min(dists_tot)
-    c_p['QD_currently_trapped'] = min_val < trap_dist
-    c_p['closest_QD'] = dists_tot.index(min_val)
-    return min_val < trap_dist
+    c_p['QD_currently_trapped'] = min_val < trap_dist**2
+    c_p['closest_QD'] = np.argmin(dists_tot)#dists_tot.index(min_val)
+    #print(dists_x, dists_y)
+    return min_val < trap_dist**2
 
 class QD_Tracking_Thread(Thread):
    '''
    Thread which does the tracking and placement of quantum dots automatically.
 
    '''
-   def __init__(self, threadID, name, c_p, sleep_time=0.01, tolerance=0.0005):
+   def __init__(self, threadID, name, c_p, sleep_time=0.05, tolerance=0.0005):
         Thread.__init__(self)
         self.threadID = threadID
         self.name = name
@@ -207,7 +209,7 @@ class QD_Tracking_Thread(Thread):
        else:
            self.c_p['QD_trapped_counter'] += 1
            if self.c_p['QD_trapped_counter'] >= self.c_p['max_trapped_counter']:
-
+               self.c_p['QD_trapped'] = False
 
    def move_to_target_location(self):
        '''
@@ -222,17 +224,17 @@ class QD_Tracking_Thread(Thread):
        x_move = self.c_p['QD_target_loc_x'][self.c_p['nbr_quantum_dots_stuck']] - \
             self.c_p['piezo_current_position'][0]
        if x_move < 0:
-           self.c_p['piezo_target_pos'][0] += max(x_move, -self.c_p['step_size'])
+           self.c_p['piezo_target_position'][0] += max(x_move, -self.c_p['step_size'])
        else:
-           self.c_p['piezo_target_pos'][0] += min(x_move, self.c_p['step_size'])
+           self.c_p['piezo_target_position'][0] += min(x_move, self.c_p['step_size'])
 
        # Update target position of piezo in y-direction
        y_move = self.c_p['QD_target_loc_y'][self.c_p['nbr_quantum_dots_stuck']] - \
             self.c_p['piezo_current_position'][1]
        if y_move < 0:
-           self.c_p['piezo_target_pos'][1] += max(y_move, -self.c_p['step_size'])
+           self.c_p['piezo_target_position'][1] += max(y_move, -self.c_p['step_size'])
        else:
-           self.c_p['piezo_target_pos'][1] += min(y_move, self.c_p['step_size'])
+           self.c_p['piezo_target_position'][1] += min(y_move, self.c_p['step_size'])
 
    def look_for_quantum_dot(self):
        pass
@@ -243,35 +245,38 @@ class QD_Tracking_Thread(Thread):
        # 2.2 QD not trapped.
        # 2.2.1 QDs in view
        self.trapped_now()
-       if c_p['closest_QD'] is not None::
+       if self.c_p['closest_QD'] is not None:
 
            # Calcualte distance to target position
-           if c_p['QD_trapped']:
-               d = self.c_p['stepper_current_position'][0:1] - [x, y]
+           if self.c_p['QD_trapped']:
+               d = [x - self.c_p['stepper_current_position'][0], y - self.c_p['stepper_current_position'][1]]
            else:
                # No QD is trapped but there are other visible in frame
-               dx = self.c_p['particle_centers'][0][self.c_p['closest_QD']] - self.c_p['traps_absolute_pos'][0][0])
-               dy = self.c_p['particle_centers'][1][self.c_p['closest_QD']] - self.c_p['traps_absolute_pos'][1][0]
+               dx = self.c_p['particle_centers'][0][self.c_p['closest_QD']] - self.c_p['traps_relative_pos'][0][0]
+               dy = self.c_p['particle_centers'][1][self.c_p['closest_QD']] - self.c_p['traps_relative_pos'][1][0]
                # TODO finish this function, increase step?
-               d = [dx, dy] / self.c_p['mmToPixel']
+               d = [dx/self.c_p['mmToPixel'], dy/self.c_p['mmToPixel']]
 
            # If we are close enough to target location, return
-           if d[0]**2 + d[1]**2 < self.tolerance**2:
+           if self.c_p['QD_trapped'] and (d[0]**2 + d[1]**2) < self.tolerance**2:
+                print('Done with moving')
                 return True
 
            # Move a small step towards target location or QD
            if d[0] < 0:
-               self.c_p['stepper_target_position'][0] += max(-step, d[0])
+               self.c_p['stepper_target_position'][0] = self.c_p['stepper_current_position'][0] + max(-step, d[0])
            else:
-               self.c_p['stepper_target_position'][0] += min(step, d[0])
+               self.c_p['stepper_target_position'][0] = self.c_p['stepper_current_position'][0] +  min(step, d[0])
            if d[1] < 0:
-               self.c_p['stepper_target_position'][1] += max(-step, d[1])
+               self.c_p['stepper_target_position'][1] = self.c_p['stepper_current_position'][1] + max(-step, d[1])
            else:
-               self.c_p['stepper_target_position'][1] += min(step, d[1])
+               self.c_p['stepper_target_position'][1] = self.c_p['stepper_current_position'][1] + min(step, d[1])
+           #print('QD currently in trap:',self.c_p['QD_currently_trapped'], 'QD recently in trap', self.c_p['QD_trapped'])
            return False
 
        else:
            # look for other particle
+           return None
            pass
 
    def stick_quantum_dot(self):
@@ -339,8 +344,12 @@ class QD_Tracking_Thread(Thread):
 
                self.c_p['particle_centers'] = [x, y]
 
-               if self.c_p['']:
-                   self.move_QD_to_location()
+               if self.c_p['move_QDs'].get():
+                   tmp = self.move_QD_to_location_rough(
+                    x=self.c_p['stepper_starting_position'][0],
+                    y=self.c_p['stepper_starting_position'][1])
+                   if tmp:
+                       self.c_p['move_QDs'].set(False)
 
                # Check trapping status
                # self.trapped_now()

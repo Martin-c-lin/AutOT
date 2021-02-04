@@ -32,9 +32,9 @@ class mouseInputThread(Thread):
         if self.c_p['scroll_for_z']:
             if self.c_p['stage_piezos'] and self.c_p['piezos_activated'].get():
                 if dy<0:
-                    self.c_p['piezo_target_pos'][2] -= self.piezo_step_distance
+                    self.c_p['piezo_target_position'][2] -= self.piezo_step_distance
                 else:
-                    self.c_p['piezo_target_pos'][2] += self.piezo_step_distance
+                    self.c_p['piezo_target_position'][2] += self.piezo_step_distance
             elif self.c_p['stepper_activated'].get():
                 if dy<0:
                     self.c_p['stepper_target_position'][2] -= self.stepper_step_distance

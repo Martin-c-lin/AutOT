@@ -690,7 +690,7 @@ def ConnectBenchtopPiezoController(serialNo):
     device.Connect(serialNo)
     return device
 
-def ConnectPiezoStageChannel(device, channel, polling_rate=50):
+def ConnectPiezoStageChannel(device, channel, polling_rate=150):
     # DeviceManagerCLI.BuildDeviceList()
     # DeviceManagerCLI.GetDeviceListSize()
     # device = BenchtopPiezo.CreateBenchtopPiezo(serialNo)
@@ -717,8 +717,8 @@ def get_default_piezo_c_p():
     # TODO use pos and position consitently
     piezo_c_p = {
     'piezo_serial_no':'71165844',
-    'starting_position_piezo_xyz':[0, 0, 0],
-    'piezo_target_pos':[0, 0, 0],
+    'piezo_starting_position':[0, 0, 0],
+    'piezo_target_position':[10, 10, 10],
     'piezo_current_position':[0, 0, 0],
     'stage_piezo_connected':[False, False, False],
     'running':True,
@@ -752,17 +752,35 @@ class XYZ_piezo_stage_motor(Thread):
             controller_device = ConnectBenchtopPiezoController(serialNo)
         self.controller_device = controller_device
         self.piezo_channel = ConnectPiezoStageChannel(controller_device, channel)
-        self.c_p['starting_position_piezo_xyz'][self.axis] = self.piezo_channel.GetPosition()
+        self.c_p['piezo_starting_position'][self.axis] = self.piezo_channel.GetPosition()
         self.c_p['stage_piezo_connected'][self.axis] = True
-        print(self.c_p['starting_position_piezo_xyz'][self.axis])
+        print(self.c_p['piezo_starting_position'][self.axis])
+
+    def update_current_position(self):
+        tmp = str(self.piezo_channel.GetPosition())
+        self.c_p['piezo_current_position'][self.axis] = float(tmp.replace(',','.'))
 
     def update_position(self):
         # Update c_p position
+        self.update_current_position()
+        if 0 <= self.c_p['piezo_target_position'][self.axis] <= 20:
+            d = self.c_p['piezo_target_position'][self.axis] - self.c_p['piezo_current_position'][self.axis]
+            if np.abs(d) > self.step * 2:
+                if d < 0:
+                    next_pos = self.c_p['piezo_current_position'][self.axis] - self.step#+ max(, d)
+                else:
+                    next_pos = self.c_p['piezo_current_position'][self.axis] + self.step#min(, d)
+                self.piezo_channel.SetPosition(Decimal(next_pos))
+                print(self.axis, d)
+            else:
+                self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
 
-        if 0 <= self.c_p['piezo_target_pos'][self.axis] <= 20:
-            self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_pos'][self.axis]))
-        tmp = str(self.piezo_channel.GetPosition())
-        self.c_p['piezo_current_position'][self.axis] = float(tmp.replace(',','.'))
+            # TODO fix so that channel 2(z) behaves
+            if self.axis == 2:
+                self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
+
+#            self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
+        self.update_current_position()
 
     def run(self):
         '''
@@ -777,10 +795,10 @@ class XYZ_piezo_stage_motor(Thread):
                 d =  self.c_p['piezo_current_position'][self.axis] - self.c_p[self.target_key][index]
 
                 if d < 0:
-                    self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-self.step, d)
+                    self.c_p['piezo_target_position'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-self.step, d)
 
                 else:
-                    self.c_p['piezo_target_pos'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(self.step, d)
+                    self.c_p['piezo_target_position'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(self.step, d)
 
                 if np.abs(d) < 0.05:
                     self.c_p['piezo_move_to_target'][self.axis] = False
@@ -940,7 +958,6 @@ class XYZ_stepper_stage_motor(Thread):
             if self.c_p['new_stepper_velocity_params'][self.axis]:
                 self.c_p['new_stepper_velocity_params'][self.axis] = False
                 self.stepper_channel.StopImmediate()
-                #self.set_jog_velocity_params()
                 self.set_velocity_params()
 
             self.update_current_position()
@@ -960,10 +977,16 @@ class XYZ_stepper_stage_motor(Thread):
                 self.stepper_channel.StopImmediate()
                 self.is_moving = False
             sleep(self.sleep_time)
-        self.stepper_channel.StopImmediate()
+        try:
+            self.stepper_channel.StopImmediate()
+        except:
+            pass
         self.__del__()
 
     def __del__(self):
-        self.stepper_channel.StopImmediate()
+        try:
+            self.stepper_channel.StopImmediate()
+        except:
+            pass
         self.stepper_channel.StopPolling()
         self.stepper_channel.Disconnect()
