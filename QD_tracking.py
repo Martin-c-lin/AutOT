@@ -131,11 +131,26 @@ def find_QDs(image, inner_filter_width=15, outer_filter_width=300,threshold=0.11
             return [], []
     image = fourier_filter(image, inner_filter_width=inner_filter_width, outer_filter_width=outer_filter_width)
     image = normalize_image(np.float32(image)) # Can edge removal be added here already?
-    x,y,ret_img = find_particle_centers(image[edge:-edge,edge:-edge], threshold=threshold, particle_size_threshold=particle_size_threshold, particle_upper_size_threshold=particle_upper_size_threshold)
+    x,y,ret_img = find_particle_centers(image[edge:-edge,edge:-edge],
+                                        threshold=threshold,
+                                        particle_size_threshold=particle_size_threshold,
+                                        particle_upper_size_threshold=particle_upper_size_threshold)
 
     px = [s[1] - x_i - edge for x_i in x]
     py = [s[0] - y_i - edge for y_i in y]
     return px, py, ret_img
+
+def find_optimal_move(p1,p2):
+    # Finds the distance to move the stage so as to minimize the difference between
+    # the measured polymerized areas and the true pattern
+    min_x = np.zeros(len(p1))
+    min_y = np.zeros(len(p1))
+    d = distance_matrix(p1,p2)
+    for idx,p in enumerate(p1):
+        min_idx = np.argmin(d[:,idx])
+        min_x[idx] = p1[min_idx,0]-p2[min_idx,0]
+        min_y[idx] = p1[min_idx,1]-p2[min_idx,1]
+    return np.mean(min_x), np.mean(min_y)
 
 def get_QD_tracking_c_p():
     '''
