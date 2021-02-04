@@ -84,7 +84,8 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
     """
 
     # Do thresholding of the image
-    thresholded_image = cv2.medianBlur(image, 5) > threshold # Added thresholding here
+    thresholded_image = cv2.blur(image,(8,8)) > threshold
+    #cv2.medianBlur(image, 5) > threshold # Added thresholding here
 
     # Separate the thresholded image into different sections
     separate_particles_image = measure.label(thresholded_image)
