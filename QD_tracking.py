@@ -177,7 +177,8 @@ def get_QD_tracking_c_p():
         'polymerized_y':[],
         'nbr_quantum_dots_stuck': 0, # number of quantum dots already positioned
         'step_size': 0.2, # Step size to move the quantum dots
-        'tolerance': 0.01
+        'tolerance': 0.01,
+        'position_QD_in_pattern':False,
     }
 
     return tracking_params
@@ -361,9 +362,15 @@ class QD_Tracking_Thread(Thread):
 
                # This sort of works for the polymerized areas.
                # TODO add parameter for this guy
-               self.c_p['polymerized_x'], self.c_p['polymerized_y'], tmp = find_QDs(
-               self.c_p['image'], inner_filter_width=5, outer_filter_width=140,
-               particle_size_threshold=1000, particle_upper_size_threshold=6400,threshold=0.11)
+               if self.c_p['position_QD_in_pattern']:
+                   self.c_p['polymerized_x'], self.c_p['polymerized_y'], tmp = find_QDs(
+                   self.c_p['image'], inner_filter_width=5, outer_filter_width=140,
+                   particle_size_threshold=1000, particle_upper_size_threshold=6400,threshold=0.11)
+                   P1 = np.transpose(np.array([self.c_p['polymerized_x'], self.c_p['polymerized_y']]))
+                   P2 = np.transpose(np.array([self.c_p['QD_target_loc_x'], self.c_p['QD_target_loc_y']]))
+                   P2 = P2[:self.c_p['QDs_placed'],:]
+                   dx, dy = find_optimal_move(P1, P2)
+                   print(dx,dy)
 
 
                self.c_p['particle_centers'] = [x, y]
