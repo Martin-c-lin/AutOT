@@ -771,7 +771,6 @@ class XYZ_piezo_stage_motor(Thread):
                 else:
                     next_pos = self.c_p['piezo_current_position'][self.axis] + self.step#min(, d)
                 self.piezo_channel.SetPosition(Decimal(next_pos))
-                print(self.axis, d)
             else:
                 self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
 

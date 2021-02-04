@@ -158,6 +158,8 @@ def get_QD_tracking_c_p():
         'closest_QD': None, # index of quantum dot closest to the trap
         'QD_target_loc_x': [1, 5], # X - location(in mum) where quantum dots should be placed.
         'QD_target_loc_y': [1, 1],
+        'polymerized_x':[],
+        'polymerized_y':[],
         'nbr_quantum_dots_stuck': 0, # number of quantum dots already positioned
         'step_size': 0.2, # Step size to move the quantum dots
         'tolerance': 0.01
@@ -339,8 +341,15 @@ class QD_Tracking_Thread(Thread):
                # Do the particle tracking.
                # Note that the tracking algorithm can easily be replaced if need be
 
-               #print('Starting tracking ', np.shape(self.c_p['image']))
-               x, y, tmp = find_QDs(self.c_p['image'])
+               x, y, tmp = find_QDs(self.c_p['image'],
+                inner_filter_width=12, outer_filter_width=240)
+
+               # This sort of works for the polymerized areas.
+               # TODO add parameter for this guy
+               self.c_p['polymerized_x'], self.c_p['polymerized_y'], tmp = find_QDs(
+               self.c_p['image'], inner_filter_width=5, outer_filter_width=140,
+               particle_size_threshold=1000, particle_upper_size_threshold=6400,threshold=0.11)
+
 
                self.c_p['particle_centers'] = [x, y]
 

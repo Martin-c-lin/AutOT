@@ -974,6 +974,15 @@ class UserInterface:
                 image[xc+cross, yc+cross] = 0
                 image[xc+cross, yc-cross] = 0
 
+    def mark_polymerized_areas(self, image):
+        if self.tracking_toggled.get():
+            for x, y in zip(c_p['polymerized_x'], c_p['polymerized_y']):
+                #print(self.c_p['polymerized_x'])
+                x = int(x)
+                y = int(y)
+                image[y-4:y+4, x] = 255
+                image[y, x-4:x+4] = 255
+
     def crop_in(self, image, edge=500):
         """
         Crops in on an area around the laser for easier viewing.
@@ -1007,6 +1016,7 @@ class UserInterface:
 
          if self.display_laser.get():
              self.add_laser_cross(image)
+             self.mark_polymerized_areas(image)
 
          if c_p['display_target_QD_positions']:
              self.add_target_QD_locs(image)
@@ -2046,9 +2056,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
+# c_p['stage_piezo_x'] = True
+# c_p['stage_piezo_y'] = True
+# c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
