@@ -9,6 +9,7 @@ import pyfftw
 pyfftw.interfaces.cache.enable()
 from math import isclose
 from tkinter import BooleanVar
+from scipy.spatial import distance_matrix
 # TODO incorporate also radial symmetry in the tracking.
 
 
@@ -143,14 +144,19 @@ def find_QDs(image, inner_filter_width=15, outer_filter_width=300,threshold=0.11
 def find_optimal_move(p1,p2):
     # Finds the distance to move the stage so as to minimize the difference between
     # the measured polymerized areas and the true pattern
+    if len(p2) < 1 or len(p1) < 1:
+        return 0, 0
     min_x = np.zeros(len(p1))
     min_y = np.zeros(len(p1))
     d = distance_matrix(p1,p2)
-    for idx,p in enumerate(p1):
-        min_idx = np.argmin(d[:,idx])
-        min_x[idx] = p1[min_idx,0]-p2[min_idx,0]
-        min_y[idx] = p1[min_idx,1]-p2[min_idx,1]
-    return np.mean(min_x), np.mean(min_y)
+    for idx, p in enumerate(p1):
+        min_idx = np.argmin(d[idx,:])
+        min_x[idx] = p1[idx, 0] - p2[min_idx, 0] # shoould not be
+        min_y[idx] = p1[idx, 1] - p2[min_idx, 1]
+    # minimize max error to avoid finding intermediate stable positions
+    max_idx = np.argmax(min_x**2 + min_y**2)
+    # TODO dynamically change between using mean and max error
+    return min_x[max_idx], min_y[max_idx]
 
 def get_QD_tracking_c_p():
     '''
@@ -178,7 +184,7 @@ def get_QD_tracking_c_p():
         'nbr_quantum_dots_stuck': 0, # number of quantum dots already positioned
         'step_size': 0.2, # Step size to move the quantum dots
         'tolerance': 0.01,
-        'position_QD_in_pattern':False,
+        'position_QD_in_pattern':BooleanVar(),
     }
 
     return tracking_params
@@ -348,6 +354,50 @@ class QD_Tracking_Thread(Thread):
 
        return self.c_p['image'][x_start:x_end, y_start:y_end], True
 
+   def step_move(self, axis, distance):
+    # Makes a smart move in of length distance[mm] along axis
+    # axis = 0 => x axis = 1 = y axis = 2 => z
+    if self.c_p['stage_piezos']:
+        new_position_piezo = self.c_p['piezo_current_position'][axis] + (distance/1000)
+        if 0 < new_position_piezo < 20:
+            self.c_p['piezo_target_position'][axis] = new_position_piezo
+        else:
+            self.c_p['stepper_target_position'][axis] = self.c_p['stepper_current_position'][axis] + distance
+    elif self.c_p['using_stepper_motors']:
+        self.c_p['stepper_target_position'][axis] = self.c_p['stepper_current_position'][axis] + distance
+
+   def move_to_array_position(self):
+      self.c_p['polymerized_x'], self.c_p['polymerized_y'], tmp = find_QDs(
+      self.c_p['image'], inner_filter_width=5, outer_filter_width=140,
+      particle_size_threshold=1000, particle_upper_size_threshold=6400,threshold=0.11)
+      if self.c_p['QDs_placed'] > 0:
+          P1 = np.transpose(np.array([self.c_p['polymerized_x'], self.c_p['polymerized_y']]))
+          P2 = np.transpose(np.array([self.c_p['QD_position_screen_y'], self.c_p['QD_position_screen_x']]))
+          P2 = P2[:self.c_p['QDs_placed'],:]
+          # TODO remove those points outside the AOI and edge properly
+          s = np.shape(self.c_p['image'])
+
+          P3 = np.array([P for P in P2 if (50<P[0]<s[0]-50 and 50<P[1]<s[1]-50)])
+          dx, dy = find_optimal_move(np.array(P3), P1)
+          print(dx,dy)
+
+          # Check if there is a polymerized spot where the laser is
+          if dx**2 + dy**2 < 100:
+            lx = self.c_p['polymerized_x'] - self.c_p['traps_relative_pos'][0][0]
+            ly = self.c_p['polymerized_y'] - self.c_p['traps_relative_pos'][1][0]
+            dist = lx**2 + ly**2
+            if min(dist) < 600:
+                # The laser is close to an already polymerized area, move away from it
+                dx -= self.c_p['QD_position_screen_y'][self.c_p['QDs_placed']+1] - self.c_p['QD_position_screen_y'][self.c_p['QDs_placed']]
+                dy -= self.c_p['QD_position_screen_x'][self.c_p['QDs_placed']+1] - self.c_p['QD_position_screen_x'][self.c_p['QDs_placed']]
+                print('Moving away from already polymerized area', dx, dy)
+          dx /= self.c_p['mmToPixel']
+          dy /= self.c_p['mmToPixel']
+          self.step_move(0, -dx)
+          self.step_move(1, -dy)
+
+          # TODO Can we decrease minimum step in thorlabs motor?
+
    def run(self):
 
        while self.c_p['program_running']:
@@ -362,15 +412,8 @@ class QD_Tracking_Thread(Thread):
 
                # This sort of works for the polymerized areas.
                # TODO add parameter for this guy
-               if self.c_p['position_QD_in_pattern']:
-                   self.c_p['polymerized_x'], self.c_p['polymerized_y'], tmp = find_QDs(
-                   self.c_p['image'], inner_filter_width=5, outer_filter_width=140,
-                   particle_size_threshold=1000, particle_upper_size_threshold=6400,threshold=0.11)
-                   P1 = np.transpose(np.array([self.c_p['polymerized_x'], self.c_p['polymerized_y']]))
-                   P2 = np.transpose(np.array([self.c_p['QD_target_loc_x'], self.c_p['QD_target_loc_y']]))
-                   P2 = P2[:self.c_p['QDs_placed'],:]
-                   dx, dy = find_optimal_move(P1, P2)
-                   print(dx,dy)
+               if self.c_p['position_QD_in_pattern'].get():
+                   self.move_to_array_position()
 
 
                self.c_p['particle_centers'] = [x, y]

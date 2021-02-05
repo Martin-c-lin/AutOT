@@ -188,7 +188,7 @@ class CameraThread(threading.Thread):
 
             self.cam.OffsetX = 0
             self.cam.Width = width
-            self.cam.OffsetX = 1000 + offset_x#1000
+            self.cam.OffsetX = 800 + offset_x#1000
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = offset_y
@@ -230,7 +230,6 @@ class CameraThread(threading.Thread):
                with self.cam.RetrieveResult(2000) as result:
                   img.AttachGrabResultBuffer(result)
                   c_p['image'] = np.uint16(img.GetArray()) #np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
-
                   img.Release()
                   if c_p['recording']:
                       # Create an array to store the images which have been captured in

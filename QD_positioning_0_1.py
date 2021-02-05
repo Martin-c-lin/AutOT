@@ -277,6 +277,7 @@ class UserInterface:
             self.create_SLM_window(SLM_window)
 
         self.create_indicators()
+        self.update_qd_on_screen_targets(c_p['image'])
         self.update()
         CameraControls.zoom_out(c_p)
         self.window.mainloop()
@@ -314,6 +315,7 @@ class UserInterface:
             c_p['recording_path'] = get_save_path(extension_path='_'+name)
         else:
             print('Invalid or empty file.')
+        self.update_qd_on_screen_targets(c_p['image'])
 
     def create_trap_image(self):
         # Creates a mini image which shows the AOI and the relative position
@@ -401,12 +403,14 @@ class UserInterface:
             c_p['QDs_placed'] += 1
         else:
             print('Already at final location')
+        self.update_qd_on_screen_targets(c_p['image'])
 
     def decrement_QD_count(self):
         if c_p['QDs_placed'] > 0:
             c_p['QDs_placed'] -= 1
         else:
             print('Already at first location')
+        self.update_qd_on_screen_targets(c_p['image'])
 
     def save_starting_position(self):
         global c_p
@@ -478,6 +482,7 @@ class UserInterface:
         else:
             zoom_in()
             self.zoomed_in = True
+        self.update_qd_on_screen_targets(c_p['image'])
 
     def motor_scale_command(self, value):
         global c_p
@@ -685,6 +690,9 @@ class UserInterface:
             self.auto_move_button = tkinter.Checkbutton(top, text='Move QDs automatically',
                 variable=c_p['move_QDs'], onvalue=True, offvalue=False)
             self.auto_move_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.to_array_position_button = tkinter.Checkbutton(top, text='Move to array pos',\
+            variable=c_p['position_QD_in_pattern'], onvalue=True, offvalue=False)
+            self.to_array_position_button.place(x=x_position, y=y_position.__next__())
 
         if c_p['stage_piezos']:
 
@@ -949,7 +957,7 @@ class UserInterface:
          except:
              print('Warning could not display laser position',x,y,np.size(image))
 
-    def add_target_QD_locs(self, image):
+    def update_qd_on_screen_targets(self, image):
         '''
         Draws the locations in which there should be QDs. The locations are drawn
         relative to the laser.
@@ -959,29 +967,44 @@ class UserInterface:
         # Extract laser position
         x = int(c_p['traps_relative_pos'][0][0])
         y = int(c_p['traps_relative_pos'][1][0])
-
+        c_p['QD_position_screen_x'] = []
+        c_p['QD_position_screen_y'] = []
         # Calculate distance from laser to target location
         separation_x = c_p['QD_target_loc_x'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - x
         separation_y = c_p['QD_target_loc_y'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - y
-        cross = np.int32(np.linspace(-5,5,11))
         for x_loc, y_loc in zip(c_p['QD_target_loc_x'], c_p['QD_target_loc_y']):
             # Calcualte where in the image the markers should be put
             yc = int(x_loc * c_p['mmToPixel']/1000 - separation_x)
             xc = int(y_loc * c_p['mmToPixel']/1000 - separation_y)
+            c_p['QD_position_screen_x'].append(xc)
+            c_p['QD_position_screen_y'].append(yc)
+
+    def add_target_QD_locs(self, image):
+        '''
+        Draws the locations in which there should be QDs. The locations are drawn
+        relative to the laser.
+        TODO: Make the markers a different color
+        '''
+        s = np.shape(image)
+        cross = np.int32(np.linspace(-5,5,11))
+        for xc, yc in zip(c_p['QD_position_screen_x'], c_p['QD_position_screen_y']):
+
             # Check that the marker lies inside the image
-            if 5 < xc < s[0] and 5 < yc < s[1]:
-                # Update the image with the markers
+            if 5 < xc < s[0]-5 and 5 < yc < s[1]-5:
                 image[xc+cross, yc+cross] = 0
                 image[xc+cross, yc-cross] = 0
 
     def mark_polymerized_areas(self, image):
         if self.tracking_toggled.get():
             for x, y in zip(c_p['polymerized_x'], c_p['polymerized_y']):
-                #print(self.c_p['polymerized_x'])
                 x = int(x)
                 y = int(y)
-                image[y-4:y+4, x] = 255
-                image[y, x-4:x+4] = 255
+                try:
+                    image[y-4:y+4, x] = 255
+                    image[y, x-4:x+4] = 255
+                except:
+                    # Locations outside the image, nothihg to worry about
+                    pass
 
     def crop_in(self, image, edge=500):
         """
@@ -1012,7 +1035,7 @@ class UserInterface:
     def update(self):
          # Get a frame from the video source
          image = np.asarray(c_p['image'])
-         image = image.astype('uint8')
+         image = image.astype('uint16')
 
          if self.display_laser.get():
              self.add_laser_cross(image)
@@ -1035,6 +1058,7 @@ class UserInterface:
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
+         # TODO make it possible to use 16 bit color(ie 12)
          self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.resize_display_image(image)))
          # need to use a compatible image type
          self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW)
