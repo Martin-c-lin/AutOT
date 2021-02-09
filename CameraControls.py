@@ -229,16 +229,17 @@ class CameraThread(threading.Thread):
                and not c_p['new_settings_camera']:
                with self.cam.RetrieveResult(2000) as result:
                   img.AttachGrabResultBuffer(result)
-                  c_p['image'] = np.uint16(img.GetArray()) #np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
-                  img.Release()
-                  if c_p['recording']:
-                      # Create an array to store the images which have been captured in
-                      if not video_created:
-                            video, experiment_info_name, exp_info_params = self.create_video_writer()
-                            video_created = True
-                      video.write(c_p['image'])
-                  # Capture an image and update the image count
-                  image_count = image_count+1
+                  if result.GrabSucceeded():
+                      c_p['image'] = np.uint16(img.GetArray()) #np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
+                      img.Release()
+                      if c_p['recording']:
+                          # Create an array to store the images which have been captured in
+                          if not video_created:
+                                video, experiment_info_name, exp_info_params = self.create_video_writer()
+                                video_created = True
+                          video.write(c_p['image'])
+                      # Capture an image and update the image count
+                      image_count = image_count+1
 
           self.cam.StopGrabbing()
 

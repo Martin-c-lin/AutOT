@@ -15,6 +15,14 @@ import numpy as np
 """
 Note when usin this code on other computer than the one in the biophysics lab these paths may need changing.
 """
+
+# clr.AddReference('C:/Program Files (x86)/Thorlabs/Kinesis/Thorlabs.MotionControl.DeviceManagerCLI.dll')
+# clr.AddReference('C:/Program Files (x86)/Thorlabs/Kinesis/Thorlabs.MotionControl.GenericMotorCLI.dll')
+# clr.AddReference('C:/Program Files (x86)/Thorlabs/Kinesis/Thorlabs.MotionControl.KCube.DCServoCLI.dll')
+# clr.AddReference('C:/Program Files (x86)/Thorlabs/Kinesis/Thorlabs.MotionControl.KCube.InertialMotorCLI.dll ')
+# clr.AddReference('C:/Program Files (x86)/Thorlabs/Kinesis/Thorlabs.MotionControl.GenericPiezoCLI.dll')
+# clr.AddReference('C:/Program Files (x86)/Thorlabs/Kinesis/Thorlabs.MotionControl.Benchtop.PiezoCLI.dll')
+# clr.AddReference('C:/Program Files (x86)/Thorlabs/Kinesis/Thorlabs.MotionControl.Benchtop.StepperMotorCLI.dll')
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.DeviceManagerCLI.dll')
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.GenericMotorCLI.dll')
 clr.AddReference('C:/Program Files/Thorlabs/Kinesis/Thorlabs.MotionControl.KCube.DCServoCLI.dll')

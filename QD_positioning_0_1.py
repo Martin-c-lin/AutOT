@@ -1035,7 +1035,7 @@ class UserInterface:
     def update(self):
          # Get a frame from the video source
          image = np.asarray(c_p['image'])
-         image = image.astype('uint16')
+         image = image.astype('uint8')
 
          if self.display_laser.get():
              self.add_laser_cross(image)

@@ -156,6 +156,7 @@ def find_optimal_move(p1,p2):
     # minimize max error to avoid finding intermediate stable positions
     max_idx = np.argmax(min_x**2 + min_y**2)
     # TODO dynamically change between using mean and max error
+    # Use square of distance instead?
     return min_x[max_idx], min_y[max_idx]
 
 def get_QD_tracking_c_p():
@@ -263,7 +264,7 @@ class QD_Tracking_Thread(Thread):
    def look_for_quantum_dot(self):
        pass
 
-   def move_QD_to_location_rough(self, x, y, step = 0.0005):
+   def move_QD_to_location_rough(self, x, y, step = 0.0003):
        # 1 check if quantum dot is trapped
        # 2.1 quantum dot trapped -> take step towards target location
        # 2.2 QD not trapped.
@@ -274,12 +275,15 @@ class QD_Tracking_Thread(Thread):
            # Calcualte distance to target position
            if self.c_p['QD_trapped']:
                d = [x - self.c_p['stepper_current_position'][0], y - self.c_p['stepper_current_position'][1]]
+               print('Moving QD towards target', d, x , y )
            else:
                # No QD is trapped but there are other visible in frame
                dx = self.c_p['particle_centers'][0][self.c_p['closest_QD']] - self.c_p['traps_relative_pos'][0][0]
                dy = self.c_p['particle_centers'][1][self.c_p['closest_QD']] - self.c_p['traps_relative_pos'][1][0]
                # TODO finish this function, increase step?
-               d = [dx/self.c_p['mmToPixel'], dy/self.c_p['mmToPixel']]
+               d = [dx/self.c_p['mmToPixel']/2, dy/self.c_p['mmToPixel']/2]
+
+               print('Moving to trap a QD', d)
 
            # If we are close enough to target location, return
            if self.c_p['QD_trapped'] and (d[0]**2 + d[1]**2) < self.tolerance**2:
