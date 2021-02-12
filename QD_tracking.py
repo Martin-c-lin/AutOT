@@ -205,8 +205,7 @@ def is_trapped(c_p, trap_dist):
     dists_tot = dists_x**2 + dists_y**2
     min_val = min(dists_tot)
     c_p['QD_currently_trapped'] = min_val < trap_dist**2
-    c_p['closest_QD'] = np.argmin(dists_tot)#dists_tot.index(min_val)
-    #print(dists_x, dists_y)
+    c_p['closest_QD'] = np.argmin(dists_tot)
     return min_val < trap_dist**2
 
 class QD_Tracking_Thread(Thread):
@@ -260,15 +259,55 @@ class QD_Tracking_Thread(Thread):
            self.c_p['piezo_target_position'][1] += max(y_move, -self.c_p['step_size'])
        else:
            self.c_p['piezo_target_position'][1] += min(y_move, self.c_p['step_size'])
+  def get_move(self):
 
-   def look_for_quantum_dot(self):
-       pass
+
+   def look_for_quantum_dot(self, x, y):
+       '''
+       Takes a move to look for a quantum dot
+       '''
+       # If we have moved less than 5 microns in the z- direction we may look along z
+       dx = self.c_p['stepper_current_position'][0] - x
+       dy = self.c_p['stepper_current_position'][1] - y
+       dz = self.c_p['stepper_current_position'][2] - self.c_p['stepper_starting_position'][2]
+       dx /= np.abs(dx)
+       dy /= np.abs(dy)
+
+       choice = np.random.randint(0,10)
+       if choice == 0:
+           self.c_p['stepper_target_position'][2] += 0.001
+       elif choice == 1:
+           self.c_p['stepper_target_position'][2] -= 0.001
+       else:
+           # Move in xy-plane
+           if: 2 <= choice <=3:
+               dy += 1.0 # up
+           if: 4 <= choice <=5:
+               dx += 1.0 # right
+           if: 6 <= choice <=7:
+               dy -= 1.0 # down
+           if: 8 <= choice <=9:
+               dx -= 1.0 # left
+           self.c_p['stepper_target_position'][0] += dx * 0.02
+           self.c_p['stepper_target_position'][1] += dy * 0.02
+
+       # Too far from focus, move
+       if dz > -0.01 or dz > 0.02:
+           self.c_p['stepper_target_position'][2] = self.c_p['stepper_starting_position'][2] + 0.005
+
 
    def move_QD_to_location_rough(self, x, y, step = 0.0003):
-       # 1 check if quantum dot is trapped
-       # 2.1 quantum dot trapped -> take step towards target location
-       # 2.2 QD not trapped.
-       # 2.2.1 QDs in view
+       '''
+       Algorithm for pulling a quantum dot to the position specified in x,y
+       using the stepper only.
+       Uses the following method
+        Check if quantum dot is trapped:
+         QD trapped ->take step towards target location
+         QD not trapped:
+           check if QD in view:
+             QDs in view -> move to trap the QD
+             QD not in view -> Look for QD with look_for_quantum_dot function
+       '''
        self.trapped_now()
        if self.c_p['closest_QD'] is not None:
 
@@ -306,8 +345,8 @@ class QD_Tracking_Thread(Thread):
 
        else:
            # look for other particle
-           return None
-           pass
+           self.look_for_quantum_dot(x, y)
+
 
    def stick_quantum_dot(self):
 
