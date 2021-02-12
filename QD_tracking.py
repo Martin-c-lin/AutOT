@@ -220,6 +220,7 @@ class QD_Tracking_Thread(Thread):
         self.c_p = c_p
         self.sleep_time = sleep_time
         self.tolerance = tolerance
+        self.QD_unseen_counter = 0
         self.setDaemon(True)
 
    def __del__(self):
@@ -259,7 +260,7 @@ class QD_Tracking_Thread(Thread):
            self.c_p['piezo_target_position'][1] += max(y_move, -self.c_p['step_size'])
        else:
            self.c_p['piezo_target_position'][1] += min(y_move, self.c_p['step_size'])
-  def get_move(self):
+  #def get_move(self):
 
 
    def look_for_quantum_dot(self, x, y):
@@ -270,6 +271,11 @@ class QD_Tracking_Thread(Thread):
        dx = self.c_p['stepper_current_position'][0] - x
        dy = self.c_p['stepper_current_position'][1] - y
        dz = self.c_p['stepper_current_position'][2] - self.c_p['stepper_starting_position'][2]
+       # Check if we are too far from original position
+       if np.abs(dx) > 0.5:
+           dx = -dx
+       if np.abs(dy) > 0.5:
+           dy = -dy
        dx /= np.abs(dx)
        dy /= np.abs(dy)
 
@@ -280,14 +286,15 @@ class QD_Tracking_Thread(Thread):
            self.c_p['stepper_target_position'][2] -= 0.001
        else:
            # Move in xy-plane
-           if: 2 <= choice <=3:
-               dy += 1.0 # up
-           if: 4 <= choice <=5:
-               dx += 1.0 # right
-           if: 6 <= choice <=7:
-               dy -= 1.0 # down
-           if: 8 <= choice <=9:
-               dx -= 1.0 # left
+           if 2 <= choice <=3:
+               dy += 2.0 # up
+           if 4 <= choice <=5:
+               dx += 2.0 # right
+           if 6 <= choice <=7:
+               dy -= 2.0 # down
+           if 8 <= choice <=9:
+               dx -= 2.0 # left
+
            self.c_p['stepper_target_position'][0] += dx * 0.02
            self.c_p['stepper_target_position'][1] += dy * 0.02
 
@@ -310,7 +317,7 @@ class QD_Tracking_Thread(Thread):
        '''
        self.trapped_now()
        if self.c_p['closest_QD'] is not None:
-
+           self.QD_unseen_counter = 0
            # Calcualte distance to target position
            if self.c_p['QD_currently_trapped']:
                d = [x - self.c_p['stepper_current_position'][0], y - self.c_p['stepper_current_position'][1]]
@@ -344,8 +351,13 @@ class QD_Tracking_Thread(Thread):
            return False
 
        else:
+           # Could be that tracking is not perfect and a QD is missed one frame or two
+           # therefore the cunter is used
+           self.QD_unseen_counter += 1
            # look for other particle
-           self.look_for_quantum_dot(x, y)
+           if self.QD_unseen_counter > 15:
+                self.look_for_quantum_dot(x, y)
+           return None
 
 
    def stick_quantum_dot(self):
