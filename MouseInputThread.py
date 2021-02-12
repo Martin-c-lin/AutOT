@@ -7,8 +7,8 @@ class mouseInputThread(Thread):
     Thread for getting mouse input. Used to read scroll-wheel and thus
     lower/raise the sample.
     '''
-    def __init__(self, threadID, name, c_p, stepper_step_distance=0.0002,
-            piezo_step_distance=0.02, sleep_time=0.01):
+    def __init__(self, threadID, name, c_p, stepper_step_distance=0.0005,
+            piezo_step_distance=0.02, sleep_time=0.04):
         Thread.__init__(self)
         self.threadID = threadID
         self.name = name
@@ -32,14 +32,14 @@ class mouseInputThread(Thread):
         if self.c_p['scroll_for_z']:
             if self.c_p['stage_piezos'] and self.c_p['piezos_activated'].get():
                 if dy<0:
-                    self.c_p['piezo_target_position'][2] -= self.piezo_step_distance
+                    self.c_p['piezo_target_position'][2] = self.c_p['piezo_current_position'][2] - self.piezo_step_distance
                 else:
-                    self.c_p['piezo_target_position'][2] += self.piezo_step_distance
+                    self.c_p['piezo_target_position'][2] = self.c_p['piezo_current_position'][2] + self.piezo_step_distance
             elif self.c_p['stepper_activated'].get():
                 if dy<0:
-                    self.c_p['stepper_target_position'][2] -= self.stepper_step_distance
+                    self.c_p['stepper_target_position'][2] = self.c_p['stepper_current_position'][2] - self.stepper_step_distance
                 else:
-                    self.c_p['stepper_target_position'][2] += self.stepper_step_distance
+                    self.c_p['stepper_target_position'][2] = self.c_p['stepper_current_position'][2] + self.stepper_step_distance
         sleep(self.sleep_time)
 
         return self.c_p['program_running']

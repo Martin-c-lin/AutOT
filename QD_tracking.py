@@ -273,9 +273,11 @@ class QD_Tracking_Thread(Thread):
        if self.c_p['closest_QD'] is not None:
 
            # Calcualte distance to target position
-           if self.c_p['QD_trapped']:
+           if self.c_p['QD_currently_trapped']:
                d = [x - self.c_p['stepper_current_position'][0], y - self.c_p['stepper_current_position'][1]]
                print('Moving QD towards target', d, x , y )
+           elif not self.c_p['QD_currently_trapped'] and self.c_p['QD_trapped']:
+               d = [0, 0] # Wait for qd to be trapped
            else:
                # No QD is trapped but there are other visible in frame
                dx = self.c_p['particle_centers'][0][self.c_p['closest_QD']] - self.c_p['traps_relative_pos'][0][0]
@@ -286,7 +288,7 @@ class QD_Tracking_Thread(Thread):
                print('Moving to trap a QD', d)
 
            # If we are close enough to target location, return
-           if self.c_p['QD_trapped'] and (d[0]**2 + d[1]**2) < self.tolerance**2:
+           if self.c_p['QD_currently_trapped'] and (d[0]**2 + d[1]**2) < self.tolerance**2:
                 print('Done with moving')
                 return True
 

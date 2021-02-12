@@ -698,7 +698,7 @@ def ConnectBenchtopPiezoController(serialNo):
     device.Connect(serialNo)
     return device
 
-def ConnectPiezoStageChannel(device, channel, polling_rate=150):
+def ConnectPiezoStageChannel(device, channel, polling_rate=100):
     # DeviceManagerCLI.BuildDeviceList()
     # DeviceManagerCLI.GetDeviceListSize()
     # device = BenchtopPiezo.CreateBenchtopPiezo(serialNo)
@@ -707,7 +707,7 @@ def ConnectPiezoStageChannel(device, channel, polling_rate=150):
 
     piezoConfiguration = channel.GetPiezoConfiguration(channel.DeviceID)
     currentDeviceSettings = channel.PiezoDeviceSettings
-    #channel.SetSettings(currentDeviceSettings, True, False)
+    channel.SetSettings(currentDeviceSettings, True, False)
 
     channel.WaitForSettingsInitialized(5000)
 
@@ -742,7 +742,7 @@ class XYZ_piezo_stage_motor(Thread):
 
     # TODO make it possible to connect/disconnect these motors on the fly.
     def __init__(self, threadID, name, channel, axis, c_p,target_key,
-        controller_device=None, serialNo='71165844', sleep_time=0.05, step=0.1):
+        controller_device=None, serialNo='71165844', sleep_time=0.15, step=0.1):
         """
 
         """
@@ -879,7 +879,7 @@ def get_default_stepper_c_p():
 class XYZ_stepper_stage_motor(Thread):
 
     def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='70167314', sleep_time=0.05, step=0.0002):
+        serialNo='70167314', sleep_time=0.02, step=0.0002):
         """
 
         """
