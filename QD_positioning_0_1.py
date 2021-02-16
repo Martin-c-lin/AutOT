@@ -1864,7 +1864,7 @@ def snapshot(label=None):
     else:
         image_name = c_p['recording_path'] + '/' + label + '.jpg'
     cv2.imwrite(image_name, cv2.cvtColor(c_p['image'], cv2.COLOR_RGB2BGR))
-    np.save(image_name[:-5], c_p['image'])
+    np.save(image_name[:-4], c_p['image'])
     print('Took a snapshot of the experiment.')
 
 

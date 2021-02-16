@@ -170,7 +170,7 @@ def get_QD_tracking_c_p():
         'outer_filter_width': 100,
         'particle_size_threshold': 30,
         'particle_upper_size_threshold': 5000,
-        'max_trapped_counter':3, # Maximum number of missed detections allowed before
+        'max_trapped_counter':5, # Maximum number of missed detections allowed before
         # particle is considered untrapped.
         'QD_trapped': False, # True if a QD has been trapped, will still be true if it has been trapped in the last few frames
         'QD_currently_trapped': False, # True if the QD was in the trap the last frame
@@ -279,11 +279,12 @@ class QD_Tracking_Thread(Thread):
        dx /= np.abs(dx)
        dy /= np.abs(dy)
 
-       choice = np.random.randint(0,10)
-       if choice == 0:
-           self.c_p['stepper_target_position'][2] += 0.001
-       elif choice == 1:
-           self.c_p['stepper_target_position'][2] -= 0.001
+       choice = np.random.randint(-1,10)
+       if choice == 1:
+           self.c_p['stepper_target_position'][2] += 0.0005
+       elif 0<= choice:
+           self.c_p['stepper_target_position'][2] -= 0.0005
+           print('Changing focus a bit')
        else:
            # Move in xy-plane
            if 2 <= choice <=3:
@@ -295,12 +296,12 @@ class QD_Tracking_Thread(Thread):
            if 8 <= choice <=9:
                dx -= 2.0 # left
 
-           self.c_p['stepper_target_position'][0] += dx * 0.02
-           self.c_p['stepper_target_position'][1] += dy * 0.02
+           self.c_p['stepper_target_position'][0] += dx * 0.01
+           self.c_p['stepper_target_position'][1] += dy * 0.01
 
        # Too far from focus, move
-       if dz > -0.01 or dz > 0.02:
-           self.c_p['stepper_target_position'][2] = self.c_p['stepper_starting_position'][2] + 0.005
+       if dz > -0.02 or dz > 0.01:
+           self.c_p['stepper_target_position'][2] = self.c_p['stepper_starting_position'][2] - 0.005
 
 
    def move_QD_to_location_rough(self, x, y, step = 0.0003):
@@ -329,7 +330,7 @@ class QD_Tracking_Thread(Thread):
                dx = self.c_p['particle_centers'][0][self.c_p['closest_QD']] - self.c_p['traps_relative_pos'][0][0]
                dy = self.c_p['particle_centers'][1][self.c_p['closest_QD']] - self.c_p['traps_relative_pos'][1][0]
                # TODO finish this function, increase step?
-               d = [dx/self.c_p['mmToPixel']/2, dy/self.c_p['mmToPixel']/2]
+               d = [dx/self.c_p['mmToPixel'], dy/self.c_p['mmToPixel']]
 
                print('Moving to trap a QD', d)
 
@@ -465,7 +466,7 @@ class QD_Tracking_Thread(Thread):
                # Note that the tracking algorithm can easily be replaced if need be
 
                x, y, tmp = find_QDs(self.c_p['image'],
-                inner_filter_width=12, outer_filter_width=240)
+                inner_filter_width=7, outer_filter_width=180,particle_upper_size_threshold=700) # 12 240
 
                # This sort of works for the polymerized areas.
                # TODO add parameter for this guy
@@ -481,22 +482,6 @@ class QD_Tracking_Thread(Thread):
                     y=self.c_p['stepper_starting_position'][1])
                    if tmp:
                        self.c_p['move_QDs'].set(False)
-
-               # Check trapping status
-               # self.trapped_now()
-               #
-               # if self.c_p['QD_trapped']:
-               #     self.move_to_target_location()
-               #     if self.ready_to_stick():
-               #         print('Sticking QD no:', self.c_p['nbr_quantum_dots_stuck'])
-               #         self.stick_quantum_dot()
-               # else:
-               #     self.trap_quantum_dot()
-
-               # Check if particle is trapped or has been trapped in the last number of frames
-               # if so then try to move it to target position.
-               #print('Tracked in', time()-start, ' seconds.')
-               #print("Particles at",x,y)
 
            sleep(self.sleep_time)
        self.__del__()
