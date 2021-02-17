@@ -89,8 +89,8 @@ class CameraThread(threading.Thread):
         c_p = self.c_p
         now = datetime.now()
         fourcc = VideoWriter_fourcc(*'MJPG')
-        image_width = c_p['AOI'][1]-c_p['AOI'][0]
-        image_height = c_p['AOI'][3]-c_p['AOI'][2]
+        image_width = int(c_p['AOI'][1]-c_p['AOI'][0])
+        image_height = int(c_p['AOI'][3]-c_p['AOI'][2])
         video_name = c_p['recording_path'] + '/video-'+ c_p['measurement_name'] + \
             '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)+'.avi'
 
@@ -141,6 +141,7 @@ class CameraThread(threading.Thread):
                   if not video_created:
                       video, experiment_info_name, exp_info_params = self.create_video_writer()
                       video_created = True
+                  # TODO fix poor video quality
                   video.write(c_p['image'])
               # Capture an image and update the image count
               image_count = image_count+1
@@ -237,7 +238,7 @@ class CameraThread(threading.Thread):
                           if not video_created:
                                 video, experiment_info_name, exp_info_params = self.create_video_writer()
                                 video_created = True
-                          video.write(c_p['image'])
+                          video.write(np.uint8(c_p['image'])) # TODO fix poor video quality, flip?
                       # Capture an image and update the image count
                       image_count = image_count+1
 
