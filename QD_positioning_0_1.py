@@ -886,6 +886,7 @@ class UserInterface:
         else:
             dim = ( int(self.canvas_height), int(self.canvas_height/img_size[0]*img_size[1]))
         self.image_scale = max(img_size[1]/self.canvas_width, img_size[0]/self.canvas_height)
+        # TODO if a gpu is available then we should use it for the resizing
         return cv2.resize(img, (dim[1],dim[0]), interpolation = cv2.INTER_AREA)
 
     def get_mouse_position(self):

@@ -1,6 +1,5 @@
 from pynput.mouse import Listener
 from threading import Thread
-from time import sleep
 
 class mouseInputThread(Thread):
     '''
@@ -40,7 +39,6 @@ class mouseInputThread(Thread):
                     self.c_p['stepper_target_position'][2] = self.c_p['stepper_current_position'][2] - self.stepper_step_distance
                 else:
                     self.c_p['stepper_target_position'][2] = self.c_p['stepper_current_position'][2] + self.stepper_step_distance
-        #sleep(self.sleep_time)
 
         return self.c_p['program_running']
 

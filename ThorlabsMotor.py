@@ -574,7 +574,6 @@ class MotorThread(Thread):
             if c_p['motors_connected'][self.axis] and \
                 c_p['connect_motor'][self.axis] and c_p['motors_connected'][self.axis]:
                 # Acquire lock to ensure that it is safe to move the motor
-                # with c_p['motor_locks'][self.axis]:
                 if np.abs(c_p['motor_movements'][self.axis])>0:
 
                     # The movement limit must be positive
@@ -620,16 +619,20 @@ class MotorThread(Thread):
         if c_p['motors_connected'][self.axis]:
             DisconnectMotor(self.motor)
 
+
 class z_movement_thread(Thread):
     '''
     Thread for controling movement of the objective in z-direction.
     Will also help with automagically adjusting the focus to the sample.
     '''
-    def __init__(self, threadID, name, serial_no, channel, c_p, polling_rate=250):
+
+    def __init__(self, threadID, name, serial_no, channel, c_p,
+                 polling_rate=250):
         Thread.__init__(self)
         self.threadID = threadID
         self.name = name
-        self.piezo = PiezoMotor(serial_no, channel=channel, pollingRate=polling_rate)
+        self.piezo = PiezoMotor(serial_no, channel=channel,
+                                pollingRate=polling_rate)
         if self.piezo.is_connected:
             c_p['z_starting_position'] = self.piezo.get_position()
             c_p['motor_current_pos'][2] = self.piezo.get_position()
@@ -650,18 +653,18 @@ class z_movement_thread(Thread):
                 # Check if the objective should be moved
                 self.piezo.move_to_position(compensate_focus()+lifting_distance)
 
-                if c_p['z_movement'] is not 0:
-                        c_p['z_movement'] = int(c_p['z_movement'])
-                        # Move up if we are not already up
-                        if self.piezo.move_relative(c_p['z_movement']):
-                            lifting_distance += c_p['z_movement']
-                        c_p['z_movement'] = 0
+                if c_p['z_movement'] != 0:
+                    c_p['z_movement'] = int(c_p['z_movement'])
+                    # Move up if we are not already up
+                    if self.piezo.move_relative(c_p['z_movement']):
+                        lifting_distance += c_p['z_movement']
+                    c_p['z_movement'] = 0
 
-                elif c_p['return_z_home'] and c_p['motor_current_pos'][2]>compensate_focus():
+                elif c_p['return_z_home'] and c_p['motor_current_pos'][2] > compensate_focus():
                     lifting_distance -= min(20,c_p['motor_current_pos'][2]-compensate_focus())
                     # Compensating for hysteresis effect in movement
                     print('homing z')
-                if c_p['motor_current_pos'][2]<=compensate_focus() or c_p['z_movement'] != 0:
+                if c_p['motor_current_pos'][2] <= compensate_focus() or c_p['z_movement'] != 0:
                     c_p['return_z_home'] = False
                 if self.piezo.is_connected:
                     c_p['motor_current_pos'][2] = self.piezo.get_position()
@@ -684,12 +687,14 @@ class z_movement_thread(Thread):
             sleep(0.3)
         del(self.piezo)
 
+
 def ConnectBenchtopPiezoController(serialNo):
     DeviceManagerCLI.BuildDeviceList()
     DeviceManagerCLI.GetDeviceListSize()
     device = BenchtopPiezo.CreateBenchtopPiezo(serialNo)
     device.Connect(serialNo)
     return device
+
 
 def ConnectPiezoStageChannel(device, channel, polling_rate=100):
     # DeviceManagerCLI.BuildDeviceList()
@@ -704,7 +709,7 @@ def ConnectPiezoStageChannel(device, channel, polling_rate=100):
 
     channel.WaitForSettingsInitialized(5000)
 
-    channel.StartPolling(polling_rate)#(250)
+    channel.StartPolling(polling_rate)
     # Needs a delay so that the current enabled state can be obtained
 
     deviceInfo = channel.GetDeviceInfo()
@@ -714,18 +719,30 @@ def ConnectPiezoStageChannel(device, channel, polling_rate=100):
 
     return channel
 
+
 def get_default_piezo_c_p():
+    '''
+    Generates c_p needed for the piezo with default values
+
+    Returns
+    -------
+    piezo_c_p : Dictionary
+        Dictionary containing the control parameters needed for the piezso
+        specifically.
+
+    '''
     # TODO use pos and position consitently
     piezo_c_p = {
-    'piezo_serial_no':'71165844',
-    'piezo_starting_position':[0, 0, 0],
-    'piezo_target_position':[10, 10, 10],
-    'piezo_current_position':[0, 0, 0],
-    'stage_piezo_connected':[False, False, False],
-    'running':True,
-    'piezo_move_to_target':[False, False, False],
+        'piezo_serial_no': '71165844',
+        'piezo_starting_position': [0, 0, 0],
+        'piezo_target_position': [10, 10, 10],
+        'piezo_current_position': [0, 0, 0],
+        'stage_piezo_connected': [False, False, False],
+        'running': True,
+        'piezo_move_to_target': [False, False, False],
     }
     return piezo_c_p
+
 
 class XYZ_piezo_stage_motor(Thread):
     '''
@@ -734,11 +751,10 @@ class XYZ_piezo_stage_motor(Thread):
     '''
 
     # TODO make it possible to connect/disconnect these motors on the fly.
-    def __init__(self, threadID, name, channel, axis, c_p,target_key,
-        controller_device=None, serialNo='71165844', sleep_time=0.15, step=0.1):
-        """
+    def __init__(self, threadID, name, channel, axis, c_p, target_key,
+                 controller_device=None, serialNo='71165844',
+                 sleep_time=0.15, step=0.1):
 
-        """
         Thread.__init__(self)
         self.c_p = c_p
         self.name = name
@@ -759,7 +775,7 @@ class XYZ_piezo_stage_motor(Thread):
 
     def update_current_position(self):
         tmp = str(self.piezo_channel.GetPosition())
-        self.c_p['piezo_current_position'][self.axis] = float(tmp.replace(',','.'))
+        self.c_p['piezo_current_position'][self.axis] = float(tmp.replace(',', '.'))
 
     def update_position(self):
         # Update c_p position
@@ -779,7 +795,6 @@ class XYZ_piezo_stage_motor(Thread):
             if self.axis == 2:
                 self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
 
-#            self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
         self.update_current_position()
 
     def run(self):
@@ -816,6 +831,7 @@ class XYZ_piezo_stage_motor(Thread):
             # TODO solve this properly. No risk for error but looks bad
             print('Device has already been disconnected')
 
+
 def ConnectBenchtopStepperController(serialNo):
     '''
     Connects a benchtop stepper controller.
@@ -830,7 +846,22 @@ def ConnectBenchtopStepperController(serialNo):
 
 def ConnectBenchtopStepperChannel(device, channel, polling_rate=20):
     '''
-    Connects to the stepper motor of BenchtopStepperController on channel "channel".
+    Connects a stepper controller channel.
+
+    Parameters
+    ----------
+    device : TYPE
+        The benchtop stepper controller
+    channel : TYPE
+        Channel to connect.
+    polling_rate : TYPE, optional
+        How often to poll the device in ms intervals. The default is 20.
+
+    Returns
+    -------
+    channel : TYPE
+        Benchtop stepper channel.
+
     '''
 
     channel = device.GetChannel(channel)
@@ -839,7 +870,7 @@ def ConnectBenchtopStepperChannel(device, channel, polling_rate=20):
 
     # Needs a delay so that the current enabled state can be obtained
     motorConfiguration = channel.LoadMotorConfiguration(channel.DeviceID)
-    currentDeviceSettings = channel.MotorDeviceSettings# as ThorlabsBenchtopStepperMotorSettings;
+    currentDeviceSettings = channel.MotorDeviceSettings
     channel.SetSettings(currentDeviceSettings, True, False)
     deviceInfo = channel.GetDeviceInfo()
 
@@ -850,32 +881,38 @@ def ConnectBenchtopStepperChannel(device, channel, polling_rate=20):
 
 
 def get_default_stepper_c_p():
-    """
-    Returns a dictionary containg default values for all control parameters needed
-    for the benchtop stepper controller and it's motors.
-    """
+    '''
+    Returns a dictionary containg default values for all control parameters
+    needed for the benchtop stepper controller and it's motors.
+
+    Returns
+    -------
+    stepper_c_p : Dictionary
+        Dictionary containing the control parameters needed for the stepper
+        motors.
+
+    '''
     stepper_c_p = {
-        'stepper_serial_no':'70167314',
-        'stepper_starting_position':[0, 0, 0],
-        'stage_stepper_connected':[False, False, False],
-        'stepper_current_position':[0, 0, 0],
-        'stepper_target_position':[2.3, 2.3, 0],
-        'stepper_move_to_target':[False, False, False],
-        'stepper_next_move':[0, 0, 0],
-        'stepper_max_speed':[0.01, 0.01, 0.01],
-        'stepper_acc':[0.005, 0.005, 0.005],
-        'new_stepper_velocity_params':[False,False,False]
+        'stepper_serial_no': '70167314',
+        'stepper_starting_position': [0, 0, 0],
+        'stage_stepper_connected': [False, False, False],
+        'stepper_current_position': [0, 0, 0],
+        'stepper_target_position': [2.3, 2.3, 0],
+        'stepper_move_to_target': [False, False, False],
+        'stepper_next_move': [0, 0, 0],
+        'stepper_max_speed': [0.01, 0.01, 0.01],
+        'stepper_acc': [0.005, 0.005, 0.005],
+        'new_stepper_velocity_params': [False, False, False]
     }
     return stepper_c_p
 
 
 class XYZ_stepper_stage_motor(Thread):
 
-    def __init__(self, threadID, name, channel, axis, c_p, controller_device=None,
-        serialNo='70167314', sleep_time=0.02, step=0.0002):
-        """
+    def __init__(self, threadID, name, channel, axis, c_p,
+                 controller_device=None, serialNo='70167314', sleep_time=0.02,
+                 step=0.0002):
 
-        """
         Thread.__init__(self)
         self.c_p = c_p
         self.name = name
@@ -902,7 +939,7 @@ class XYZ_stepper_stage_motor(Thread):
 
     def move_absolute(self):
         target_pos = Decimal(float(self.c_p['stepper_target_position'][self.axis]))
-        self.stepper_channel.MoveTo(target_pos,Int32(100000))
+        self.stepper_channel.MoveTo(target_pos, Int32(100000))
 
     def move_distance(self, distance):
         self.stepper_channel.MoveRelative(1, Decimal(distance), Int32(100000))
@@ -915,10 +952,11 @@ class XYZ_stepper_stage_motor(Thread):
     def get_jog_distance(self):
         jog_distance = self.c_p['stepper_target_position'][self.axis] - self.c_p['stepper_current_position'][self.axis]
         return jog_distance
+
     def jog_move(self, jog_distance):
         # Does not work well at the moment
 
-        if np.abs(jog_distance)>1e-4:
+        if np.abs(jog_distance) > 1e-4:
             self.stepper_channel.SetJogStepSize(Decimal(float(jog_distance)))
             self.stepper_channel.MoveJog(1, Int32(10000))
 
@@ -931,7 +969,6 @@ class XYZ_stepper_stage_motor(Thread):
                 self.stepper_channel.SetVelocityParams(
                     Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
                     Decimal(float(self.c_p['stepper_acc'][self.axis])))
-                #print('New velocity params accepted')
             except:
                 print('Could not set velocity params.')
             tmp = self.stepper_channel.GetVelocityParams()
@@ -940,7 +977,6 @@ class XYZ_stepper_stage_motor(Thread):
             sleep(self.sleep_time)
         if trials >= 20:
             print('Falsed to set velocity params for motor no ', self.axis)
-        #print("Stepper velocity set to ", tmp.MaxVelocity)
 
     def set_jog_velocity_params(self):
         try:

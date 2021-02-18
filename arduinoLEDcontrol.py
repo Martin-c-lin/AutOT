@@ -1,5 +1,4 @@
 import serial, time
-from random import randint
 from threading import Thread
 
 def get_arduino_c_p():
@@ -27,7 +26,7 @@ class ArduinoLEDControlThread(Thread):
         self.last_write = False
 
     def run(self):
-        # TODO add radio buttons for different led on times
+        # TODO add radio buttons / slider for different led on times
         while self.c_p['program_running']:
             # This function is made significantly faster by this check.
             if not self.last_write == self.c_p['polymerization_LED']:
@@ -41,4 +40,3 @@ class ArduinoLEDControlThread(Thread):
             time.sleep(self.sleep_time)
         self.ArduinoUnoSerial.write(b'L')
         self.ArduinoUnoSerial.close()
-        #self.__del__()
