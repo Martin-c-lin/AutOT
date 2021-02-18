@@ -425,6 +425,8 @@ class QD_Tracking_Thread(Thread):
         self.c_p['stepper_target_position'][axis] = self.c_p['stepper_current_position'][axis] + distance
 
    def move_to_array_position(self):
+      '''
+      '''
       self.c_p['polymerized_x'], self.c_p['polymerized_y'], tmp = find_QDs(
       self.c_p['image'], inner_filter_width=5, outer_filter_width=140,
       particle_size_threshold=1000, particle_upper_size_threshold=6400,threshold=0.11)
