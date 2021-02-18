@@ -1,10 +1,12 @@
 import ThorlabsCam as TC
 import numpy as np
-import threading, time, pickle
+import threading
+import time
+import pickle
 from cv2 import VideoWriter, VideoWriter_fourcc
-import PIL.Image, PIL.ImageTk
+# import PIL.Image, PIL.ImageTk
 from pypylon import pylon
-from datetime import  datetime
+from datetime import datetime
 
 
 def get_camera_c_p():
@@ -215,72 +217,78 @@ class CameraThread(threading.Thread):
             print('Offsets: ', offset_x, offset_y)
 
         except Exception as e:
-            print('AOI not accepted',c_p['AOI'])
+            print('AOI not accepted', c_p['AOI'])
             print(e)
 
     def basler_capture(self):
-       number_images_saved = 0 # counts
-       video_created = False
-       c_p = self.c_p
-       img = pylon.PylonImage()
+        '''
+        Function for live capture using the basler camera. Also allows for
+        change of AOI, exposure and saving video on the fly.
 
-       while c_p['program_running']:
-           # Set defaults for camera, aknowledge that this has been done
+        Returns
+        -------
+        None.
 
-           self.set_basler_AOI()
-           c_p['new_settings_camera'] = False
-           try:
-               self.cam.ExposureTime = c_p['exposure_time']
-               c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()
-               c_p['framerate'] = round(float(c_p['framerate']), 1)
-               print('Read framerate to ', c_p['framerate'], ' fps.')
-           except:
-               print('Exposure time not accepted by camera')
-           # Grab one example image
-           image_count = 0
+        '''
+        video_created = False
+        c_p = self.c_p
+        img = pylon.PylonImage()
 
-           global image
-           self.cam.StartGrabbing()
+        while c_p['program_running']:
+            # Set defaults for camera, aknowledge that this has been done
 
-           start = time.time()
+            self.set_basler_AOI()
+            c_p['new_settings_camera'] = False
+            try:
+                self.cam.ExposureTime = c_p['exposure_time']
+                c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()
+                c_p['framerate'] = round(float(c_p['framerate']), 1)
+                print('Read framerate to ', c_p['framerate'], ' fps.')
+            except:
+                print('Exposure time not accepted by camera')
+            # Grab one example image
+            image_count = 0
 
-           # Start continously capturing images now that the camera parameters have been set
-           while c_p['program_running']\
-                and not c_p['new_settings_camera']:
-                with self.cam.RetrieveResult(2000) as result:
-                   img.AttachGrabResultBuffer(result)
-                   if result.GrabSucceeded():
-                       c_p['image'] = np.uint16(img.GetArray()) #np.flip(img.GetArray(),axis=(0,1)) # Testing to flip this guy
-                       img.Release()
-                       if c_p['recording']:
-                           # Create an array to store the images which have been captured in
-                           if not video_created:
-                                 video, experiment_info_name, exp_info_params = self.create_video_writer()
-                                 video_created = True
-                           video.write(c_p['image'])
-                       # Capture an image and update the image count
-                       image_count = image_count+1
+            global image
+            self.cam.StartGrabbing()
 
-           self.cam.StopGrabbing()
+            start = time.time()
 
-           # Close the livefeed and calculate the fps of the captures
-           end = time.time()
+            # Start continously capturing images
+            while c_p['program_running']\
+                 and not c_p['new_settings_camera']:
+                 with self.cam.RetrieveResult(2000) as result:
+                    img.AttachGrabResultBuffer(result)
+                    if result.GrabSucceeded():
+                        c_p['image'] = np.uint16(img.GetArray())
+                        img.Release()
+                        if c_p['recording']:
+                            if not video_created:
+                                video, experiment_info_name, exp_info_params = self.create_video_writer()
+                                video_created = True
+                            video.write(c_p['image'])
+                        # Capture an image and update the image count
+                        image_count = image_count+1
 
-           # Calculate FPS
-           fps = image_count/(end-start)
-           print('Capture sequence finished', image_count,
-                'Images captured in ', end-start, 'seconds. \n FPS is ',
-                fps)
+            self.cam.StopGrabbing()
 
-           if video_created:
-               video.release()
-               del video
-               video_created = False
-               # Save the experiment data in a pickled dict.
-               outfile = open(experiment_info_name, 'wb')
-               exp_info_params['fps'] = fps
-               pickle.dump(exp_info_params, outfile)
-               outfile.close()
+            # Close the livefeed and calculate the fps of the captures
+            end = time.time()
+
+            # Calculate FPS
+            fps = image_count/(end-start)
+            print('Capture sequence finished', image_count,
+                  'Images captured in ', end-start, 'seconds. \n FPS is ', fps)
+
+            if video_created:
+                video.release()
+                del video
+                video_created = False
+                # Save the experiment data in a pickled dict.
+                outfile = open(experiment_info_name, 'wb')
+                exp_info_params['fps'] = fps
+                pickle.dump(exp_info_params, outfile)
+                outfile.close()
 
     def run(self):
         if self.c_p['camera_model'] == 'ThorlabsCam':
@@ -288,15 +296,31 @@ class CameraThread(threading.Thread):
         elif self.c_p['camera_model'] == 'basler_large' or 'basler_fast':
             self.basler_capture()
 
-def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None):
-    '''
-    Function for changing the Area Of Interest for the camera to the box specified by
-    left,right,top,bottom
-    Assumes global access to c_p
-    '''
-    #global c_p
 
-    # Do not want motors to be moving when changing AOI!
+def set_AOI(c_p, left=None, right=None, up=None, down=None):
+    '''
+    Function for changing the Area Of Interest for the camera to the box
+    specified by left,right,top,bottom.
+
+    Parameters
+    ----------
+    c_p : Dictionary
+        Dictionary with control parameters.
+    left : INT, optional
+        Left position of camera AOI in pixels. The default is None.
+    right : INT, optional
+        Right position of camera AOI in pixels. The default is None.
+    up : INT, optional
+        Top position of camera AOI in pixels. The default is None.
+    down : INT, optional
+        Bottom position of camera AOI in pixels. The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
+
     # If exact values have been provided for all the corners change AOI
     if c_p['camera_model'] == 'ThorlabsCam':
         if left is not None and right is not None and up is not None and down is not None:
@@ -326,7 +350,7 @@ def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None)
             else:
                 print("Trying to set invalid area")
 
-    print('Setting AOI to ',c_p['AOI'])
+    print('Setting AOI to ', c_p['AOI'])
 
     # Inform the camera and display thread about the updated AOI
     c_p['new_settings_camera'] = True
@@ -343,8 +367,8 @@ def update_traps_relative_pos(c_p):
     '''
     Updates the relative position of the traps when zooming in.
     '''
-    tmp_x = [x - c_p['AOI'][0] for x in c_p['traps_absolute_pos'][0] ]
-    tmp_y = [y - c_p['AOI'][2] for y in c_p['traps_absolute_pos'][1] ]
+    tmp_x = [x - c_p['AOI'][0] for x in c_p['traps_absolute_pos'][0]]
+    tmp_y = [y - c_p['AOI'][2] for y in c_p['traps_absolute_pos'][1]]
     tmp = np.asarray([tmp_x, tmp_y])
     c_p['traps_relative_pos'] = tmp
 
