@@ -37,32 +37,6 @@ def get_camera_c_p():
 
 class CameraThread(threading.Thread):
 
-<<<<<<< HEAD
-   def __init__(self, threadID, name, c_p):
-      threading.Thread.__init__(self)
-      self.threadID = threadID
-      self.name = name
-      self.c_p = c_p
-      # Initalize camera and global image
-      if c_p['camera_model'] == 'ThorlabsCam':
-          # Get a thorlabs camera
-          self.cam = TC.get_camera()
-          self.cam.set_defaults(left=c_p['AOI'][0], right=c_p['AOI'][1], top=c_p['AOI'][2], bot=c_p['AOI'][3], n_frames=1)
-          c_p['exposure_time'] = 20 # exposure_time
-      else:
-          # Get a basler camera
-          self.c_p['AOI'][0] = 0
-          self.c_p['AOI'][1] = 3600 if self.c_p['camera_model'] == 'basler_large' else 672
-          self.c_p['AOI'][2] = 0
-          self.c_p['AOI'][3] = 3008 if self.c_p['camera_model'] == 'basler_large' else 512
-          tlf = pylon.TlFactory.GetInstance()
-          self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
-          self.cam.Open()
-      self.setDaemon(True)
-      c_p['image'] = np.ones((self.c_p['AOI'][3], self.c_p['AOI'][1], 1)) # Need to change here to get color
-
-   def __del__(self):
-=======
     def __init__(self, threadID, name, c_p):
         threading.Thread.__init__(self)
         self.threadID = threadID
@@ -90,7 +64,6 @@ class CameraThread(threading.Thread):
         c_p['image'] = np.ones((self.c_p['AOI'][3], self.c_p['AOI'][1], 1))
 
     def __del__(self):
->>>>>>> 80c495528d1362f4498fc5b3792924cc4ea6f478
         if self.c_p['camera_model'] == 'basler_large' or self.c_p['camera_model'] == 'basler_fast':
             self.cam.Close()
         else:
@@ -100,13 +73,11 @@ class CameraThread(threading.Thread):
         '''
         Gets the parameters needed to describe the experiment. Used for svaing
         experiment setup.
-
         Returns
         -------
         parameter_dict : Dictionary
             Dictionary containing the control parameters needed to describe
             the experiment.
-
         '''
         c_p = self.c_p
         parameter_dict = {
@@ -128,7 +99,6 @@ class CameraThread(threading.Thread):
         '''
         Funciton for creating a VideoWriter.
         Will also save the relevant parameters of the experiments.
-
         Returns
         -------
         video : VideoWriter
@@ -137,13 +107,12 @@ class CameraThread(threading.Thread):
             Name of experiment being run.
         exp_info_params : Dictionary
             Dictionary with controlparameters describing the experiment.
-
         '''
         c_p = self.c_p
         now = datetime.now()
         fourcc = VideoWriter_fourcc(*'MJPG')
-        image_width = int(c_p['AOI'][1]-c_p['AOI'][0])
-        image_height = int(c_p['AOI'][3]-c_p['AOI'][2])
+        image_width = c_p['AOI'][1]-c_p['AOI'][0]
+        image_height = c_p['AOI'][3]-c_p['AOI'][2]
         video_name = c_p['recording_path'] + '/video-'+ c_p['measurement_name'] + \
             '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)+'.avi'
 
@@ -157,82 +126,6 @@ class CameraThread(threading.Thread):
         exp_info_params = self.get_important_parameters()
 
         return video, experiment_info_name, exp_info_params
-<<<<<<< HEAD
-   def turn_image():
-       # Function which compensates for camera orientation in the image
-       pass
-
-   def thorlabs_capture(self):
-      number_images_saved = 0 # counts
-      video_created = False
-      c_p = self.c_p
-
-      while c_p['program_running']:
-          # Set defaults for camera, aknowledge that this has been done
-
-          self.cam.set_defaults(left=c_p['AOI'][0],
-              right=c_p['AOI'][1],
-              top=c_p['AOI'][2],
-              bot=c_p['AOI'][3],
-              exposure_time=TC.number_to_millisecond(c_p['exposure_time']))
-          c_p['new_settings_camera'] = False
-
-          # Grab one example image
-          #global image
-          image = c_p['image']
-          image = self.cam.grab_image(n_frames=1)
-          image_count = 0
-          # Start livefeed from the camera
-
-          # Setting  maximum framerate. Will cap it to make it stable
-          self.cam.start_live_video()
-          start = time.time()
-
-          # Start continously capturin images now that the camera parameters have been set
-          while c_p['program_running'] and not c_p['new_settings_camera']:
-              self.cam.wait_for_frame(timeout=None)
-              if c_p['recording']:
-                  # Create an array to store the images which have been captured in
-
-                  if not video_created:
-                      video, experiment_info_name, exp_info_params = self.create_video_writer()
-                      video_created = True
-                  # TODO fix poor video quality
-                  video.write(c_p['image'])
-              # Capture an image and update the image count
-              image_count = image_count+1
-              c_p['image'] = self.cam.latest_frame()[:,:,0]
-          # Close the livefeed and calculate the fps of the captures
-          end = time.time()
-          self.cam.stop_live_video()
-          fps = image_count/(end-start)
-          print('Capture sequence finished', image_count,
-               'Images captured in ', end-start, 'seconds. \n FPS is ',
-               fps)
-
-          if video_created:
-            video.release()
-            del video
-            video_created = False
-            # Save the experiment data in a pickled dict.
-            outfile = open(experiment_info_name, 'wb')
-            exp_info_params['fps'] = fps
-            pickle.dump(exp_info_params, outfile)
-            outfile.close()
-
-   def set_basler_AOI(self):
-       '''
-       Function for setting AOI of basler camera to c_p['AOI']
-       '''
-       c_p = self.c_p
-       try:
-            # The order in which you set the size and offset parameters matter.
-            # If you ever get the offset + width greater than max width the
-            # camera won't accept your valuse. Thereof the if-else-statements
-            # below. Conditions might need to be changed if the usecase of this
-            #  funciton change
-=======
->>>>>>> 80c495528d1362f4498fc5b3792924cc4ea6f478
 
     def turn_image():
         # Function which compensates for camera orientation in the image
@@ -304,11 +197,7 @@ class CameraThread(threading.Thread):
             funciton change
             '''
             camera_width = 3600 if self.c_p['camera_model']=='basler_large' else 672
-<<<<<<< HEAD
-            camera_height = 3008 if self.c_p['camera_model']=='basler_large' else 512# 512 for small camer
-=======
             camera_height = 3008 if self.c_p['camera_model']=='basler_large' else 512
->>>>>>> 80c495528d1362f4498fc5b3792924cc4ea6f478
 
             width = int(c_p['AOI'][1] - c_p['AOI'][0])
             offset_x = c_p['AOI'][0]
@@ -331,11 +220,9 @@ class CameraThread(threading.Thread):
         '''
         Function for live capture using the basler camera. Also allows for
         change of AOI, exposure and saving video on the fly.
-
         Returns
         -------
         None.
-
         '''
         video_created = False
         c_p = self.c_p
@@ -373,40 +260,6 @@ class CameraThread(threading.Thread):
                             if not video_created:
                                 video, experiment_info_name, exp_info_params = self.create_video_writer()
                                 video_created = True
-<<<<<<< HEAD
-                          video.write(np.uint8(c_p['image'])) # TODO fix poor video quality, flip?
-                      # Capture an image and update the image count
-                      image_count = image_count+1
-
-          self.cam.StopGrabbing()
-
-          # Close the livefeed and calculate the fps of the captures
-          end = time.time()
-
-          # Calculate FPS
-          fps = image_count/(end-start)
-          print('Capture sequence finished', image_count,
-               'Images captured in ', end-start, 'seconds. \n FPS is ',
-               fps)
-
-          if video_created:
-              video.release()
-              del video
-              video_created = False
-              # Save the experiment data in a pickled dict.
-              outfile = open(experiment_info_name, 'wb')
-              exp_info_params['fps'] = fps
-              pickle.dump(exp_info_params, outfile)
-              outfile.close()
-
-   def run(self):
-       if self.c_p['camera_model'] == 'ThorlabsCam':
-           self.thorlabs_capture()
-       elif self.c_p['camera_model'] == 'basler_large' or 'basler_fast':
-           self.basler_capture()
-
-def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None):
-=======
                             video.write(c_p['image'])
                         # Capture an image and update the image count
                         image_count = image_count+1
@@ -439,11 +292,9 @@ def set_AOI(c_p, half_image_width=50, left=None, right=None, up=None, down=None)
 
 
 def set_AOI(c_p, left=None, right=None, up=None, down=None):
->>>>>>> 80c495528d1362f4498fc5b3792924cc4ea6f478
     '''
     Function for changing the Area Of Interest for the camera to the box
     specified by left,right,top,bottom.
-
     Parameters
     ----------
     c_p : Dictionary
@@ -456,11 +307,9 @@ def set_AOI(c_p, left=None, right=None, up=None, down=None):
         Top position of camera AOI in pixels. The default is None.
     down : INT, optional
         Bottom position of camera AOI in pixels. The default is None.
-
     Returns
     -------
     None.
-
     '''
 
     # If exact values have been provided for all the corners change AOI
