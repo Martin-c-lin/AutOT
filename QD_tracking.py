@@ -3,7 +3,7 @@ import numpy as np
 from find_particle_threshold import find_particle_centers
 from numba import jit
 from threading import Thread
-from time import sleep, time
+from time import sleep, time, strftime
 import pyfftw
 from tkinter import BooleanVar
 from scipy.spatial import distance_matrix
@@ -301,6 +301,7 @@ class QD_Tracking_Thread(Thread):
         self.sleep_time = sleep_time
         self.tolerance = tolerance
         self.QD_unseen_counter = 0
+        self.previous_pos = [0, 0] # Saved location
         self.setDaemon(True)
 
     def __del__(self):
@@ -341,7 +342,6 @@ class QD_Tracking_Thread(Thread):
             self.c_p['piezo_target_position'][1] += max(y_move, -self.c_p['step_size'])
         else:
             self.c_p['piezo_target_position'][1] += min(y_move, self.c_p['step_size'])
-#def get_move(self):
 
 
     def look_for_quantum_dot(self, x, y):
@@ -383,7 +383,6 @@ class QD_Tracking_Thread(Thread):
         # Too far from focus, move
         if dz > -0.02 or dz > 0.01:
             self.c_p['stepper_target_position'][2] = self.c_p['stepper_starting_position'][2] - 0.005
-
 
     def move_QD_to_location_rough(self, x, y, step = 0.0003):
         '''
@@ -440,7 +439,6 @@ class QD_Tracking_Thread(Thread):
             if self.QD_unseen_counter > 15:
                  self.look_for_quantum_dot(x, y)
             return None
-
 
     def stick_quantum_dot(self):
 
@@ -544,6 +542,71 @@ class QD_Tracking_Thread(Thread):
             self.step_move(1, -dy)
 
         # TODO Can we decrease minimum step in thorlabs motor?
+
+    def update_polymerized_positions(self):
+        '''
+        Updates the relative position of the polymerized areas in view.
+        Relies on the piezo for accurat movement.
+        '''
+        x_diff = self.c_p['mmToPixel'] / 1000.0 * (self.previous_pos[0] - \
+            self.c_p['piezo_current_position'][0])
+        y_diff = self.c_p['mmToPixel'] / 1000.0 * (self.previous_pos[1] - \
+            self.c_p['piezo_current_position'][1])
+
+        self.c_p['polymerized_x'] = x + x_diff for x in self.c_p['polymerized_x']
+        self.c_p['polymerized_y'] = y + y_diff for y in self.c_p['polymerized_y']
+
+    def save_polymerization_data(self):
+        # Function for saving all the data necessary for training a neural
+        # network to detect polymerized locations.
+
+        # Wait for next frame
+        sleep(self.c_p['exposure_time'] / 1e6)
+        data_name = self.c_p['recording_path'] + "/frame-" + \
+                    strftime("%d-%m-%Y-%H-%M-%S")
+        z_diff = self.c_p['piezo_current_position'][2] - self.c_p['piezo_starting_position'][2]
+        data = [self.c_p['image'], self.c_p['polymerized_x'],
+                self.c_p['polymerized_y'], z_diff]
+        np.save(data_name, data)
+
+    def random_piezo_move(self):
+        position_found = False
+        while not position_found:
+            position_ok = True
+            x = np.random.uniform(0, 20)
+            y = np.random.uniform(0, 20)
+            z = np.random.uniform(0, 20)
+            dx = x - self.c_p['piezo_current_position'][0]
+            dy = y - self.c_p['piezo_current_position'][1]
+            for xi, yi in zip(self.c_p['polymerized_x'], self.c_p['polymerized_y']):
+                
+                position_ok = False if
+
+    def create_polymerization_training_data(self):
+        # Function for aoutomatically generating training data
+        # 1 move to new location.
+        # 2
+
+        # If there are too many polymerized areas in place already, then move
+        # to a new area.
+        if len(self.c_p['polymerized_x']) > 9:
+            self.c_p['polymerized_x'] = []
+            self.c_p['polymerized_y'] = []
+            self.c_p['stepper_target_position'][0] += 0.05
+
+        self.save_polymerization_data()
+        self.c_p['polymerization_LED'] == 'H'
+        sleep(1)
+        self.c_p['polymerization_LED'] == 'L'
+        self.c_p['polymerized_x'].append(self.c_p['traps_relative_pos'][0][0])
+        self.c_p['polymerized_y'].append(self.c_p['traps_relative_pos'][1][0])
+        self.save_polymerization_data()
+        self.previous_pos[0] = self.c_p['piezo_current_position'][0]
+        self.previous_pos[1] = self.c_p['piezo_current_position'][1]
+        self.random_piezo_move()
+        self.update_polymerized_positions()
+
+        pass
 
     def run(self):
 
