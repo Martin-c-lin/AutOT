@@ -44,7 +44,7 @@ class CameraThread(threading.Thread):
           # Get a thorlabs camera
           self.cam = TC.get_camera()
           self.cam.set_defaults(left=c_p['AOI'][0], right=c_p['AOI'][1], top=c_p['AOI'][2], bot=c_p['AOI'][3], n_frames=1)
-          c_p['exposure_time'] = 20#exposure_time
+          c_p['exposure_time'] = 20 # exposure_time
       else:
           # Get a basler camera
           self.c_p['AOI'][0] = 0
@@ -168,7 +168,6 @@ class CameraThread(threading.Thread):
        '''
        Function for setting AOI of basler camera to c_p['AOI']
        '''
-       #global c_p
        c_p = self.c_p
        try:
             # The order in which you set the size and offset parameters matter.
@@ -179,8 +178,6 @@ class CameraThread(threading.Thread):
 
             camera_width = 3600 if self.c_p['camera_model']=='basler_large' else 672
             camera_height = 3008 if self.c_p['camera_model']=='basler_large' else 512# 512 for small camer
-            #c_p['AOI'][1] -= np.mod(c_p['AOI'][1]-c_p['AOI'][0],16)
-            #c_p['AOI'][3] -= np.mod(c_p['AOI'][3]-c_p['AOI'][2],16)
 
             width = int(c_p['AOI'][1] - c_p['AOI'][0])
             offset_x = c_p['AOI'][0]#camera_width - width - c_p['AOI'][0]
@@ -189,7 +186,7 @@ class CameraThread(threading.Thread):
 
             self.cam.OffsetX = 0
             self.cam.Width = width
-            self.cam.OffsetX = 800 + offset_x#1000
+            self.cam.OffsetX = 800 + offset_x
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = offset_y
