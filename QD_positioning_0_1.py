@@ -701,6 +701,9 @@ class UserInterface:
             self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
             variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
             self.piezo_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
+            self.training_data_button = tkinter.Checkbutton(top, text='Generate training data',\
+            variable=c_p['generate_training_data'], onvalue=True, offvalue=False)
+            self.training_data_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['using_stepper_motors']:
             # TODO make the checkbox variable "stepper_activated" part of GUI and not c_p

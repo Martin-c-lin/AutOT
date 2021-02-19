@@ -251,6 +251,7 @@ def get_QD_tracking_c_p():
         # true if it has been trapped in the last few frames
         'QD_currently_trapped': False,
         'move_QDs': BooleanVar(),
+        'generate_training_data': BooleanVar(),
         'QD_trapped_counter': 0,
         'QD_polymerization_time': 2,  # time during which the polymerization
         # laser will be turned on.
@@ -569,20 +570,49 @@ class QD_Tracking_Thread(Thread):
                 self.c_p['polymerized_y'], z_diff]
         np.save(data_name, data)
 
-    def random_piezo_move(self):
+    def random_piezo_move(self, safe_distance=30, piezo_tolerance=0.2):
+        '''
+        Function for moving to a new position where there is nothing polymerized
+        using the piezos
+        '''
         position_found = False
+        # Generate new position
         while not position_found:
             position_ok = True
             x = np.random.uniform(0, 20)
             y = np.random.uniform(0, 20)
             z = np.random.uniform(0, 20)
-            dx = x - self.c_p['piezo_current_position'][0]
-            dy = y - self.c_p['piezo_current_position'][1]
-            for xi, yi in zip(self.c_p['polymerized_x'], self.c_p['polymerized_y']):
-                
-                position_ok = False if
 
-    def create_polymerization_training_data(self):
+            # Calcualte distance to new positon
+            dx = (x - self.c_p['piezo_current_position'][0]) * self.c_p['mmToPixel'] / 1000
+            dy = (y - self.c_p['piezo_current_position'][1]) * self.c_p['mmToPixel'] / 1000
+
+            # check if new positon is ok
+            for xi, yi in zip(self.c_p['polymerized_x'], self.c_p['polymerized_y']):
+                x_sep = np.abs(self.c_p['traps_relative_pos'][0][0] + dx -xi)
+                y_sep = np.abs(self.c_p['traps_relative_pos'][1][0] + dy -yi)
+                if x_sep > safe_distance or y_sep > safe_distance:
+                    position_ok = False
+            # If position is ok then we have can exit the loop
+            position_found = position_ok
+
+        # Set new positon as target position
+        self.c_p['piezo_target_position'][0] = x
+        self.c_p['piezo_target_position'][1] = y
+        self.c_p['piezo_target_position'][2] = z
+
+        # Wait for piezos to move to new position
+        move_finished = False
+        while not move_finished:
+            sleep(0.2)
+            dx = np.abs(self.c_p['piezo_target_position'][0] - self.c_p['piezo_current_position'][0])
+            dy = np.abs(self.c_p['piezo_target_position'][1] - self.c_p['piezo_current_position'][1])
+            dz = np.abs(self.c_p['piezo_target_position'][2] - self.c_p['piezo_current_position'][2])
+            if dx < piezo_tolerance and dy < piezo_tolerance and dz < piezo_tolerance:
+                move_finished = True
+        return True
+
+    def generate_polymerization_training_data(self):
         # Function for aoutomatically generating training data
         # 1 move to new location.
         # 2
@@ -590,43 +620,52 @@ class QD_Tracking_Thread(Thread):
         # If there are too many polymerized areas in place already, then move
         # to a new area.
         if len(self.c_p['polymerized_x']) > 9:
+            # Reset polymerized areas since we are moving into new territory
             self.c_p['polymerized_x'] = []
             self.c_p['polymerized_y'] = []
             self.c_p['stepper_target_position'][0] += 0.05
 
+            # Wait for stepper to finish moving
+            while self.c_p['stepper_target_position'][0] - self.c_p['stepper_current_position'][0] > 0.01:
+                sleep(self.sleep_time)
+                print('Waiting for stepper to move')
+
+            # Update old position of piezos
+            self.previous_pos[0] = self.c_p['piezo_current_position'][0]
+            self.previous_pos[1] = self.c_p['piezo_current_position'][1]
+
+        # Save current data on polymerization
         self.save_polymerization_data()
+
+        # Polymerize a new area
         self.c_p['polymerization_LED'] == 'H'
         sleep(1)
         self.c_p['polymerization_LED'] == 'L'
+        # Save position of new area
         self.c_p['polymerized_x'].append(self.c_p['traps_relative_pos'][0][0])
         self.c_p['polymerized_y'].append(self.c_p['traps_relative_pos'][1][0])
         self.save_polymerization_data()
         self.previous_pos[0] = self.c_p['piezo_current_position'][0]
         self.previous_pos[1] = self.c_p['piezo_current_position'][1]
+
+        # Move to a new position
         self.random_piezo_move()
         self.update_polymerized_positions()
-
-        pass
 
     def run(self):
 
         while self.c_p['program_running']:
             if self.c_p['tracking_on']:
                 # TODO make it possible to adjust tracking parameters on the fly
-                start = time()
                 # Do the particle tracking.
                 # Note that the tracking algorithm can easily be replaced if need be
-
                 x, y, tmp = find_QDs(self.c_p['image'],
-                 inner_filter_width=7, outer_filter_width=180,particle_upper_size_threshold=700) # 12 240
-
+                                    inner_filter_width=7, outer_filter_width=180,
+                                    particle_upper_size_threshold=700) # 12 240
+                self.c_p['particle_centers'] = [x, y]
                 # This sort of works for the polymerized areas.
-                # TODO add parameter for this guy
                 if self.c_p['position_QD_in_pattern'].get():
                     self.move_to_array_position()
-
-
-                self.c_p['particle_centers'] = [x, y]
 
                 if self.c_p['move_QDs'].get():
                     tmp = self.move_QD_to_location_rough(
@@ -634,6 +673,8 @@ class QD_Tracking_Thread(Thread):
                      y=self.c_p['stepper_starting_position'][1])
                     if tmp:
                         self.c_p['move_QDs'].set(False)
+            elif self.c_p['generate_training_data'].get():
+                self.generate_polymerization_training_data()
 
             sleep(self.sleep_time)
         self.__del__()
