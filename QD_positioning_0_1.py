@@ -2084,9 +2084,9 @@ append_c_p(c_p,get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-# c_p['stage_piezo_x'] = True
-# c_p['stage_piezo_y'] = True
-# c_p['stage_piezo_z'] = True
+c_p['stage_piezo_x'] = True
+c_p['stage_piezo_y'] = True
+c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 

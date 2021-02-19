@@ -554,8 +554,8 @@ class QD_Tracking_Thread(Thread):
         y_diff = self.c_p['mmToPixel'] / 1000.0 * (self.previous_pos[1] - \
             self.c_p['piezo_current_position'][1])
 
-        self.c_p['polymerized_x'] = x + x_diff for x in self.c_p['polymerized_x']
-        self.c_p['polymerized_y'] = y + y_diff for y in self.c_p['polymerized_y']
+        self.c_p['polymerized_x'] = [x + x_diff for x in self.c_p['polymerized_x']]
+        self.c_p['polymerized_y'] = [y + y_diff for y in self.c_p['polymerized_y']]
 
     def save_polymerization_data(self):
         # Function for saving all the data necessary for training a neural
@@ -563,7 +563,7 @@ class QD_Tracking_Thread(Thread):
 
         # Wait for next frame
         sleep(self.c_p['exposure_time'] / 1e6)
-        data_name = self.c_p['recording_path'] + "/frame-" + \
+        data_name = self.c_p['recording_path'] + "/training_data-" + \
                     strftime("%d-%m-%Y-%H-%M-%S")
         z_diff = self.c_p['piezo_current_position'][2] - self.c_p['piezo_starting_position'][2]
         data = [self.c_p['image'], self.c_p['polymerized_x'],
@@ -591,8 +591,10 @@ class QD_Tracking_Thread(Thread):
             for xi, yi in zip(self.c_p['polymerized_x'], self.c_p['polymerized_y']):
                 x_sep = np.abs(self.c_p['traps_relative_pos'][0][0] + dx -xi)
                 y_sep = np.abs(self.c_p['traps_relative_pos'][1][0] + dy -yi)
-                if x_sep > safe_distance or y_sep > safe_distance:
+                if x_sep < safe_distance or y_sep < safe_distance:
                     position_ok = False
+                if not self.c_p['program_running']:
+                    return False
             # If position is ok then we have can exit the loop
             position_found = position_ok
 
@@ -600,6 +602,7 @@ class QD_Tracking_Thread(Thread):
         self.c_p['piezo_target_position'][0] = x
         self.c_p['piezo_target_position'][1] = y
         self.c_p['piezo_target_position'][2] = z
+
 
         # Wait for piezos to move to new position
         move_finished = False
@@ -610,6 +613,8 @@ class QD_Tracking_Thread(Thread):
             dz = np.abs(self.c_p['piezo_target_position'][2] - self.c_p['piezo_current_position'][2])
             if dx < piezo_tolerance and dy < piezo_tolerance and dz < piezo_tolerance:
                 move_finished = True
+            if not self.c_p['program_running']:
+                return False
         return True
 
     def generate_polymerization_training_data(self):
@@ -623,12 +628,14 @@ class QD_Tracking_Thread(Thread):
             # Reset polymerized areas since we are moving into new territory
             self.c_p['polymerized_x'] = []
             self.c_p['polymerized_y'] = []
-            self.c_p['stepper_target_position'][0] += 0.05
+            self.c_p['stepper_target_position'][0] += 0.01
 
             # Wait for stepper to finish moving
             while self.c_p['stepper_target_position'][0] - self.c_p['stepper_current_position'][0] > 0.01:
                 sleep(self.sleep_time)
                 print('Waiting for stepper to move')
+                if not self.c_p['program_running']:
+                    return
 
             # Update old position of piezos
             self.previous_pos[0] = self.c_p['piezo_current_position'][0]
@@ -638,9 +645,10 @@ class QD_Tracking_Thread(Thread):
         self.save_polymerization_data()
 
         # Polymerize a new area
-        self.c_p['polymerization_LED'] == 'H'
+        self.c_p['polymerization_LED'] = 'H'
+        print('polymerizing')
         sleep(1)
-        self.c_p['polymerization_LED'] == 'L'
+        self.c_p['polymerization_LED'] = 'L'
         # Save position of new area
         self.c_p['polymerized_x'].append(self.c_p['traps_relative_pos'][0][0])
         self.c_p['polymerized_y'].append(self.c_p['traps_relative_pos'][1][0])
@@ -650,6 +658,7 @@ class QD_Tracking_Thread(Thread):
 
         # Move to a new position
         self.random_piezo_move()
+        print('Moving to new piezo position')
         self.update_polymerized_positions()
 
     def run(self):

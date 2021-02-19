@@ -769,7 +769,8 @@ class XYZ_piezo_stage_motor(Thread):
             controller_device = ConnectBenchtopPiezoController(serialNo)
         self.controller_device = controller_device
         self.piezo_channel = ConnectPiezoStageChannel(controller_device, channel)
-        self.c_p['piezo_starting_position'][self.axis] = self.piezo_channel.GetPosition()
+        self.update_current_position()
+        self.c_p['piezo_starting_position'][self.axis] = self.c_p['piezo_current_position'][self.axis]#self.piezo_channel.GetPosition()
         self.c_p['stage_piezo_connected'][self.axis] = True
         print(self.c_p['piezo_starting_position'][self.axis])
 

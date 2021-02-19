@@ -24,6 +24,7 @@ while running:         #Do this forever
     #     ArduinoUnoSerial.write(b'L')            #send 0 to the arduino's Data code
     #     print ("LED turned OFF")
     #     time.sleep(0.1)
+    print(ArduinoUnoSerial.readline())
     if (var == 'quit'): #if the answer is (fine and you)
         ArduinoUnoSerial.write(b'L')            #send 0 to the arduino's Data code
         ArduinoUnoSerial.close()
