@@ -8,7 +8,7 @@ from threading import Thread
 # TODO: investigate if we can change to smaller
 # datatypes to improve performance
 # See if smaller datatypes and upscaling can be used to improve performance
-
+# TODO use cupy to implement the calculations on GPU
 
 def atan2_vec_2d(Y, X):
     '''

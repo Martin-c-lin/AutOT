@@ -570,7 +570,7 @@ class QD_Tracking_Thread(Thread):
                 self.c_p['polymerized_y'], z_diff]
         np.save(data_name, data)
 
-    def random_piezo_move(self, safe_distance=30, piezo_tolerance=0.2):
+    def random_piezo_move(self, safe_distance=110, piezo_tolerance=0.2):
         '''
         Function for moving to a new position where there is nothing polymerized
         using the piezos
@@ -589,9 +589,9 @@ class QD_Tracking_Thread(Thread):
 
             # check if new positon is ok
             for xi, yi in zip(self.c_p['polymerized_x'], self.c_p['polymerized_y']):
-                x_sep = np.abs(self.c_p['traps_relative_pos'][0][0] + dx -xi)
-                y_sep = np.abs(self.c_p['traps_relative_pos'][1][0] + dy -yi)
-                if x_sep < safe_distance or y_sep < safe_distance:
+                x_sep = self.c_p['traps_relative_pos'][0][0] + dx -xi
+                y_sep = self.c_p['traps_relative_pos'][1][0] + dy -yi
+                if x_sep**2 + y_sep**2 > safe_distance**2:
                     position_ok = False
                 if not self.c_p['program_running']:
                     return False
