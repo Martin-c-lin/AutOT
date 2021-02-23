@@ -6,7 +6,7 @@ import os
 
 def get_save_path(base_path='F:/Martin/D', extension_path=""):
     '''
-    
+
 
     Parameters
     ----------
@@ -98,8 +98,8 @@ def set_defualt_trap_position(c_p):
     c_p['ym'] = [200]
 
     # Laser position
-    c_p['traps_absolute_pos'][0][0] = 2120  # 2251
-    c_p['traps_absolute_pos'][1][0] = 1642  # 1822
+    c_p['traps_absolute_pos'][0][0] = 2139  # 2251
+    c_p['traps_absolute_pos'][1][0] = 1629  # 1822
     c_p['traps_relative_pos'][0][0] = c_p['traps_absolute_pos'][0][0]
     c_p['traps_relative_pos'][1][0] = c_p['traps_absolute_pos'][1][0]
 

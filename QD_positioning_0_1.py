@@ -416,6 +416,7 @@ class UserInterface:
         global c_p
         if c_p['stage_piezos']:
             c_p['QD_target_loc_z'][0] = c_p['piezo_current_position'][2]
+            c_p['piezo_starting_position'][2] = c_p['piezo_current_position'][2]
             #c_p['piezo_starting_position'][0] = c_p['piezo_current_position'][0]
             #c_p['piezo_starting_position'][1] = c_p['piezo_current_position'][1]
         if c_p['using_stepper_motors']:

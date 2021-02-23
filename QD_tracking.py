@@ -261,6 +261,8 @@ def get_QD_tracking_c_p():
         'QD_target_loc_y': [1, 1],
         'polymerized_x': [],
         'polymerized_y': [],
+        'polymerized_x_piezo':[],
+        'polymerized_y_piezo':[],
         'nbr_quantum_dots_stuck': 0,  # number of quantum dots already in
         # position
         'step_size': 0.2,  # Step size to move the quantum dots
@@ -549,6 +551,8 @@ class QD_Tracking_Thread(Thread):
         Updates the relative position of the polymerized areas in view.
         Relies on the piezo for accurat movement.
         '''
+        # TODO replace previous pos with polymerized_x_piezos
+        '''
         x_diff = self.c_p['mmToPixel'] / 1000.0 * (self.previous_pos[0] - \
             self.c_p['piezo_current_position'][0])
         y_diff = self.c_p['mmToPixel'] / 1000.0 * (self.previous_pos[1] - \
@@ -556,11 +560,18 @@ class QD_Tracking_Thread(Thread):
 
         self.c_p['polymerized_x'] = [x + x_diff for x in self.c_p['polymerized_x']]
         self.c_p['polymerized_y'] = [y + y_diff for y in self.c_p['polymerized_y']]
+        '''
+        x0p = self.c_p['piezo_current_position'][0]
+        y0p = self.c_p['piezo_current_position'][1]
+        x0l = self.c_p['traps_relative_pos'][0][0]
+        y0l = self.c_p['traps_relative_pos'][1][0]
+        self.c_p['polymerized_x'] = [x0l - (x0p - x) * self.c_p['mmToPixel'] / 1000.0 for x in self.c_p['polymerized_x_piezo']]
+        self.c_p['polymerized_y'] = [y0l - (y0p - y) * self.c_p['mmToPixel'] / 1000.0 for y in self.c_p['polymerized_y_piezo']]
 
     def save_polymerization_data(self):
         # Function for saving all the data necessary for training a neural
         # network to detect polymerized locations.
-
+        # TODO save piezos original positions
         # Wait for next frame
         sleep(self.c_p['exposure_time'] / 1e6)
         data_name = self.c_p['recording_path'] + "/training_data-" + \
@@ -577,11 +588,13 @@ class QD_Tracking_Thread(Thread):
         '''
         position_found = False
         # Generate new position
-        while not position_found:
+        z0 = self.c_p['piezo_starting_position'][2]
+        print('z0 is ', z0)
+        while not position_found and self.c_p['program_running']:
             position_ok = True
-            x = np.random.uniform(0, 20)
-            y = np.random.uniform(0, 20)
-            z = np.random.uniform(0, 20)
+            x = np.random.uniform(1, 19)
+            y = np.random.uniform(1, 19)
+            z = np.random.uniform(max(z0-2,1), min(z0+2, 19))
 
             # Calcualte distance to new positon
             dx = (x - self.c_p['piezo_current_position'][0]) * self.c_p['mmToPixel'] / 1000
@@ -591,7 +604,7 @@ class QD_Tracking_Thread(Thread):
             for xi, yi in zip(self.c_p['polymerized_x'], self.c_p['polymerized_y']):
                 x_sep = self.c_p['traps_relative_pos'][0][0] + dx -xi
                 y_sep = self.c_p['traps_relative_pos'][1][0] + dy -yi
-                if x_sep**2 + y_sep**2 > safe_distance**2:
+                if x_sep**2 + y_sep**2 < safe_distance**2:
                     position_ok = False
                 if not self.c_p['program_running']:
                     return False
@@ -628,14 +641,18 @@ class QD_Tracking_Thread(Thread):
             # Reset polymerized areas since we are moving into new territory
             self.c_p['polymerized_x'] = []
             self.c_p['polymerized_y'] = []
-            self.c_p['stepper_target_position'][0] += 0.01
+            self.c_p['polymerized_x_piezo'] = []
+            self.c_p['polymerized_y_piezo'] = []
+            self.c_p['stepper_target_position'][0] += 0.08
 
             # Wait for stepper to finish moving
-            while self.c_p['stepper_target_position'][0] - self.c_p['stepper_current_position'][0] > 0.01:
+            while self.c_p['stepper_target_position'][0] - self.c_p['stepper_current_position'][0] > 0.005:
                 sleep(self.sleep_time)
                 print('Waiting for stepper to move')
                 if not self.c_p['program_running']:
                     return
+            # Make sure we have stopped before polymerizing
+            sleep(1)
 
             # Update old position of piezos
             self.previous_pos[0] = self.c_p['piezo_current_position'][0]
@@ -649,9 +666,14 @@ class QD_Tracking_Thread(Thread):
         print('polymerizing')
         sleep(1)
         self.c_p['polymerization_LED'] = 'L'
+
+        # Could be image artefacts from polymerization if we don't wait a little bit
+        sleep(0.5)
         # Save position of new area
         self.c_p['polymerized_x'].append(self.c_p['traps_relative_pos'][0][0])
+        self.c_p['polymerized_x_piezo'].append(self.c_p['piezo_current_position'][0])
         self.c_p['polymerized_y'].append(self.c_p['traps_relative_pos'][1][0])
+        self.c_p['polymerized_y_piezo'].append(self.c_p['piezo_current_position'][1])
         self.save_polymerization_data()
         self.previous_pos[0] = self.c_p['piezo_current_position'][0]
         self.previous_pos[1] = self.c_p['piezo_current_position'][1]
