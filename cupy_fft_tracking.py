@@ -28,10 +28,10 @@ def create_circular_mask_inverse(h, w, center=None, radius=100):
 def create_gpu_mask(h,w,inner_radius=10, outer_radius=180):
     m_i = create_circular_mask(h,w,radius=inner_radius)
     m_o = create_circular_mask_inverse(h,w,radius=outer_radius)
-    mask = np.ones((h,w))
+    mask = cp.ones((h,w))
     mask[m_i] = 0
     mask[m_o] = 0
-    return cp.fft.ifftshift(cp.asarray(mask))
+    return cp.fft.ifftshift(mask)
 
 image_shape = [992, 992]
 filter_sizes = [10, 180]
