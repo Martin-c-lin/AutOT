@@ -392,8 +392,25 @@ class UserInterface:
                                      command=partial(stage_piezo_manual_move, axis=0, distance=-0.2))
 
     def screen_click(self, event):
+        self.get_mouse_position()
         if c_p['mouse_move_allowed']:
             self.mouse_command_move()
+        if self.set_laser_position.get():
+            if c_p['mouse_move_allowed']:
+                print('Cannot choose laser position when mouse movement is on.')
+                print('Please turn off mouse moves!')
+                self.set_laser_position.set(False)
+            else:
+                self.mouse_set_laser_position()
+
+    def mouse_set_laser_position(self):
+        c_p['traps_absolute_pos'][0][0] = int(self.image_scale * c_p['mouse_position'][0])
+        c_p['traps_absolute_pos'][1][0] = int(self.image_scale * c_p['mouse_position'][1])
+        print('Setting laser position (x,y) to (',
+            c_p['traps_absolute_pos'][0][0], c_p['traps_absolute_pos'][1][0] ,
+            ')')
+        update_traps_relative_pos(c_p)
+        self.update_qd_on_screen_targets()
 
     def toggle_move_by_clicking(self):
         c_p['mouse_move_allowed'] = not c_p['mouse_move_allowed']
@@ -403,7 +420,7 @@ class UserInterface:
             c_p['QDs_placed'] += 1
         else:
             print('Already at final location')
-        self.update_qd_on_screen_targets(c_p['image'])
+        self.update_qd_on_screen_targets()
 
     def decrement_QD_count(self):
         if c_p['QDs_placed'] > 0:
@@ -644,6 +661,12 @@ class UserInterface:
         threshold_button.place(x=x_position, y=y_position.__next__())
         self.toggle_tracking_button.place(x=x_position, y=y_position.__next__())
         self.zoom_button.place(x=x_position, y=y_position.__next__())
+
+        # Laser position checkbutton. Cannot be used at same time as click move
+        self.set_laser_position = tkinter.BooleanVar()
+        self.laser_position_button = tkinter.Checkbutton(top, text='Set laser position',
+            variable=self.set_laser_position, onvalue=True, offvalue=False)
+        self.laser_position_button.place(x=x_position, y=y_position.__next__())
 
         # Second column
         exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
@@ -901,10 +924,7 @@ class UserInterface:
     def mouse_command_move(self):
         # Function to convert a mouse click to a movement.
 
-        # Update position of the mouse
         # TODO add parameter for camera orientaiton(0,90,180,270 degrees tilt)
-        self.get_mouse_position()
-
         # Update target position for the stepper stage.
         # Camera orientation will affect signs in the following expressions
 
@@ -962,13 +982,16 @@ class UserInterface:
          except:
              print('Warning could not display laser position',x,y,np.size(image))
 
-    def update_qd_on_screen_targets(self, image):
+    def update_qd_on_screen_targets(self, image=None):
         '''
         Draws the locations in which there should be QDs. The locations are drawn
         relative to the laser.
         TODO: Make the markers a different color
         '''
-        s = np.shape(image)
+        if image is None:
+            s = np.shape(c_p['image'])
+        else:
+            s = np.shape(image)
         # Extract laser position
         x = int(c_p['traps_relative_pos'][0][0])
         y = int(c_p['traps_relative_pos'][1][0])

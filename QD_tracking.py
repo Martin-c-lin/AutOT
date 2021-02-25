@@ -581,7 +581,7 @@ class QD_Tracking_Thread(Thread):
                 self.c_p['polymerized_y'], z_diff]
         np.save(data_name, data)
 
-    def random_piezo_move(self, safe_distance=110, piezo_tolerance=0.2):
+    def random_piezo_move(self, safe_distance=110, piezo_tolerance=0.1):
         '''
         Function for moving to a new position where there is nothing polymerized
         using the piezos
@@ -628,6 +628,7 @@ class QD_Tracking_Thread(Thread):
                 move_finished = True
             if not self.c_p['program_running']:
                 return False
+        sleep(0.5)
         return True
 
     def generate_polymerization_training_data(self):
@@ -668,7 +669,7 @@ class QD_Tracking_Thread(Thread):
         self.c_p['polymerization_LED'] = 'L'
 
         # Could be image artefacts from polymerization if we don't wait a little bit
-        sleep(0.5)
+        sleep(1)
         # Save position of new area
         self.c_p['polymerized_x'].append(self.c_p['traps_relative_pos'][0][0])
         self.c_p['polymerized_x_piezo'].append(self.c_p['piezo_current_position'][0])
