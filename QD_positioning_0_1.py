@@ -509,13 +509,29 @@ class UserInterface:
         c_p['stepper_acc']:[value*2, value*2, value*2]
         c_p['new_stepper_velocity_params'] = [True, True, True]
 
-    def place_motor_speed_scale(self,top,x,y):
-        self.motor_speed = tkinter.DoubleVar()
+    def place_motor_speed_scale(self, top, x, y):
+
         self.motor_scale = tkinter.Scale(top, command=self.motor_scale_command,
         orient=HORIZONTAL, from_=0.5, to=50, resolution=0.5)
         self.motor_speed_label = Label(self.window, text="Stepper speed [microns/s]")
         self.motor_speed_label.place(x=x-10, y=y-15)
-        self.motor_scale.place(x=x,y=y)
+        self.motor_scale.place(x=x, y=y)
+
+    def polymerization_time_command(self, value):
+        # Sends the slider value to the arduino to update the polymerization
+        # time.
+        global c_p
+        c_p['polymerization_LED'] = 'S ' + str(value)
+
+    def place_polymerization_time(self, top, x, y):
+
+        self.polymerization_scale = tkinter.Scale(top,
+            command=self.polymerization_time_command, from_=100,
+            to=5000, resolution=100, orient=HORIZONTAL)
+        self.polymerization_scale.set(1000)
+        self.polymerization_label = Label(self.window, text="Polymerization time")
+        self.polymerization_label.place(x=x-0, y=y-15)
+        self.polymerization_scale.place(x=x, y=y)
 
     def create_buttons(self, top=None):
         '''
@@ -735,7 +751,8 @@ class UserInterface:
             self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
             variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
             self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
-            self.place_motor_speed_scale(top,x=x_position_2,y=y_position_2.__next__())
+            self.place_motor_speed_scale(top, x=x_position_2, y=y_position_2.__next__())
+            self.place_polymerization_time(top, x=x_position, y=y_position.__next__())
             c_p['stepper_activated'].set(True)
 
         self.move_by_clicking = tkinter.BooleanVar()

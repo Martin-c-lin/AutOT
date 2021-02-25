@@ -1,6 +1,7 @@
 int incomingByte;
 const int LED=12;
 int onTime;
+int tmp;
 void setup() { 
   Serial.begin(9600);                      //initialize serial COM at 9600 baudrate
   pinMode(LED, OUTPUT);                    //declare the LED pin (12) as output
@@ -28,22 +29,25 @@ void loop() {
     }
     if (incomingByte == 'T') {
       digitalWrite(LED, HIGH);
-      Serial.println("Turning on");
+      Serial.println("Turning on then off");
       delay(onTime);
       digitalWrite(LED, LOW);
-      Serial.println("Turning off");
+      //Serial.println("Turning off");
     }
-    if (incomingByte == '1') {
-      onTime = 1000;
-    }
-    if (incomingByte == '2') {
-      onTime = 2000;
-    }
-    if (incomingByte == '3') {
-      onTime = 3000;
-    }
-    if (incomingByte == '5') {
-      onTime = 5000;
+    if (incomingByte == 'S') {
+      Serial.println("S recieved expecting int");
+      while (Serial.available()==0){delay(10);}
+      
+      tmp = Serial.parseInt();
+      if (tmp > 0){
+        Serial.println("On time set to: ");
+        Serial.println(tmp);
+        onTime = tmp;
+      }
+      else{
+        Serial.println("Trying to set invalid timeframe!");
+        Serial.println(tmp);
+      }    
     }
   }
 }
