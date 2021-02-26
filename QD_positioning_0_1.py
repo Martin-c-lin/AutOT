@@ -404,8 +404,8 @@ class UserInterface:
                 self.mouse_set_laser_position()
 
     def mouse_set_laser_position(self):
-        c_p['traps_absolute_pos'][0][0] = int(self.image_scale * c_p['mouse_position'][0])
-        c_p['traps_absolute_pos'][1][0] = int(self.image_scale * c_p['mouse_position'][1])
+        c_p['traps_absolute_pos'][0][0] = int(self.image_scale * c_p['mouse_position'][0] + c_p['AOI'][0])
+        c_p['traps_absolute_pos'][1][0] = int(self.image_scale * c_p['mouse_position'][1] + c_p['AOI'][2])
         print('Setting laser position (x,y) to (',
             c_p['traps_absolute_pos'][0][0], c_p['traps_absolute_pos'][1][0] ,
             ')')
@@ -533,6 +533,15 @@ class UserInterface:
         self.polymerization_label.place(x=x-0, y=y-15)
         self.polymerization_scale.place(x=x, y=y)
 
+    def toggle_BG_shutter(self):
+        c_p['background_illumination'] = not c_p['background_illumination']
+        if c_p['background_illumination']:
+            # Open shutter
+            c_p['polymerization_LED'] = 'O'
+        else:
+            # Close shutter
+            c_p['polymerization_LED'] = 'C'
+
     def create_buttons(self, top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -568,7 +577,8 @@ class UserInterface:
         exposure_entry = tkinter.Entry(top, bd=5)
         self.tracking_toggled = tkinter.BooleanVar()
         self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
-        variable=self.tracking_toggled, onvalue=True, offvalue=False)
+                variable=self.tracking_toggled, onvalue=True, offvalue=False)
+
         def set_threshold():
             entry = threshold_entry.get()
             try:
@@ -718,6 +728,9 @@ class UserInterface:
             self.arduino_LED_pulse_button = tkinter.Button(
                 top, text='Pulse LED', command=self.timed_polymerization)
             self.arduino_LED_pulse_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.bg_illumination_button = tkinter.Button(
+                top, text='Toggle on BG illumination', command=self.toggle_BG_shutter)
+            self.bg_illumination_button.place(x=x_position, y=y_position.__next__())
 
         if c_p['QD_tracking']:
             next_qd_button = tkinter.Button(top, text='Next QD position',
@@ -786,6 +799,9 @@ class UserInterface:
             self.SLM_Window = _class(self.new)
 
     def get_temperature_info(self):
+        """
+        ---
+        """
         global c_p
         if c_p['temperature_controller_connected']:
             temperature_info = 'Current objective temperature is: '+str(c_p['current_temperature'])+' C'+'\n setpoint temperature is: '+str(c_p['setpoint_temperature'])+' C'
@@ -799,8 +815,6 @@ class UserInterface:
                 temperature_info += '\n Temperature controller output is off.'
         else:
             temperature_info = 'Temperature controller is not connected.'
-
-
         return temperature_info
 
     def get_position_info(self):
@@ -885,7 +899,10 @@ class UserInterface:
                 self.arduino_LED_button.config(bg='green')
             else:
                 self.arduino_LED_button.config(bg='red')
-
+            if c_p['polymerization_LED'] == 'O':
+                self.bg_illumination_button.config(bg='green')
+            elif c_p['polymerization_LED'] == 'C':
+                self.bg_illumination_button.config(bg='red')
         # Update "move to target button", may not exist
         if c_p['stage_piezos']:
             if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
@@ -2120,7 +2137,7 @@ experiment_schedule = [
 ]
 
 c_p['experiment_schedule'] = experiment_schedule
-append_c_p(c_p,get_thread_activation_parameters())
+append_c_p(c_p, get_thread_activation_parameters())
 
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
@@ -2133,5 +2150,5 @@ c_p['QD_tracking'] = True
 
 
 T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
-
+print('Typical number of parameters: ', len(c_p))
 sys.exit()

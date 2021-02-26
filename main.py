@@ -3,14 +3,6 @@ from common_experiment_parameters import get_default_c_p
 
 c_p = get_default_c_p()
 c_p['camera_model'] = 'ThorlabsCam'
-# Create camera and set defaults
-# global image
-# if c_p['camera_model'] == 'ThorlabsCam':
-#     image = np.zeros((c_p['AOI'][1]-c_p['AOI'][0], c_p['AOI'][3]-c_p['AOI'][2], 1))
-# else:
-#     image = np.zeros((672,512,1))
-
-# Create a empty list to put the threads in
 thread_list = []
 d0x = -80e-6
 d0y = -80e-6

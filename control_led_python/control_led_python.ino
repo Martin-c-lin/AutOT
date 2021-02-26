@@ -2,13 +2,21 @@ int incomingByte;
 const int LED=12;
 int onTime;
 int tmp;
-void setup() { 
+#include <Servo.h>
+Servo myServo;
+int angle;
+
+void setup() {
+  myServo.attach(9);
   Serial.begin(9600);                      //initialize serial COM at 9600 baudrate
   pinMode(LED, OUTPUT);                    //declare the LED pin (12) as output
   digitalWrite(LED, LOW);
   delay(100);
   Serial.println("Hello!,How are you Python ?");
   onTime = 1000;
+  delay(100);
+  angle = 90;
+  myServo.write(angle);
 }
 
 void loop() {
@@ -35,7 +43,7 @@ void loop() {
       //Serial.println("Turning off");
     }
     if (incomingByte == 'S') {
-      Serial.println("S recieved expecting int");
+      Serial.println("S recieved expecting int next");
       while (Serial.available()==0){delay(10);}
       
       tmp = Serial.parseInt();
@@ -49,5 +57,15 @@ void loop() {
         Serial.println(tmp);
       }    
     }
+   if (incomingByte == 'O') {
+    Serial.println("Opening the shutter");
+    angle = 180;
+    myServo.write(angle);       
+    }
+   if (incomingByte == 'C') {
+    Serial.println("Closing the shutter");
+    angle = 90;
+    myServo.write(angle);      
+   }
   }
 }

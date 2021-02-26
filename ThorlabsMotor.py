@@ -803,6 +803,7 @@ class XYZ_piezo_stage_motor(Thread):
         Main loop of program. Used to automatically move the piezo in response
         to changes in c_p made by main program.
         '''
+        sleep(self.sleep_time)
         while self.c_p['program_running']:
 
             # Check if we should move the piezo to a specific location.

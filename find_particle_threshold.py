@@ -34,6 +34,7 @@ def find_single_particle_center(img,threshold=127):
     cy, cx = ndi.center_of_mass(th1)
     # if np.isnan(cx) return inf?
     return cx,cy,th1
+
 def threshold_image(image,threshold=120,bright_particle=True):
         img_temp = cv2.medianBlur(image,5)
         if bright_particle:
@@ -43,12 +44,12 @@ def threshold_image(image,threshold=120,bright_particle=True):
             ret,thresholded_image = cv2.threshold(img_temp,threshold,255,cv2.THRESH_BINARY_INV)
             return thresholded_image
 
-def find_groups_of_interest(counts, particle_upper_size_threshold, particle_size_threshold, separate_particles_image):
+def find_groups_of_interest(counts, particle_upper_size_threshold,
+                            particle_size_threshold, separate_particles_image):
     '''
     Exctract the particles into separate images to be center_of_massed in parallel
     '''
     particle_images = []
-    #target_groups = []
     for group, pixel_count in enumerate(counts): # First will be background
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
             #target_groups.append(group)
@@ -56,7 +57,8 @@ def find_groups_of_interest(counts, particle_upper_size_threshold, particle_size
     return particle_images
 
 
-def get_x_y(counts, particle_upper_size_threshold, particle_size_threshold, separate_particles_image):
+def get_x_y(counts, particle_upper_size_threshold, particle_size_threshold,
+            separate_particles_image):
     x = []
     y = []
     for group, pixel_count in enumerate(counts): # First will be background
@@ -70,7 +72,9 @@ def get_x_y(counts, particle_upper_size_threshold, particle_size_threshold, sepa
     return x, y
 
 #@jit
-def find_particle_centers(image,threshold=120,particle_size_threshold=200,particle_upper_size_threshold=5000,bright_particle=True):
+def find_particle_centers(image,threshold=120, particle_size_threshold=200,
+                        particle_upper_size_threshold=5000,
+                        bright_particle=True):
     """
     Function which locates particle centers using thresholding.
     Parameters :
@@ -95,22 +99,12 @@ def find_particle_centers(image,threshold=120,particle_size_threshold=200,partic
 
     x = []
     y = []
-    #group = 0
 
-    # Check for pixel sections which are larger than particle_size_threshold.
-    # particle_images = find_groups_of_interest(counts, \
-    #                                           particle_upper_size_threshold, \
-    #                                           particle_size_threshold, \
-    #                                           separate_particles_image)
-    # x, y = parallel_center_of_masses(particle_images)
-
-    # TODO Calcualte image-moments to determine shape
     for group, pixel_count in enumerate(counts): # First will be background
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
             # Particle found, locate center of mass of the particle
             cy, cx = ndi.center_of_mass(separate_particles_image==group) # This is slow
             x.append(cx)
             y.append(cy)
-
 
     return x, y, thresholded_image

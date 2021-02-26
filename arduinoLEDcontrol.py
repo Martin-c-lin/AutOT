@@ -4,7 +4,8 @@ from threading import Thread
 def get_arduino_c_p():
     arduino_c_p = {
     'polymerization_LED':'L',
-    'polymerization_LED_status':'OFF'
+    'polymerization_LED_status':'OFF',
+    'background_illumination': False,
     }
     return arduino_c_p
 
