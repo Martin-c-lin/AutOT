@@ -783,13 +783,13 @@ class XYZ_piezo_stage_motor(Thread):
         self.update_current_position()
         if 0 <= self.c_p['piezo_target_position'][self.axis] <= 20:
             d = self.c_p['piezo_target_position'][self.axis] - self.c_p['piezo_current_position'][self.axis]
-            if np.abs(d) > self.step * 2:
+            if np.abs(d) > self.step:
                 if d < 0:
                     next_pos = self.c_p['piezo_current_position'][self.axis] - self.step#+ max(, d)
                 else:
                     next_pos = self.c_p['piezo_current_position'][self.axis] + self.step#min(, d)
                 self.piezo_channel.SetPosition(Decimal(next_pos))
-            else:
+            elif np.abs(d) > 0.05: # Don't want to make to many moves
                 self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
 
             # TODO fix so that channel 2(z) behaves
@@ -804,6 +804,7 @@ class XYZ_piezo_stage_motor(Thread):
         to changes in c_p made by main program.
         '''
         sleep(self.sleep_time)
+        # TODO test change made to prevent excess moves
         while self.c_p['program_running']:
 
             # Check if we should move the piezo to a specific location.
@@ -811,14 +812,13 @@ class XYZ_piezo_stage_motor(Thread):
                 index = self.c_p['QDs_placed'] if self.axis < 2 else 0
                 d =  self.c_p['piezo_current_position'][self.axis] - self.c_p[self.target_key][index]
 
-                if d < 0:
+                # Don't make really small moves
+                if d < -0.05:
                     self.c_p['piezo_target_position'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-self.step, d)
-
-                else:
+                elif d > 0.05:
                     self.c_p['piezo_target_position'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(self.step, d)
-
-                if np.abs(d) < 0.05:
-                    self.c_p['piezo_move_to_target'][self.axis] = False
+                # if np.abs(d) < 0.05:
+                #     self.c_p['piezo_move_to_target'][self.axis] = False
 
             self.update_position()
             sleep(self.sleep_time)
@@ -1025,6 +1025,6 @@ class XYZ_stepper_stage_motor(Thread):
         try:
             self.stepper_channel.StopImmediate()
         except:
-            pass
+            print('Could not stop')
         self.stepper_channel.StopPolling()
         self.stepper_channel.Disconnect()

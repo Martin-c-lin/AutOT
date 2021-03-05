@@ -6,8 +6,8 @@ class mouseInputThread(Thread):
     Thread for getting mouse input. Used to read scroll-wheel and thus
     lower/raise the sample.
     '''
-    def __init__(self, threadID, name, c_p, stepper_step_distance=0.0005,
-            piezo_step_distance=0.02, sleep_time=0.04):
+    def __init__(self, threadID, name, c_p, stepper_step_distance=0.001,
+            piezo_step_distance=0.1, sleep_time=0.04):
         Thread.__init__(self)
         self.threadID = threadID
         self.name = name

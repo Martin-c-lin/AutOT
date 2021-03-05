@@ -118,6 +118,7 @@ def start_threads(c_p, thread_list):
         c_p['stage_piezos'] = True
         append_c_p(c_p, TM.get_default_piezo_c_p())
         controller_device_piezo = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
+        #self.controller_device_piezo = controller_device_piezo
 
     if c_p['stage_piezo_x']:
         # OBS assumes that the x-motor is connected to channel 1
@@ -149,7 +150,7 @@ def start_threads(c_p, thread_list):
         try:
             thread_piezo_z = TM.XYZ_piezo_stage_motor(10, 'piezo_z', 3,2, c_p,
                 controller_device=controller_device_piezo,
-                target_key='QD_target_loc_z', step=0.025)
+                target_key='QD_target_loc_z', step=1)
             thread_piezo_z.start()
             thread_list.append(thread_piezo_z)
             print('Started piezo z-thread')
@@ -246,8 +247,7 @@ class UserInterface:
         self.window.title(window_title)
         start_threads(c_p, thread_list)
         # Create a canvas that can fit the above video source size
-        # TODO: Add scrollbar for adjusting motor speed and a simpler way to
-        # label outputs(videos, images etc) from the program
+        # TODO: Add simpler way to label outputs(videos, images etc) from the program
         self.canvas_width = 1300
         self.canvas_height = 1120
 
@@ -288,6 +288,8 @@ class UserInterface:
         c_p['program_running'] = False
         c_p['motor_running'] = False
         c_p['tracking_on'] = False
+        # if c_p['stage_piezos']:
+        #     self.controller_device_piezo.Disconnect()
         terminate_threads(thread_list, c_p)
 
     def read_experiment_dictionary(self):
@@ -749,7 +751,6 @@ class UserInterface:
 
         if c_p['stage_piezos']:
 
-            # TODO make the checkbox variable "piezos_activated" part of GUI and not c_p
             c_p['piezos_activated'] = tkinter.BooleanVar()
             self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
             variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
@@ -759,7 +760,6 @@ class UserInterface:
             self.training_data_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['using_stepper_motors']:
-            # TODO make the checkbox variable "stepper_activated" part of GUI and not c_p
             c_p['stepper_activated'] = tkinter.BooleanVar()
             self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
             variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
@@ -947,7 +947,6 @@ class UserInterface:
         else:
             dim = ( int(self.canvas_height), int(self.canvas_height/img_size[0]*img_size[1]))
         self.image_scale = max(img_size[1]/self.canvas_width, img_size[0]/self.canvas_height)
-        # TODO if a gpu is available then we should use it for the resizing
         return cv2.resize(img, (dim[1],dim[0]), interpolation = cv2.INTER_AREA)
 
     def get_mouse_position(self):
@@ -980,8 +979,6 @@ class UserInterface:
         # Calculate travel distance
         dx = float(c_p['traps_relative_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
         dy = float(c_p['traps_relative_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
-
-        # TODO check what happens if we don't have both?
 
         # Checks which motors are connected and activated, acts accordingly.
         if c_p['stage_piezos'] and c_p['using_stepper_motors'] and \
@@ -1107,7 +1104,6 @@ class UserInterface:
              self.add_target_QD_locs(image)
 
          if c_p['crop_in']:
-             # TODO fix mouse click when cropped in
              image = self.crop_in(image)
 
          if c_p['phasemask_updated']:
