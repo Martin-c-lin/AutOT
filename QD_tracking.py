@@ -6,7 +6,7 @@ from threading import Thread
 from time import sleep, time, strftime
 import pyfftw
 from tkinter import BooleanVar
-from scipy.spatial import distance_matrix
+#from scipy.spatial import distance_matrix
 pyfftw.interfaces.cache.enable()
 
 
@@ -79,7 +79,8 @@ s[1] = int(image_shape[0]/2)
 mask = create_circular_mask(image_shape[0], image_shape[1], s, filter_radii[0])
 outer_mask = create_circular_mask_inverse(image_shape[0], image_shape[1], s,
                                           filter_radii[1])
-
+# TODO make the mask and outer mask FFT-shifted so we don't need to do that
+# withe the for each image. Combine into a single mask
 
 def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     '''
@@ -217,6 +218,7 @@ def find_optimal_move(p1, p2):
     y : Float
         distance in y direction between target pattern and seen pattern.
     '''
+    from scipy.spatial import distance_matrix
 
     if len(p2) < 1 or len(p1) < 1:
         return 0, 0

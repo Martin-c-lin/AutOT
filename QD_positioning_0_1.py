@@ -35,6 +35,7 @@ def terminate_threads(thread_list, c_p):
     c_p['program_running'] = False
     c_p['motor_running'] = False
     c_p['tracking_on'] = False
+    c_p['scroll_for_z'] = False
     time.sleep(1)
     for thread in thread_list:
         thread.join()
@@ -730,6 +731,7 @@ class UserInterface:
             self.arduino_LED_pulse_button = tkinter.Button(
                 top, text='Pulse LED', command=self.timed_polymerization)
             self.arduino_LED_pulse_button.place(x=x_position_2, y=y_position_2.__next__())
+            # TODO fix the button color
             self.bg_illumination_button = tkinter.Button(
                 top, text='Toggle on BG illumination', command=self.toggle_BG_shutter)
             self.bg_illumination_button.place(x=x_position, y=y_position.__next__())
