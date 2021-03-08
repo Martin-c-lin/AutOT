@@ -904,7 +904,8 @@ def get_default_stepper_c_p():
         'stepper_next_move': [0, 0, 0],
         'stepper_max_speed': [0.01, 0.01, 0.01],
         'stepper_acc': [0.005, 0.005, 0.005],
-        'new_stepper_velocity_params': [False, False, False]
+        'new_stepper_velocity_params': [False, False, False],
+        'tilt': [0,0]# How much the stage is tilting in x and y direction
     }
     return stepper_c_p
 
@@ -964,7 +965,7 @@ class XYZ_stepper_stage_motor(Thread):
 
     def set_velocity_params(self):
         tmp = self.stepper_channel.GetVelocityParams()
-        stepper_speed = float(str(tmp.MaxVelocity))
+        stepper_speed =  float(str(tmp.MaxVelocity).replace(',', '.'))
         trials = 0
         while stepper_speed != self.c_p['stepper_max_speed'][self.axis] and trials < 20:
             try:
@@ -974,7 +975,7 @@ class XYZ_stepper_stage_motor(Thread):
             except:
                 print('Could not set velocity params.')
             tmp = self.stepper_channel.GetVelocityParams()
-            stepper_speed = float(str(tmp.MaxVelocity))
+            stepper_speed =  float(str(tmp.MaxVelocity).replace(',', '.'))
             trials += 1
             sleep(self.sleep_time)
         if trials >= 20:

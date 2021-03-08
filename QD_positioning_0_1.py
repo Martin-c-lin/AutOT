@@ -1070,7 +1070,9 @@ class UserInterface:
     def crop_in(self, image, edge=500):
         """
         Crops in on an area around the laser for easier viewing.
+
         """
+        # TODO remove if not in use
         # Check if we can do crop
         top = int(max(c_p['traps_absolute_pos'][0][0]-edge, 0))
         bottom = int(min(c_p['traps_absolute_pos'][0][0]+edge, np.shape(image)[0]))
@@ -1115,6 +1117,7 @@ class UserInterface:
 
          if c_p['stage_piezos'] or c_p['using_stepper_motors']:
              c_p['scroll_for_z'] = self.z_scrolling.get()
+             compensate_focus_xy_move(c_p)
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
@@ -1155,6 +1158,19 @@ class SLM_window(Frame):
         self.img = Label(self, image=self.photo)
         self.img.image = self.photo
         self.img.place(x=420, y=0)
+
+
+def compensate_focus_xy_move(c_p):
+    '''
+    Function for compensating the change in focus caused by x-y movement.
+    Returns the positon in ticks which z  should take to compensate for the focus
+    '''
+    z0 = c_p['stepper_starting_position'][2]
+    dx = (c_p['stepper_current_position'][0] - c_p['stepper_starting_position'][0])
+    dy = (c_p['stepper_current_position'][1] - c_p['stepper_starting_position'][1])
+    target_pos = z0 + c_p['tilt'][0]*dx + c_p['tilt'][1] * dy
+    c_p['stepper_target_position'][2] = target_pos
+
 
 
 def compensate_focus():

@@ -50,16 +50,16 @@ def generate_target_image_set(data, target_shape, nbr_images=10, width=400):
 
     return small_images, small_targets
 
-def get_training_data(data_path, target_shape, nbr_subimages=10, width=400):
+def get_training_data(data_path, target_shape, nbr_subimages=10, width=400, max_images=100):
 
     file_names = [f for f in os.listdir(data_path) if f[:13]=='training_data']
-
+    max_images = min(len(file_names), max_images)
     # Create np arrays to save the data in
-    total_nbr_images = int(len(file_names) * nbr_subimages)
-    images = np.zeros((total_nbr_images, target_shape[0], target_shape[1]))
-    targets = np.zeros((total_nbr_images, target_shape[0], target_shape[1]))
+    total_nbr_images = int(max_images * nbr_subimages)
+    images = np.uint8(np.zeros((total_nbr_images, target_shape[0], target_shape[1])))
+    targets = np.uint8(np.zeros((total_nbr_images, target_shape[0], target_shape[1])))
 
-    for idx, file_name in enumerate(file_names):
+    for idx, file_name in enumerate(file_names[:max_images]):
         data = np.load(data_path+file_name, allow_pickle=True)
         mini_images, mini_targets = generate_target_image_set(data,
                                             target_shape, nbr_subimages, width)
@@ -68,8 +68,30 @@ def get_training_data(data_path, target_shape, nbr_subimages=10, width=400):
         print(idx)
     return images, targets
 
+def check_training_data(folder, new_folder):
+    # Function for checking if the data is ok
+    try:
+        os.makedir(new_folder)
+    except:
+        print('Folder already exist')
+    for file in os.listdir(folder):
+        if file[:13] == 'training_data':
+            data = np.load(path+file, allow_pickle=True)
+            plt.imshow(data[0])
+            plt.plot(data[1], data[2],'*r')
+            plt.title(file)
+            plt.show()
 
-path = 'C:/Users/marti/OneDrive/PhD/Projects/QD-Positioning/Example images etc/TestTrainingData/'
+            ok = input('Is file ok')
+            if ok == 'NO':
+                print('Bad file, will not be moved')
+            else:
+                print('Good file, will be saved in new folder')
+                np.save(new_folder+file, data, allow_pickle=True)
+            plt.clf()
+
+
+path = 'D:/TestTrainingData/'
 files = os.listdir(path)
 images, targets = get_training_data(path,(1000, 1000))
 '''
