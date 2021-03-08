@@ -493,8 +493,32 @@ class UserInterface:
         c_p['polymerization_LED'] = 'T'
 
     def add_stepper_buttons(self, top, generator_y, position_x):
+        c_p['stepper_activated'] = tkinter.BooleanVar()
+        self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
+        variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
+        self.stepper_checkbutton.place(x=position_x, y=generator_y.__next__())
+        self.place_motor_speed_scale(top, x=position_x, y=generator_y.__next__())
+        c_p['stepper_activated'].set(True)
 
-        pass
+    def z_control_buttons(self, top, y_position, x_position):
+        self.save_z_button = tkinter.Button(
+            top, text='Save z pos', command=self.save_starting_position)
+        y_pos = y_position.__next__()
+        self.save_z_button.place(x=x_position, y=y_pos)
+
+        self.to_focus_button = tkinter.Button(
+            top, text='To focus', command=self.to_focus)
+        self.to_focus_button.place(x=x_position+70, y=y_pos)
+
+        # TODO make the scrolling work only when mouse is on the canvas
+        self.move_by_clicking_button = tkinter.Checkbutton(top, text='move by clicking',\
+        variable=self.move_by_clicking, onvalue=True, offvalue=False)
+        self.move_by_clicking.set(True)
+        self.z_scrolling = tkinter.BooleanVar()
+        self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
+        variable=self.z_scrolling, onvalue=True, offvalue=False)
+        self.z_scrolling_button.place(x=x_position, y=y_position.__next__())
+        self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
 
     def toggle_zoom(self):
         if self.zoomed_in:
@@ -536,6 +560,24 @@ class UserInterface:
         self.polymerization_label.place(x=x-0, y=y-15)
         self.polymerization_scale.place(x=x, y=y)
 
+    def add_arduino_buttons(self, top, generator_y, generator_y_2, x_position,
+                            x_position_2):
+        '''
+        Creates the buttons needed for the arduino.
+        '''
+        self.arduino_LED_button = tkinter.Button(
+            top, text='Toggle LED', command=self.toggle_polymerization_LED)
+        self.arduino_LED_button.place(x=x_position_2, y=generator_y_2.__next__())
+
+        self.arduino_LED_pulse_button = tkinter.Button(
+            top, text='Pulse LED', command=self.timed_polymerization)
+        self.arduino_LED_pulse_button.place(x=x_position_2, y=generator_y_2.__next__())
+        # TODO fix the button color
+        self.bg_illumination_button = tkinter.Button(
+            top, text='Toggle on BG illumination', command=self.toggle_BG_shutter)
+        self.bg_illumination_button.place(x=x_position, y=generator_y.__next__())
+        self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
+
     def toggle_BG_shutter(self):
         c_p['background_illumination'] = not c_p['background_illumination']
         if c_p['background_illumination']:
@@ -557,6 +599,10 @@ class UserInterface:
         self.canvas.bind("<Button-1>", self.screen_click)
         if top is None:
             top = self.window
+        x_position = 1310
+        x_position_2 = 1500
+        y_position = self.get_y_separation()
+        y_position_2 = self.get_y_separation()
 
         def home_z_command():
             c_p['return_z_home'] = not c_p['return_z_home']
@@ -658,11 +704,6 @@ class UserInterface:
         variable=self.display_laser, onvalue=True, offvalue=False)
         self.display_laser.set(True)
 
-        x_position = 1310
-        x_position_2 = 1500
-        y_position = self.get_y_separation()
-        y_position_2 = self.get_y_separation()
-
         # Place all the buttons, starting with first column
         if c_p['standard_motors'] or c_p['stage_piezos']:
             self.up_button.place(x=x_position, y=y_position.__next__())
@@ -723,18 +764,8 @@ class UserInterface:
             self.open_shutter_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['arduino_LED']:
-            self.arduino_LED_button = tkinter.Button(
-                top, text='Toggle LED', command=self.toggle_polymerization_LED)
-            self.arduino_LED_button.place(x=x_position_2, y=y_position_2.__next__())
-
-            #self.timed_polymerization
-            self.arduino_LED_pulse_button = tkinter.Button(
-                top, text='Pulse LED', command=self.timed_polymerization)
-            self.arduino_LED_pulse_button.place(x=x_position_2, y=y_position_2.__next__())
-            # TODO fix the button color
-            self.bg_illumination_button = tkinter.Button(
-                top, text='Toggle on BG illumination', command=self.toggle_BG_shutter)
-            self.bg_illumination_button.place(x=x_position, y=y_position.__next__())
+            self.add_arduino_buttons(top, y_position, y_position_2, x_position,
+                            x_position_2)
 
         if c_p['QD_tracking']:
             next_qd_button = tkinter.Button(top, text='Next QD position',
@@ -762,35 +793,12 @@ class UserInterface:
             self.training_data_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['using_stepper_motors']:
-            c_p['stepper_activated'] = tkinter.BooleanVar()
-            self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
-            variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
-            self.stepper_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
-            self.place_motor_speed_scale(top, x=x_position_2, y=y_position_2.__next__())
-            self.place_polymerization_time(top, x=x_position, y=y_position.__next__())
-            c_p['stepper_activated'].set(True)
+            self.add_stepper_buttons(top, y_position_2, x_position_2 )
 
         self.move_by_clicking = tkinter.BooleanVar()
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
-            self.save_z_button = tkinter.Button(
-                top, text='Save z pos', command=self.save_starting_position)
-            y_pos = y_position_2.__next__()
-            self.save_z_button.place(x=x_position_2, y=y_pos)
-
-            self.to_focus_button = tkinter.Button(
-                top, text='To focus', command=self.to_focus)
-            self.to_focus_button.place(x=x_position_2+70, y=y_pos)
-
-            # TODO make the scrolling work only when mouse is on the canvas
-            self.move_by_clicking_button = tkinter.Checkbutton(top, text='move by clicking',\
-            variable=self.move_by_clicking, onvalue=True, offvalue=False)
-            self.move_by_clicking.set(True)
-            self.z_scrolling = tkinter.BooleanVar()
-            self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
-            variable=self.z_scrolling, onvalue=True, offvalue=False)
-            self.z_scrolling_button.place(x=x_position_2, y=y_position_2.__next__())
-            self.move_by_clicking_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.z_control_buttons(top, y_position_2, x_position_2)
 
     def create_SLM_window(self, _class):
         try:
@@ -881,7 +889,7 @@ class UserInterface:
         # TODO make it so that positions of buttons are not hardcoded
 
         self.position_label = Label(self.window, text=self.get_position_info())
-        self.position_label.place(x=1420, y=740)
+        self.position_label.place(x=1420, y=760)
         self.temperature_label = Label(self.window, text=self.get_temperature_info())
         self.temperature_label.place(x=1420, y=900)
 
@@ -1070,9 +1078,7 @@ class UserInterface:
     def crop_in(self, image, edge=500):
         """
         Crops in on an area around the laser for easier viewing.
-
         """
-        # TODO remove if not in use
         # Check if we can do crop
         top = int(max(c_p['traps_absolute_pos'][0][0]-edge, 0))
         bottom = int(min(c_p['traps_absolute_pos'][0][0]+edge, np.shape(image)[0]))
@@ -1159,7 +1165,6 @@ class SLM_window(Frame):
         self.img.image = self.photo
         self.img.place(x=420, y=0)
 
-
 def compensate_focus_xy_move(c_p):
     '''
     Function for compensating the change in focus caused by x-y movement.
@@ -1170,8 +1175,6 @@ def compensate_focus_xy_move(c_p):
     dy = (c_p['stepper_current_position'][1] - c_p['stepper_starting_position'][1])
     target_pos = z0 + c_p['tilt'][0]*dx + c_p['tilt'][1] * dy
     c_p['stepper_target_position'][2] = target_pos
-
-
 
 def compensate_focus():
     '''

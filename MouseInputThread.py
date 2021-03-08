@@ -28,20 +28,6 @@ class mouseInputThread(Thread):
         Moves the stage up/down depending on scroll. Will automagically shift
         between using steppers and piezos depending on which are activated.
         '''
-        '''
-        if self.c_p['scroll_for_z']:
-            if self.c_p['stage_piezos'] and self.c_p['piezos_activated'].get():
-                if dy<0:
-                    self.c_p['piezo_target_position'][2] = self.c_p['piezo_current_position'][2] - self.piezo_step_distance
-                else:
-                    self.c_p['piezo_target_position'][2] = self.c_p['piezo_current_position'][2] + self.piezo_step_distance
-            elif self.c_p['stepper_activated'].get():
-                if dy<0:
-                    self.c_p['stepper_target_position'][2] = self.c_p['stepper_current_position'][2] - self.stepper_step_distance
-                else:
-                    self.c_p['stepper_target_position'][2] = self.c_p['stepper_current_position'][2] + self.stepper_step_distance
-        return self.c_p['program_running']
-        '''
         if self.c_p['scroll_for_z']:
             if self.c_p['stage_piezos'] and self.c_p['piezos_activated'].get():
                 if dy<0:
