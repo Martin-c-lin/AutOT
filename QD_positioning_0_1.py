@@ -520,6 +520,26 @@ class UserInterface:
         self.z_scrolling_button.place(x=x_position, y=y_position.__next__())
         self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
 
+    def add_move_buttons(self, top, x_position, y_position):
+        if c_p['standard_motors']:
+            self.get_standard_move_buttons(top)
+        elif c_p['stage_piezos']:
+            self.get_stage_move_buttons(top)
+        self.up_button.place(x=x_position, y=y_position.__next__())
+        self.down_button.place(x=x_position, y=y_position.__next__())
+        self.right_button.place(x=x_position, y=y_position.__next__())
+        self.left_button.place(x=x_position, y=y_position.__next__())
+
+        focus_up_button = tkinter.Button(
+            top, text='Move focus up', command=focus_up)
+        focus_down_button = tkinter.Button(
+            top, text='Move focus down', command=focus_down)
+        focus_up_button.place(x=x_position, y=y_position.__next__())
+        focus_down_button.place(x=x_position, y=y_position.__next__())
+        self.move_to_target_button = tkinter.Button(top, \
+            text='Toggle move to target', command=self.toggle_move_piezo_to_target)
+        self.move_to_target_button.place(x=x_position, y=y_position.__next__())
+
     def toggle_zoom(self):
         if self.zoomed_in:
             CameraControls.zoom_out(c_p)
@@ -578,6 +598,31 @@ class UserInterface:
         self.bg_illumination_button.place(x=x_position, y=generator_y.__next__())
         self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
 
+    def add_piezo_activation_buttons(self, top, x_position, y_position):
+        c_p['piezos_activated'] = tkinter.BooleanVar()
+        self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
+        variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
+        self.piezo_checkbutton.place(x=x_position, y=y_position.__next__())
+        self.training_data_button = tkinter.Checkbutton(top, text='Generate training data',\
+        variable=c_p['generate_training_data'], onvalue=True, offvalue=False)
+        self.training_data_button.place(x=x_position, y=y_position.__next__())
+
+    def add_qd_tracking_buttons(self, top,x_position, x_position_2, y_position,
+                        y_position_2):
+        self.next_qd_button = tkinter.Button(top, text='Next QD position',
+            command=self.increment_QD_count)
+        self.previous_qd_button = tkinter.Button(top, text='Previous QD position',
+            command=self.decrement_QD_count)
+
+        self.next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+        self.previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+        self.auto_move_button = tkinter.Checkbutton(top, text='Move QDs automatically',
+            variable=c_p['move_QDs'], onvalue=True, offvalue=False)
+        self.auto_move_button.place(x=x_position_2, y=y_position_2.__next__())
+        self.to_array_position_button = tkinter.Checkbutton(top, text='Move to array pos',\
+        variable=c_p['position_QD_in_pattern'], onvalue=True, offvalue=False)
+        self.to_array_position_button.place(x=x_position, y=y_position.__next__())
+
     def toggle_BG_shutter(self):
         c_p['background_illumination'] = not c_p['background_illumination']
         if c_p['background_illumination']:
@@ -606,12 +651,6 @@ class UserInterface:
 
         def home_z_command():
             c_p['return_z_home'] = not c_p['return_z_home']
-
-        # Check which buttons to get
-        if c_p['standard_motors']:
-            self.get_standard_move_buttons(top)
-        elif c_p['stage_piezos']:
-            self.get_stage_move_buttons(top)
 
         self.recording_button = tkinter.Button(top, text='Start recording',
                                              command=toggle_recording)
@@ -706,20 +745,7 @@ class UserInterface:
 
         # Place all the buttons, starting with first column
         if c_p['standard_motors'] or c_p['stage_piezos']:
-            self.up_button.place(x=x_position, y=y_position.__next__())
-            self.down_button.place(x=x_position, y=y_position.__next__())
-            self.right_button.place(x=x_position, y=y_position.__next__())
-            self.left_button.place(x=x_position, y=y_position.__next__())
-
-            focus_up_button = tkinter.Button(
-                top, text='Move focus up', command=focus_up)
-            focus_down_button = tkinter.Button(
-                top, text='Move focus down', command=focus_down)
-            focus_up_button.place(x=x_position, y=y_position.__next__())
-            focus_down_button.place(x=x_position, y=y_position.__next__())
-            self.move_to_target_button = tkinter.Button(top, \
-                text='Toggle move to target', command=self.toggle_move_piezo_to_target)
-            self.move_to_target_button.place(x=x_position, y=y_position.__next__())
+            self.add_move_buttons(top, x_position, y_position)
 
         if c_p['temp']:
             self.temperature_entry.place(x=x_position, y=y_position.__next__())
@@ -768,29 +794,31 @@ class UserInterface:
                             x_position_2)
 
         if c_p['QD_tracking']:
-            next_qd_button = tkinter.Button(top, text='Next QD position',
-                command=self.increment_QD_count)
-            previous_qd_button = tkinter.Button(top, text='Previous QD position',
-                command=self.decrement_QD_count)
-
-            next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
-            previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
-            self.auto_move_button = tkinter.Checkbutton(top, text='Move QDs automatically',
-                variable=c_p['move_QDs'], onvalue=True, offvalue=False)
-            self.auto_move_button.place(x=x_position_2, y=y_position_2.__next__())
-            self.to_array_position_button = tkinter.Checkbutton(top, text='Move to array pos',\
-            variable=c_p['position_QD_in_pattern'], onvalue=True, offvalue=False)
-            self.to_array_position_button.place(x=x_position, y=y_position.__next__())
+            self.add_qd_tracking_buttons(top, x_position, x_position_2, y_position,
+                        y_position_2)
+            # next_qd_button = tkinter.Button(top, text='Next QD position',
+            #     command=self.increment_QD_count)
+            # previous_qd_button = tkinter.Button(top, text='Previous QD position',
+            #     command=self.decrement_QD_count)
+            #
+            # next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+            # previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
+            # self.auto_move_button = tkinter.Checkbutton(top, text='Move QDs automatically',
+            #     variable=c_p['move_QDs'], onvalue=True, offvalue=False)
+            # self.auto_move_button.place(x=x_position_2, y=y_position_2.__next__())
+            # self.to_array_position_button = tkinter.Checkbutton(top, text='Move to array pos',\
+            # variable=c_p['position_QD_in_pattern'], onvalue=True, offvalue=False)
+            # self.to_array_position_button.place(x=x_position, y=y_position.__next__())
 
         if c_p['stage_piezos']:
-
-            c_p['piezos_activated'] = tkinter.BooleanVar()
-            self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
-            variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
-            self.piezo_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
-            self.training_data_button = tkinter.Checkbutton(top, text='Generate training data',\
-            variable=c_p['generate_training_data'], onvalue=True, offvalue=False)
-            self.training_data_button.place(x=x_position_2, y=y_position_2.__next__())
+            self.add_piezo_activation_buttons(top, x_position_2, y_position_2)
+            # c_p['piezos_activated'] = tkinter.BooleanVar()
+            # self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
+            # variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
+            # self.piezo_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
+            # self.training_data_button = tkinter.Checkbutton(top, text='Generate training data',\
+            # variable=c_p['generate_training_data'], onvalue=True, offvalue=False)
+            # self.training_data_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['using_stepper_motors']:
             self.add_stepper_buttons(top, y_position_2, x_position_2 )
