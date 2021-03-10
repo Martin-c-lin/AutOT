@@ -232,13 +232,13 @@ def start_threads(c_p, thread_list):
 
     if c_p['stage_piezos'] or c_p['using_stepper_motors']:
         # Start thread for controlling z-position using the mouse scroll-wheel.
-        # try:
+        try:
             from MouseInputThread import mouseInputThread
             mouseInputTrd = mouseInputThread(17,'mouse thread', c_p)
             mouseInputTrd.start()
             thread_list.append(mouseInputTrd)
-        # except:
-        #     print('Could not start mouse input thread')
+        except:
+            print('Could not start mouse input thread')
 
 
 class UserInterface:
@@ -437,8 +437,6 @@ class UserInterface:
         if c_p['stage_piezos']:
             c_p['QD_target_loc_z'][0] = c_p['piezo_current_position'][2]
             c_p['piezo_starting_position'][2] = c_p['piezo_current_position'][2]
-            #c_p['piezo_starting_position'][0] = c_p['piezo_current_position'][0]
-            #c_p['piezo_starting_position'][1] = c_p['piezo_current_position'][1]
         if c_p['using_stepper_motors']:
             c_p['stepper_starting_position'][0] = c_p['stepper_current_position'][0]
             c_p['stepper_starting_position'][1] = c_p['stepper_current_position'][1]
@@ -487,6 +485,15 @@ class UserInterface:
         while True:
             yield start + (distance * index)
             index += 1
+
+    def pickle_c_p(self):
+        """
+        Saves the c_p to a file of your choosing.
+        """
+        files = [('Pickle object', '*.pkl')]
+        file = fd.asksavefile(filetypes=files, defaultextension=files, mode='wb')
+        pickle.dump(c_p, file, pickle.HIGHEST_PROTOCOL)
+        file.close()
 
     def timed_polymerization(self):
         global c_p
@@ -796,29 +803,8 @@ class UserInterface:
         if c_p['QD_tracking']:
             self.add_qd_tracking_buttons(top, x_position, x_position_2, y_position,
                         y_position_2)
-            # next_qd_button = tkinter.Button(top, text='Next QD position',
-            #     command=self.increment_QD_count)
-            # previous_qd_button = tkinter.Button(top, text='Previous QD position',
-            #     command=self.decrement_QD_count)
-            #
-            # next_qd_button.place(x=x_position_2, y=y_position_2.__next__())
-            # previous_qd_button.place(x=x_position_2, y=y_position_2.__next__())
-            # self.auto_move_button = tkinter.Checkbutton(top, text='Move QDs automatically',
-            #     variable=c_p['move_QDs'], onvalue=True, offvalue=False)
-            # self.auto_move_button.place(x=x_position_2, y=y_position_2.__next__())
-            # self.to_array_position_button = tkinter.Checkbutton(top, text='Move to array pos',\
-            # variable=c_p['position_QD_in_pattern'], onvalue=True, offvalue=False)
-            # self.to_array_position_button.place(x=x_position, y=y_position.__next__())
-
         if c_p['stage_piezos']:
             self.add_piezo_activation_buttons(top, x_position_2, y_position_2)
-            # c_p['piezos_activated'] = tkinter.BooleanVar()
-            # self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
-            # variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
-            # self.piezo_checkbutton.place(x=x_position_2, y=y_position_2.__next__())
-            # self.training_data_button = tkinter.Checkbutton(top, text='Generate training data',\
-            # variable=c_p['generate_training_data'], onvalue=True, offvalue=False)
-            # self.training_data_button.place(x=x_position_2, y=y_position_2.__next__())
 
         if c_p['using_stepper_motors']:
             self.add_stepper_buttons(top, y_position_2, x_position_2 )

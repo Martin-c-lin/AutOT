@@ -27,7 +27,9 @@ class ArduinoLEDControlThread(Thread):
         self.last_write = False
 
     def run(self):
-        # TODO add radio buttons / slider for different led on times
+
+        # The red LED should be blocked by default.
+        self.ArduinoUnoSerial.write(b'C')
         while self.c_p['program_running']:
             # This function is made significantly faster by this check.
             if not self.last_write == self.c_p['polymerization_LED']:
@@ -39,5 +41,8 @@ class ArduinoLEDControlThread(Thread):
                 if self.c_p['polymerization_LED'] != 'H' and self.c_p['polymerization_LED'] != 'L':
                     self.c_p['polymerization_LED'] = 'L'
             time.sleep(self.sleep_time)
+        # Turn off blue LED and block the red before exiting.
         self.ArduinoUnoSerial.write(b'L')
+        time.sleep(self.sleep_time)
+        self.ArduinoUnoSerial.write(b'C')
         self.ArduinoUnoSerial.close()
