@@ -264,9 +264,9 @@ class UserInterface:
         self.mini_canvas.place(x=self.canvas_width, y=self.canvas_height-200)
         self.mini_image = np.zeros((200,240,3))
         # Button that lets the user take a snapshot
-        self.btn_snapshot = tkinter.Button(
-            window, text="Snapshot", command=snapshot)
-        self.btn_snapshot.place(x=1300, y=0)
+
+        self.menubar = Menu(self.window)
+        self.control_menu = Menu(self.menubar, tearoff=0)
         self.create_buttons(self.window)
         self.window.geometry(str(self.canvas_width+500)+'x'+str(self.canvas_height))#('1700x1000')
         # After it is called once, the update method will be automatically
@@ -441,6 +441,7 @@ class UserInterface:
             c_p['stepper_starting_position'][0] = c_p['stepper_current_position'][0]
             c_p['stepper_starting_position'][1] = c_p['stepper_current_position'][1]
             c_p['stepper_starting_position'][2] = c_p['stepper_current_position'][2]
+        print('Starting position saved.')
 
     def to_focus(self):
         global c_p
@@ -639,6 +640,12 @@ class UserInterface:
             # Close shutter
             c_p['polymerization_LED'] = 'C'
 
+    def create_control_menu1(self):
+        # self.control_menu.add_command(label="Set stepper speed", command=)
+        # self.control_menu.add_separator()
+        self.control_menu.add_command(label="Save position", command=self.save_starting_position)
+        self.menubar.add_cascade(label="Basic controls", menu=self.control_menu)
+
     def create_buttons(self, top=None):
         '''
         This function generates all the buttons for the interface along with
@@ -658,6 +665,10 @@ class UserInterface:
 
         def home_z_command():
             c_p['return_z_home'] = not c_p['return_z_home']
+
+        self.btn_snapshot = tkinter.Button(
+            window, text="Snapshot", command=snapshot)
+        self.btn_snapshot.place(x=1300, y=0)
 
         self.recording_button = tkinter.Button(top, text='Start recording',
                                              command=toggle_recording)
