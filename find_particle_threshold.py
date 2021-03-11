@@ -74,7 +74,7 @@ def get_x_y(counts, particle_upper_size_threshold, particle_size_threshold,
 #@jit
 def find_particle_centers(image,threshold=120, particle_size_threshold=200,
                         particle_upper_size_threshold=5000,
-                        bright_particle=True):
+                        bright_particle=True, fill_holes=False, check_circular=False):
     """
     Function which locates particle centers using thresholding.
     Parameters :
@@ -89,6 +89,9 @@ def find_particle_centers(image,threshold=120, particle_size_threshold=200,
 
     # Do thresholding of the image
     thresholded_image = cv2.blur(image,(8,8)) > threshold
+    if fill_holes:
+        # Fill holes in the image before labeling
+        thresholded_image = ndi.morphology.binary_fill_holes(thresholded_image)
     #cv2.medianBlur(image, 5) > threshold # Added thresholding here
 
     # Separate the thresholded image into different sections
@@ -104,7 +107,13 @@ def find_particle_centers(image,threshold=120, particle_size_threshold=200,
         if particle_upper_size_threshold>pixel_count>particle_size_threshold:
             # Particle found, locate center of mass of the particle
             cy, cx = ndi.center_of_mass(separate_particles_image==group) # This is slow
-            x.append(cx)
-            y.append(cy)
+            if check_circular:
+                M = measure.moments_central(separate_particles_image==group, order=2)
+                if 0.8 < (M[0,2] / M[2,0]) < 1.2:
+                    x.append(cx)
+                    y.append(cy)
+            else:
+                x.append(cx)
+                y.append(cy)
 
     return x, y, thresholded_image

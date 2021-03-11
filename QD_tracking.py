@@ -138,7 +138,8 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
 
 def find_QDs(image, inner_filter_width=15, outer_filter_width=300,
              threshold=0.11, particle_size_threshold=60,
-             particle_upper_size_threshold=400, edge=80):
+             particle_upper_size_threshold=400, edge=80,
+             negative_particles= False):
     '''
     Function for detecting the quantum dots.
 
@@ -161,7 +162,9 @@ def find_QDs(image, inner_filter_width=15, outer_filter_width=300,
         How far close to the edge a particle is allowed to be while still being
         detected. Fourier-transform gives errors close to the edge.
         The default is 80.
-
+    negative_particles : Boolean, optional
+        Set to true if the particles are darker than the background.
+        The default value is False.
     Returns
     -------
     px : list
@@ -188,7 +191,14 @@ def find_QDs(image, inner_filter_width=15, outer_filter_width=300,
     image = fourier_filter(image, inner_filter_width=inner_filter_width,
                            outer_filter_width=outer_filter_width)
     image = normalize_image(np.float32(image))
-    x, y, ret_img = find_particle_centers(image[edge:-edge,edge:-edge],
+    if negative_particles:
+        x, y, ret_img = find_particle_centers(image[edge:-edge,edge:-edge] * -1,
+                                        threshold=threshold,
+                                        particle_size_threshold=particle_size_threshold,
+                                        particle_upper_size_threshold=particle_upper_size_threshold,
+                                        fill_holes=True, check_circular=True)
+    else:
+        x, y, ret_img = find_particle_centers(image[edge:-edge,edge:-edge],
                                         threshold=threshold,
                                         particle_size_threshold=particle_size_threshold,
                                         particle_upper_size_threshold=particle_upper_size_threshold)
@@ -518,8 +528,9 @@ class QD_Tracking_Thread(Thread):
 
         '''
         self.c_p['polymerized_x'], self.c_p['polymerized_y'], tmp = find_QDs(
-        self.c_p['image'], inner_filter_width=5, outer_filter_width=140,
-        particle_size_threshold=1000, particle_upper_size_threshold=6400,threshold=0.11)
+        self.c_p['image'], inner_filter_width=20, outer_filter_width=120,
+                 threshold=0.11, particle_size_threshold=15000,
+                 particle_upper_size_threshold=30000, edge=80, negative_particles=True)
         if self.c_p['QDs_placed'] > 0:
             P1 = np.transpose(np.array([self.c_p['polymerized_x'], self.c_p['polymerized_y']]))
             P2 = np.transpose(np.array([self.c_p['QD_position_screen_y'], self.c_p['QD_position_screen_x']]))
