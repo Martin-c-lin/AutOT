@@ -905,7 +905,7 @@ def get_default_stepper_c_p():
         'stepper_max_speed': [0.01, 0.01, 0.01],
         'stepper_acc': [0.005, 0.005, 0.005],
         'new_stepper_velocity_params': [False, False, False],
-        'tilt': [0,-0.06]# How much the stage is tilting in x and y direction
+        'tilt': [0.05,-0.055], # How much the stage is tilting in x and y direction
     }
     return stepper_c_p
 
@@ -1008,11 +1008,11 @@ class XYZ_stepper_stage_motor(Thread):
                 self.is_moving = False
                 self.move_direction = move_dir
 
-            if not self.is_moving and np.abs(jog_distance) > self.step:
+            if not self.is_moving and np.abs(jog_distance) >= self.step:
                 self.stepper_channel.MoveContinuous(self.move_direction)
                 self.is_moving = True
 
-            elif np.abs(jog_distance) < self.step:
+            elif np.abs(jog_distance) <= self.step:
                 self.stepper_channel.StopImmediate()
                 self.is_moving = False
             sleep(self.sleep_time)

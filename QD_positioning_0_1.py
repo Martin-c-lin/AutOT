@@ -154,6 +154,7 @@ def start_threads(c_p, thread_list):
                 target_key='QD_target_loc_z', step=1)
             thread_piezo_z.start()
             thread_list.append(thread_piezo_z)
+            c_p['piezo_elevation'] = 0 # Used by mouse input thread
             print('Started piezo z-thread')
         except:
             print('Could not start piezo z-thread')
@@ -193,6 +194,7 @@ def start_threads(c_p, thread_list):
             c_p, controller_device=controller_device_stepper)
             thread_stepper_z.start()
             thread_list.append(thread_stepper_z)
+            c_p['stepper_elevation'] = 0
         except:
             print('Could not connect stepper z')
 
@@ -243,9 +245,9 @@ def start_threads(c_p, thread_list):
 
 class UserInterface:
 
-    def __init__(self, window, window_title, c_p, thread_list, use_SLM=False):
+    def __init__(self, window, c_p, thread_list, use_SLM=False):
         self.window = window
-        self.window.title(window_title)
+        #self.window.title(window_title)
         start_threads(c_p, thread_list)
         # Create a canvas that can fit the above video source size
         # TODO: Add simpler way to label outputs(videos, images etc) from the program
@@ -263,24 +265,25 @@ class UserInterface:
             window, width=self.mini_canvas_width, height=self.mini_canvas_height)
         self.mini_canvas.place(x=self.canvas_width, y=self.canvas_height-200)
         self.mini_image = np.zeros((200,240,3))
-        # Button that lets the user take a snapshot
-
-        self.menubar = Menu(self.window)
-        self.control_menu = Menu(self.menubar, tearoff=0)
         self.create_buttons(self.window)
         self.window.geometry(str(self.canvas_width+500)+'x'+str(self.canvas_height))#('1700x1000')
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
         self.image_scale = 1 # scale of image being displayed
-        self.delay = 10 #50 standard how often to update view in ms intervals
+        self.delay = 50 #50 standard how often to update view in ms intervals
         self.zoomed_in = False
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
         self.create_indicators()
         self.update_qd_on_screen_targets(c_p['image'])
-        self.update()
         CameraControls.zoom_out(c_p)
+        # Computer cannot handle to have menus as well. Make program really slow
+        self.menubar = tkinter.Menu(self.window)
+        self.control_menu = tkinter.Menu(self.menubar)
+        self.create_control_menu1()
+        self.window.config(menu=self.menubar)
+        self.update()
         self.window.mainloop()
         self.__del__()
 
@@ -434,14 +437,23 @@ class UserInterface:
 
     def save_starting_position(self):
         global c_p
+        print('Positions saved.')
+
         if c_p['stage_piezos']:
+            # Set piezo starting positions to current position and reset elevation offset
             c_p['QD_target_loc_z'][0] = c_p['piezo_current_position'][2]
             c_p['piezo_starting_position'][2] = c_p['piezo_current_position'][2]
+            c_p['piezo_starting_position'][1] = c_p['piezo_current_position'][1]
+            c_p['piezo_starting_position'][0] = c_p['piezo_current_position'][0]
+            c_p['piezo_elevation'] = 0
+
         if c_p['using_stepper_motors']:
+            # Set stepper starting positions to current position and reset elevation offset
             c_p['stepper_starting_position'][0] = c_p['stepper_current_position'][0]
             c_p['stepper_starting_position'][1] = c_p['stepper_current_position'][1]
             c_p['stepper_starting_position'][2] = c_p['stepper_current_position'][2]
-        print('Starting position saved.')
+            c_p['stepper_elevation'] = 0
+
 
     def to_focus(self):
         global c_p
@@ -509,10 +521,10 @@ class UserInterface:
         c_p['stepper_activated'].set(True)
 
     def z_control_buttons(self, top, y_position, x_position):
-        self.save_z_button = tkinter.Button(
-            top, text='Save z pos', command=self.save_starting_position)
+        # self.save_z_button = tkinter.Button(
+        #     top, text='Save z pos', command=self.save_starting_position)
         y_pos = y_position.__next__()
-        self.save_z_button.place(x=x_position, y=y_pos)
+        # self.save_z_button.place(x=x_position, y=y_pos)
 
         self.to_focus_button = tkinter.Button(
             top, text='To focus', command=self.to_focus)
@@ -588,6 +600,60 @@ class UserInterface:
         self.polymerization_label.place(x=x-0, y=y-15)
         self.polymerization_scale.place(x=x, y=y)
 
+    def set_exposure(self):
+        entry = self.exposure_entry.get()
+        if c_p['camera_model'] == 'basler_large' or 'basler_fast':
+            try:
+                exposure_time = int(entry)
+                if 59 < exposure_time < 1e6: # If you need more than that you are
+                    c_p['exposure_time'] = exposure_time
+                    print("Exposure time set to ", exposure_time)
+                    c_p['new_settings_camera'] = True
+                else:
+                    print('Exposure time out of bounds!')
+            except:
+                print('Cannot convert entry to integer')
+            self.exposure_entry.delete(0, last=5000)
+        elif c_p['camera_model'] == 'ThorlabsCam':
+            try:
+                exposure_time = float(entry)
+                if 0.01 < exposure_time < 120: # If you need more than that you are
+                    c_p['exposure_time'] = exposure_time
+                    print("Exposure time set to ", exposure_time)
+                    c_p['new_settings_camera'] = True
+                else:
+                    print('Exposure time out of bounds!')
+            except:
+                print('Cannot convert entry to integer')
+            self.exposure_entry.delete(0, last=5000)
+
+    def set_temperature(self):
+        entry = self.temperature_entry.get()
+        try:
+            temperature = float(entry)
+            if 20 < temperature < 40:
+                c_p['setpoint_temperature'] = temperature
+                print("Temperature set to ", temperature)
+            else:
+                print('Temperature out of bounds, it is no good to cook or \
+                      freeze your samples')
+        except:
+            print('Cannot convert entry to integer')
+        self.temperature_entry.delete(0, last=5000)
+
+    def set_tracking_threshold(self):
+        entry = threshold_entry.get()
+        try:
+            threshold = int(entry)
+            if 0 < threshold < 255:
+                c_p['particle_threshold'] = threshold
+                print("Threshold set to ", threshold)
+            else:
+                print('Threshold out of bounds')
+        except:
+            print('Cannot convert entry to integer')
+        threshold_entry.delete(0, last=5000)
+
     def add_arduino_buttons(self, top, generator_y, generator_y_2, x_position,
                             x_position_2):
         '''
@@ -632,19 +698,41 @@ class UserInterface:
         self.to_array_position_button.place(x=x_position, y=y_position.__next__())
 
     def toggle_BG_shutter(self):
+
         c_p['background_illumination'] = not c_p['background_illumination']
         if c_p['background_illumination']:
             # Open shutter
             c_p['polymerization_LED'] = 'O'
+            c_p['exposure_time'] /= 5
         else:
             # Close shutter
             c_p['polymerization_LED'] = 'C'
+            c_p['exposure_time'] *= 5
+        c_p['new_settings_camera'] = True
+
+    def open_exposure_window(self):
+        print('Opening exposure control window')
+        # dialog_box = tkinter.Toplevel(self.window)
+        # confirm_button = tkinter.Button(dialog_box)
+        #entry =
+        #
 
     def create_control_menu1(self):
         # self.control_menu.add_command(label="Set stepper speed", command=)
-        # self.control_menu.add_separator()
+        # TODO add sliders to the menu for motor speed and tracking settings.
+        # Also add sliders for exposure time and zoom level.Toggle laser indicators
+        # can also be in a menu. Add tilt compensation control to motor menu.
+        # Z stepping distance.
+        if c_p['using_stepper_motors']:
+            pass
         self.control_menu.add_command(label="Save position", command=self.save_starting_position)
+        self.control_menu.add_command(label="Exit program", command=self.window.quit)
+        self.control_menu.add_separator()
         self.menubar.add_cascade(label="Basic controls", menu=self.control_menu)
+
+        self.camera_menu = Menu(self.menubar)
+        self.camera_menu.add_command(label="Snapshot", command=snapshot)
+        self.menubar.add_cascade(label="Camera control", menu=self.camera_menu)
 
     def create_buttons(self, top=None):
         '''
@@ -666,10 +754,6 @@ class UserInterface:
         def home_z_command():
             c_p['return_z_home'] = not c_p['return_z_home']
 
-        self.btn_snapshot = tkinter.Button(
-            window, text="Snapshot", command=snapshot)
-        self.btn_snapshot.place(x=1300, y=0)
-
         self.recording_button = tkinter.Button(top, text='Start recording',
                                              command=toggle_recording)
         self.home_z_button = tkinter.Button(top, text='Toggle home z',
@@ -678,71 +762,10 @@ class UserInterface:
             top, text='Toggle particle brightness',
             command=toggle_bright_particle)
 
-        threshold_entry = tkinter.Entry(top, bd=5)
-        self.temperature_entry = tkinter.Entry(top, bd=5)
-        exposure_entry = tkinter.Entry(top, bd=5)
+        self.exposure_entry = tkinter.Entry(top, bd=5)
         self.tracking_toggled = tkinter.BooleanVar()
         self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
                 variable=self.tracking_toggled, onvalue=True, offvalue=False)
-
-        def set_threshold():
-            entry = threshold_entry.get()
-            try:
-                threshold = int(entry)
-                if 0 < threshold < 255:
-                    c_p['particle_threshold'] = threshold
-                    print("Threshold set to ", threshold)
-                else:
-                    print('Threshold out of bounds')
-            except:
-                print('Cannot convert entry to integer')
-            threshold_entry.delete(0, last=5000)
-
-        def set_temperature():
-            entry = self.temperature_entry.get()
-            try:
-                temperature = float(entry)
-                if 20 < temperature < 40:
-                    c_p['setpoint_temperature'] = temperature
-                    print("Temperature set to ", temperature)
-                else:
-                    print('Temperature out of bounds, it is no good to cook or \
-                          freeze your samples')
-            except:
-                print('Cannot convert entry to integer')
-            self.temperature_entry.delete(0, last=5000)
-
-        def set_exposure():
-            entry = exposure_entry.get()
-            if c_p['camera_model'] == 'basler_large' or 'basler_fast':
-                try:
-                    exposure_time = int(entry)
-                    if 59 < exposure_time < 1e6: # If you need more than that you are
-                        c_p['exposure_time'] = exposure_time
-                        print("Exposure time set to ", exposure_time)
-                        c_p['new_settings_camera'] = True
-                    else:
-                        print('Exposure time out of bounds!')
-                except:
-                    print('Cannot convert entry to integer')
-                exposure_entry.delete(0, last=5000)
-            elif c_p['camera_model'] == 'ThorlabsCam':
-                try:
-                    exposure_time = float(entry)
-                    if 0.01 < exposure_time < 120: # If you need more than that you are
-                        c_p['exposure_time'] = exposure_time
-                        print("Exposure time set to ", exposure_time)
-                        c_p['new_settings_camera'] = True
-                    else:
-                        print('Exposure time out of bounds!')
-                except:
-                    print('Cannot convert entry to integer')
-                exposure_entry.delete(0, last=5000)
-
-        threshold_button = tkinter.Button(
-            top, text='Set threshold', command=set_threshold)
-        temperature_button = tkinter.Button(
-            top, text='Set setpoint temperature', command=set_temperature)
 
         self.zoom_button = tkinter.Button(top, text='Zoom in', command=self.toggle_zoom)
 
@@ -750,7 +773,7 @@ class UserInterface:
             text='toggle temperature output', command=toggle_temperature_output)
 
         set_exposure_button = tkinter.Button(top, text='Set exposure',
-            command=set_exposure)
+            command=self.set_exposure)
 
         experiment_schedule_button = tkinter.Button(top,
             text='Select experiment schedule',
@@ -766,13 +789,22 @@ class UserInterface:
             self.add_move_buttons(top, x_position, y_position)
 
         if c_p['temp']:
+            self.temperature_entry = tkinter.Entry(top, bd=5)
             self.temperature_entry.place(x=x_position, y=y_position.__next__())
+            temperature_button = tkinter.Button(
+                top, text='Set setpoint temperature', command=self.set_temperature)
             temperature_button.place(x=x_position, y=y_position.__next__())
 
         self.recording_button.place(x=x_position, y=y_position.__next__())
         toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
-        threshold_entry.place(x=x_position, y=y_position.__next__())
-        threshold_button.place(x=x_position, y=y_position.__next__())
+
+        if c_p['tracking']:
+            threshold_entry = tkinter.Entry(top, bd=5)
+            threshold_button = tkinter.Button(
+                top, text='Set threshold', command=self.set_tracking_threshold)
+            threshold_entry.place(x=x_position, y=y_position.__next__())
+            threshold_button.place(x=x_position, y=y_position.__next__())
+
         self.toggle_tracking_button.place(x=x_position, y=y_position.__next__())
         self.zoom_button.place(x=x_position, y=y_position.__next__())
 
@@ -783,7 +815,7 @@ class UserInterface:
         self.laser_position_button.place(x=x_position, y=y_position.__next__())
 
         # Second column
-        exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
+        self.exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
         set_exposure_button.place(x=x_position_2, y=y_position_2.__next__())
         experiment_schedule_button.place(x=x_position_2, y=y_position_2.__next__())
         self.diplay_laser_button.place(x=x_position_2, y=y_position_2.__next__())
@@ -871,7 +903,6 @@ class UserInterface:
             position_text = 'x: '+str(c_p[target_key_motor][0])+\
                 'mm   y: '+str(c_p[target_key_motor][1])+\
                 'mm   z: '+str(c_p[target_key_motor][2])+'\n'
-
             # Add motor connection info
             x_connected = 'connected. ' if c_p[target_key_connection][0] else 'disconnected.'
             y_connected = 'connected. ' if c_p[target_key_connection][1] else 'disconnected.'
@@ -934,10 +965,12 @@ class UserInterface:
                 self.arduino_LED_button.config(bg='green')
             else:
                 self.arduino_LED_button.config(bg='red')
-            if c_p['polymerization_LED'] == 'O':
+
+            if c_p['background_illumination']:
                 self.bg_illumination_button.config(bg='green')
-            elif c_p['polymerization_LED'] == 'C':
+            else:
                 self.bg_illumination_button.config(bg='red')
+
         # Update "move to target button", may not exist
         if c_p['stage_piezos']:
             if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
@@ -954,7 +987,6 @@ class UserInterface:
             self.zoom_button.config(text='Zoom in')
 
         self.temperature_label.config(text=self.get_temperature_info())
-
         self.position_label.config(text=self.get_position_info())
 
         # Update the shutter if it is used
@@ -1019,20 +1051,20 @@ class UserInterface:
         if c_p['stage_piezos'] and c_p['using_stepper_motors'] and \
         c_p['piezos_activated'].get() and c_p['stepper_activated'].get():
 
-            if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
+            if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 19:
                 c_p['piezo_target_position'][0] -= (dx * 1000.0)
             else:
                 c_p['stepper_target_position'][0] = c_p['stepper_current_position'][0] - dx
 
-            if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 18:
+            if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 19:
                 c_p['piezo_target_position'][1] -= (dy * 1000.0)
             else:
                 c_p['stepper_target_position'][1] = c_p['stepper_current_position'][1] - dy
 
         elif c_p['stage_piezos'] and c_p['piezos_activated'].get():
-            if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 18:
+            if 1<c_p['piezo_current_position'][0] - (dx * 1000) < 19:
                 c_p['piezo_target_position'][0] -= (dx * 1000.0)
-            if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 18:
+            if 1<c_p['piezo_current_position'][1] - (dy * 1000) < 19:
                 c_p['piezo_target_position'][1] -= (dy * 1000.0)
 
         elif c_p['using_stepper_motors'] and c_p['stepper_activated'].get():
@@ -1080,7 +1112,7 @@ class UserInterface:
         TODO: Make the markers a different color
         '''
         s = np.shape(image)
-        cross = np.int32(np.linspace(-5,5,11))
+        cross = np.int16(np.linspace(-5,5,11))
         for xc, yc in zip(c_p['QD_position_screen_x'], c_p['QD_position_screen_y']):
 
             # Check that the marker lies inside the image
@@ -1195,11 +1227,16 @@ def compensate_focus_xy_move(c_p):
     Function for compensating the change in focus caused by x-y movement.
     Returns the positon in ticks which z  should take to compensate for the focus
     '''
-    z0 = c_p['stepper_starting_position'][2]
     dx = (c_p['stepper_current_position'][0] - c_p['stepper_starting_position'][0])
     dy = (c_p['stepper_current_position'][1] - c_p['stepper_starting_position'][1])
-    target_pos = z0 + c_p['tilt'][0]*dx + c_p['tilt'][1] * dy
+    dz = (c_p['tilt'][0] * dx) + (c_p['tilt'][1] * dy)
+    if c_p['stage_piezos'] and c_p['piezos_activated'].get():
+        z0 = c_p['piezo_starting_position'][2]
+        c_p['piezo_target_position'][2] = z0 + dz + c_p['piezo_elevation']
+    z0 = c_p['stepper_starting_position'][2]
+    target_pos = z0 + dz + c_p['stepper_elevation']
     c_p['stepper_target_position'][2] = target_pos
+    return
 
 def compensate_focus():
     '''
@@ -2191,6 +2228,6 @@ c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
 
-T_D = UserInterface(tkinter.Tk(), "Control display", c_p, thread_list)
+T_D = UserInterface(tkinter.Tk(), c_p, thread_list)
 print('Typical number of parameters: ', len(c_p))
 sys.exit()

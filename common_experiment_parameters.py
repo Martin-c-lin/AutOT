@@ -98,8 +98,8 @@ def set_defualt_trap_position(c_p):
     c_p['ym'] = [200]
 
     # Laser position
-    c_p['traps_absolute_pos'][0][0] = 1880  # 2251
-    c_p['traps_absolute_pos'][1][0] = 1900  # 1822
+    c_p['traps_absolute_pos'][0][0] = 2049  # 2251
+    c_p['traps_absolute_pos'][1][0] = 1917  # 1822
     c_p['traps_relative_pos'][0][0] = c_p['traps_absolute_pos'][0][0]
     c_p['traps_relative_pos'][1][0] = c_p['traps_absolute_pos'][1][0]
 
@@ -136,7 +136,7 @@ def get_default_c_p(recording_path=None):
         'new_phasemask': False,
         'phasemask_updated': False,  # True if the phasemask is to be udpated
         'movement_threshold': 30,
-        'mouse_move_allowed': True,  # Determines if one is allowed to move
+        'mouse_move_allowed': False,  # Determines if one is allowed to move
         # motors by clicking on the screen.
         'display_laser_position': True,
         'display_target_QD_positions': True,
