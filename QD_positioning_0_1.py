@@ -7,7 +7,7 @@ import find_particle_threshold as fpt
 import read_dict_from_file as rdff
 import ThorlabsShutter as TS
 import CameraControls
-from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p
+from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p, toggle_BG_shutter
 from CameraControls import update_traps_relative_pos # Moved this function
 from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p, get_save_path
 
@@ -668,7 +668,7 @@ class UserInterface:
         self.arduino_LED_pulse_button.place(x=x_position_2, y=generator_y_2.__next__())
         # TODO fix the button color
         self.bg_illumination_button = tkinter.Button(
-            top, text='Toggle on BG illumination', command=self.toggle_BG_shutter)
+            top, text='Toggle on BG illumination', command= partial(toggle_BG_shutter, c_p))
         self.bg_illumination_button.place(x=x_position, y=generator_y.__next__())
         self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
 
@@ -696,19 +696,6 @@ class UserInterface:
         self.to_array_position_button = tkinter.Checkbutton(top, text='Move to array pos',\
         variable=c_p['position_QD_in_pattern'], onvalue=True, offvalue=False)
         self.to_array_position_button.place(x=x_position, y=y_position.__next__())
-
-    def toggle_BG_shutter(self):
-
-        c_p['background_illumination'] = not c_p['background_illumination']
-        if c_p['background_illumination']:
-            # Open shutter
-            c_p['polymerization_LED'] = 'O'
-            c_p['exposure_time'] /= 5
-        else:
-            # Close shutter
-            c_p['polymerization_LED'] = 'C'
-            c_p['exposure_time'] *= 5
-        c_p['new_settings_camera'] = True
 
     def open_exposure_window(self):
         print('Opening exposure control window')
@@ -1119,15 +1106,21 @@ class UserInterface:
             if 5 < xc < s[0]-5 and 5 < yc < s[1]-5:
                 image[xc+cross, yc+cross] = 0
                 image[xc+cross, yc-cross] = 0
-
+        if c_p['tracking_on']:
+            try:
+                image[c_p['QD_target_loc_y_px']-3:c_p['QD_target_loc_y_px']+3,
+                c_p['QD_target_loc_x_px']-3:c_p['QD_target_loc_x_px']+3] = 0
+                print('Next QD should be: ', c_p['QD_target_loc_y_px'], c_p['QD_target_loc_x_px'])
+            except:
+                pass
     def mark_polymerized_areas(self, image):
         if self.tracking_toggled.get():
             for x, y in zip(c_p['polymerized_x'], c_p['polymerized_y']):
                 x = int(x)
                 y = int(y)
                 try:
-                    image[y-4:y+4, x] = 255
-                    image[y, x-4:x+4] = 255
+                    image[y-4:y+4, x] = 0
+                    image[y, x-4:x+4] = 0
                 except:
                     # Locations outside the image, nothihg to worry about
                     pass
@@ -1162,6 +1155,7 @@ class UserInterface:
          # Get a frame from the video source
          image = np.asarray(c_p['image'])
          image = image.astype('uint8')
+         self.update_qd_on_screen_targets()
 
          if self.display_laser.get():
              self.add_laser_cross(image)

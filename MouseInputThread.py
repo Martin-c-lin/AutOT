@@ -32,9 +32,10 @@ class mouseInputThread(Thread):
 
             if self.c_p['stage_piezos'] and self.c_p['piezos_activated'].get():
                 if dy < 0:
-                    self.c_p['piezo_target_position'][2] = max(self.c_p['piezo_current_position'][2] - self.piezo_step_distance, 1)
+                    self.c_p['piezo_elevation'] -= self.piezo_step_distance # max(self.c_p['piezo_current_position'][2] - self.piezo_step_distance, 1)
                 else:
-                    self.c_p['piezo_target_position'][2] = min(self.c_p['piezo_current_position'][2] + self.piezo_step_distance, 19)
+                    self.c_p['piezo_elevation'] += self.piezo_step_distance # min(self.c_p['piezo_current_position'][2] + self.piezo_step_distance, 19)
+                print('Piezo z move')
 
             elif self.c_p['stepper_activated'].get():
                 if dy < 0:

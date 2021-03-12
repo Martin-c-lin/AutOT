@@ -1,11 +1,13 @@
 # Algorithm for locating the quantum dots
 import numpy as np
 from find_particle_threshold import find_particle_centers
+from arduinoLEDcontrol import toggle_BG_shutter
 from numba import jit
 from threading import Thread
 from time import sleep, time, strftime
 import pyfftw
 from tkinter import BooleanVar
+
 #from scipy.spatial import distance_matrix
 pyfftw.interfaces.cache.enable()
 
@@ -243,6 +245,8 @@ def find_optimal_move(p1, p2):
     max_idx = np.argmax(min_x**2 + min_y**2)
     # TODO dynamically change between using mean and max error
     # Use square of distance instead?
+    # TODO can currently not find a good minimum unless the polymerization LED is
+    # perfectly aligned with the laser.
     return min_x[max_idx], min_y[max_idx]
 
 
@@ -271,11 +275,13 @@ def get_QD_tracking_c_p():
         'QD_target_loc_x': [1, 5],  # X - location(in mum) where quantum dots
         # should be placed.
         'QD_target_loc_y': [1, 1],
+        'QD_target_loc_x_px': [1000],
+        'QD_target_loc_y_px': [1000], # Where the QD should be put
         'polymerized_x': [],
         'polymerized_y': [],
         'polymerized_x_piezo':[],
         'polymerized_y_piezo':[],
-        'nbr_quantum_dots_stuck': 0,  # number of quantum dots already in
+        #'QDs_placed': 0,  # number of quantum dots already in
         # position
         'step_size': 0.2,  # Step size to move the quantum dots
         'tolerance': 0.01,
@@ -317,6 +323,7 @@ class QD_Tracking_Thread(Thread):
         self.tolerance = tolerance
         self.QD_unseen_counter = 0
         self.previous_pos = [0, 0] # Saved location
+        self.piezo_step = 0.3
         self.setDaemon(True)
 
     def __del__(self):
@@ -343,7 +350,7 @@ class QD_Tracking_Thread(Thread):
         pass
 
         # Update target position of piezo in x-direction
-        x_move = self.c_p['QD_target_loc_x'][self.c_p['nbr_quantum_dots_stuck']] - \
+        x_move = self.c_p['QD_target_loc_x'][self.c_p['QDs_placed']+1] - \
              self.c_p['piezo_current_position'][0]
         if x_move < 0:
             self.c_p['piezo_target_position'][0] += max(x_move, -self.c_p['step_size'])
@@ -351,7 +358,7 @@ class QD_Tracking_Thread(Thread):
             self.c_p['piezo_target_position'][0] += min(x_move, self.c_p['step_size'])
 
         # Update target position of piezo in y-direction
-        y_move = self.c_p['QD_target_loc_y'][self.c_p['nbr_quantum_dots_stuck']] - \
+        y_move = self.c_p['QD_target_loc_y'][self.c_p['QDs_placed']+1] - \
              self.c_p['piezo_current_position'][1]
         if y_move < 0:
             self.c_p['piezo_target_position'][1] += max(y_move, -self.c_p['step_size'])
@@ -363,10 +370,11 @@ class QD_Tracking_Thread(Thread):
         '''
         Takes a move to look for a quantum dot
         '''
+        # TODO: Z moves does not play nicely wiht z-xy compensation
         # If we have moved less than 5 microns in the z- direction we may look along z
         dx = self.c_p['stepper_current_position'][0] - x
         dy = self.c_p['stepper_current_position'][1] - y
-        dz = self.c_p['stepper_current_position'][2] - self.c_p['stepper_starting_position'][2]
+        # dz = self.c_p['stepper_current_position'][2] - self.c_p['stepper_starting_position'][2]
         # Check if we are too far from original position
         if np.abs(dx) > 0.5:
             dx = -dx
@@ -377,10 +385,11 @@ class QD_Tracking_Thread(Thread):
 
         choice = np.random.randint(-1,10)
         if choice == 1:
-            self.c_p['stepper_target_position'][2] += 0.0005
-        elif 0<= choice:
-            self.c_p['stepper_target_position'][2] -= 0.0005
-            print('Changing focus a bit')
+            pass
+        #     self.c_p['stepper_target_position'][2] += 0.0005
+        # elif 0<= choice:
+        #     self.c_p['stepper_target_position'][2] -= 0.0005
+        #     print('Changing focus a bit')
         else:
             # Move in xy-plane
             if 2 <= choice <=3:
@@ -396,10 +405,10 @@ class QD_Tracking_Thread(Thread):
             self.c_p['stepper_target_position'][1] += dy * 0.01
 
         # Too far from focus, move
-        if dz > -0.02 or dz > 0.01:
-            self.c_p['stepper_target_position'][2] = self.c_p['stepper_starting_position'][2] - 0.005
+        # if dz > -0.02 or dz > 0.01:
+        #     self.c_p['stepper_target_position'][2] = self.c_p['stepper_starting_position'][2] - 0.005
 
-    def move_QD_to_location_rough(self, x, y, step = 0.0003):
+    def move_QD_to_location_stepper(self, x, y, step = 0.0003):
         '''
         Algorithm for pulling a quantum dot to the position specified in x,y
         using the stepper only.
@@ -411,13 +420,15 @@ class QD_Tracking_Thread(Thread):
               QDs in view -> move to trap the QD
               QD not in view -> Look for QD with look_for_quantum_dot function
         '''
+        # TODO Reuse this for the fine move but with a parameter which dictates the use of
+        # the piezo.
         self.trapped_now()
         if self.c_p['closest_QD'] is not None:
             self.QD_unseen_counter = 0
             # Calcualte distance to target position
             if self.c_p['QD_currently_trapped']:
                 d = [x - self.c_p['stepper_current_position'][0], y - self.c_p['stepper_current_position'][1]]
-                print('Moving QD towards target', d, x , y )
+                #print('Moving QD towards target', d, x , y )
             elif not self.c_p['QD_currently_trapped'] and self.c_p['QD_trapped']:
                 d = [0, 0] # Wait for qd to be trapped
             else:
@@ -427,7 +438,7 @@ class QD_Tracking_Thread(Thread):
                 # TODO finish this function, increase step?
                 d = [dx/self.c_p['mmToPixel'], dy/self.c_p['mmToPixel']]
 
-                print('Moving to trap a QD', d)
+                #print('Moving to trap a QD', d)
 
             # If we are close enough to target location, return
             if self.c_p['QD_currently_trapped'] and (d[0]**2 + d[1]**2) < self.tolerance**2:
@@ -458,13 +469,19 @@ class QD_Tracking_Thread(Thread):
     def stick_quantum_dot(self):
 
         # Check that a quantum dot is trapepd
-        if not self.c_p['QD_trapped']:
-            return
+        # if not self.c_p['QD_trapped']:
+        #     return
         # Open shutter to stick the quantum dot
-        self.c_p['shutter_open_time'] = 500 # open shutter for 500 ms
-        self.c_p['should_shutter_open'] = True
+        print('Sticking a QD!')
+        self.c_p['polymerization_LED'] = 'T'
+        sleep(1)
         # Increase the stick count
-        self.c_p['nbr_quantum_dots_stuck'] += 1
+        self.c_p['QDs_placed'] += 1
+        # TODO make this update QD on screen targets
+        # Center the piezo
+        self.c_p['piezo_target_position'][0] = 10
+        self.c_p['piezo_target_position'][1] = 10
+
 
     def trap_quantum_dot(self):
         '''
@@ -481,11 +498,11 @@ class QD_Tracking_Thread(Thread):
 
     def ready_to_stick(self):
         # Check if a quantum dot is in correct position
-        if len(self.c_p['QD_target_loc_y']) >= self.c_p['nbr_quantum_dots_stuck']:
+        if len(self.c_p['QD_target_loc_y']) >= self.c_p['QDs_placed']:
             return False
 
-        y = self.c_p['piezo_current_position'][1] - self.c_p['QD_target_loc_y'][self.c_p['nbr_quantum_dots_stuck']]
-        x = self.c_p['piezo_current_position'][0] - self.c_p['QD_target_loc_x'][self.c_p['nbr_quantum_dots_stuck']]
+        y = self.c_p['piezo_current_position'][1] - self.c_p['QD_target_loc_y'][self.c_p['QDs_placed']+1]
+        x = self.c_p['piezo_current_position'][0] - self.c_p['QD_target_loc_x'][self.c_p['QDs_placed']+1]
 
         return np.abs(x) < self.c_p['tolerance'] and np.abs(y) < self.c_p['tolerance']
 
@@ -510,15 +527,19 @@ class QD_Tracking_Thread(Thread):
         # Makes a smart move in of length distance[mm] along axis
         # axis = 0 => x axis = 1 = y axis = 2 => z
         if self.c_p['stage_piezos']:
-            new_position_piezo = self.c_p['piezo_current_position'][axis] + (distance/1000)
+            if distance < 0:
+                new_position_piezo = self.c_p['piezo_current_position'][axis] + max(-self.piezo_step, distance * 1000)
+            else:
+                new_position_piezo = self.c_p['piezo_current_position'][axis] + min(self.piezo_step, distance * 1000)
             if 0 < new_position_piezo < 20:
                 self.c_p['piezo_target_position'][axis] = new_position_piezo
+                print('Step move!', new_position_piezo, distance * 1000)
             else:
-                self.c_p['stepper_target_position'][axis] = self.c_p['stepper_current_position'][axis] + distance
+                self.c_p['stepper_target_position'][axis] = self.c_p['stepper_current_position'][axis] + max(-self.piezo_step, distance * 1000)
         elif self.c_p['using_stepper_motors']:
-            self.c_p['stepper_target_position'][axis] = self.c_p['stepper_current_position'][axis] + distance
+            self.c_p['stepper_target_position'][axis] = self.c_p['stepper_current_position'][axis] +  min(self.piezo_step, distance * 1000)
 
-    def move_to_array_position(self):
+    def find_array_position(self):
         '''
 
 
@@ -527,10 +548,30 @@ class QD_Tracking_Thread(Thread):
         None.
 
         '''
+        # Adjust tracking parameters based on AOI
+        width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
+        edge = 80 if width > 1500 else 20
+        inner_filter_width = 10 if width > 1500 else 7
+        outer_filter_width = 120 if width > 1500 else 80
+        area_size_threshold = 7000
+
+        # Open the BG shutter to see better
+        if not self.c_p['background_illumination']:
+            toggle_BG_shutter(self.c_p)
+            sleep(1)
+        # Locate the polymerized areas
         self.c_p['polymerized_x'], self.c_p['polymerized_y'], tmp = find_QDs(
-        self.c_p['image'], inner_filter_width=20, outer_filter_width=120,
-                 threshold=0.11, particle_size_threshold=15000,
-                 particle_upper_size_threshold=30000, edge=80, negative_particles=True)
+                self.c_p['image'], inner_filter_width=inner_filter_width,
+                outer_filter_width=outer_filter_width,
+                threshold=0.11, particle_size_threshold=area_size_threshold,
+                particle_upper_size_threshold=30000, edge=edge, negative_particles=True)
+
+        # Close the BG shutter to see the QDs
+        if self.c_p['background_illumination']:
+            toggle_BG_shutter(self.c_p)
+            sleep(1)
+
+        # TODO make the program avoid already polymerized areas.
         if self.c_p['QDs_placed'] > 0:
             P1 = np.transpose(np.array([self.c_p['polymerized_x'], self.c_p['polymerized_y']]))
             P2 = np.transpose(np.array([self.c_p['QD_position_screen_y'], self.c_p['QD_position_screen_x']]))
@@ -546,16 +587,26 @@ class QD_Tracking_Thread(Thread):
             if dx**2 + dy**2 < 100:
               lx = self.c_p['polymerized_x'] - self.c_p['traps_relative_pos'][0][0]
               ly = self.c_p['polymerized_y'] - self.c_p['traps_relative_pos'][1][0]
+
               dist = lx**2 + ly**2
+              # Check that
+              if len(dist) < 1:
+                  return None, None
+
               if min(dist) < 600:
                   # The laser is close to an already polymerized area, move away from it
-                  dx -= self.c_p['QD_position_screen_y'][self.c_p['QDs_placed']+1] - self.c_p['QD_position_screen_y'][self.c_p['QDs_placed']]
-                  dy -= self.c_p['QD_position_screen_x'][self.c_p['QDs_placed']+1] - self.c_p['QD_position_screen_x'][self.c_p['QDs_placed']]
+                  dx -= self.c_p['QD_position_screen_y'][self.c_p['QDs_placed']] - self.c_p['QD_position_screen_y'][self.c_p['QDs_placed']-1]
+                  dy -= self.c_p['QD_position_screen_x'][self.c_p['QDs_placed']] - self.c_p['QD_position_screen_x'][self.c_p['QDs_placed']-1]
                   print('Moving away from already polymerized area', dx, dy)
+            self.c_p['QD_target_loc_x_px'] = int(self.c_p['traps_relative_pos'][0][0] - dx)
+            self.c_p['QD_target_loc_y_px'] = int(self.c_p['traps_relative_pos'][1][0] - dy)
             dx /= self.c_p['mmToPixel']
             dy /= self.c_p['mmToPixel']
-            self.step_move(0, -dx)
-            self.step_move(1, -dy)
+            # TODO change so that this only returns a target distance to move
+            #self.step_move(0, -dx)
+            #self.step_move(1, -dy)
+            return -dx, -dy
+        return 0, 0
 
         # TODO Can we decrease minimum step in thorlabs motor?
 
@@ -697,27 +748,92 @@ class QD_Tracking_Thread(Thread):
         print('Moving to new piezo position')
         self.update_polymerized_positions()
 
-    def run(self):
+    def fine_move_QD(self):
+        '''
 
+        '''
+        # TODO This should perhaps be a loop
+        # Calculate where we should put the QD
+        print('Recalculating the QD target position')
+        x0, y0 = self.find_array_position()
+        print('Array moves', x0, y0)
+        if x0 is not None:
+            if (x0**2 + y0**2) > 0.002 **2:
+                X = self.c_p['stepper_current_position'][0] + x0
+                Y = self.c_p['stepper_current_position'][1] + y0
+                self.c_p['stepper_target_position'][0] = X
+                self.c_p['stepper_target_position'][1] = Y
+                # in_rough_location = self.move_QD_to_location_stepper(
+                #  x=X, y=Y)
+            elif (x0**2 + y0**2) > 0.0005 **2:
+                self.step_move(0, x0)
+                self.step_move(1, y0)
+            else:
+                print('Sticking!')
+                self.stick_quantum_dot()
+                if self.c_p['QDs_placed'] == len(self.c_p['QD_target_loc_x']):
+                    self.c_p['move_QDs'].set(False)
+                # Update starting position to move QDs to
+                else:
+                    print('Updating home location of the stepper.')
+                    dx = self.c_p['QD_target_loc_x'][self.c_p['QDs_placed']] - self.c_p['QD_target_loc_x'][self.c_p['QDs_placed']-1]
+                    dy = self.c_p['QD_target_loc_y'][self.c_p['QDs_placed']] - self.c_p['QD_target_loc_y'][self.c_p['QDs_placed']-1]
+                    # This is causing trouble with focus
+                    self.c_p['stepper_starting_position'][0] += dx / 1000
+                    self.c_p['stepper_starting_position'][1] += dy / 1000
+                    dx = (self.c_p['stepper_current_position'][0] - self.c_p['stepper_starting_position'][0])
+                    dy = (self.c_p['stepper_current_position'][1] - self.c_p['stepper_starting_position'][1])
+                    dz = (self.c_p['tilt'][0] * dx) + (self.c_p['tilt'][1] * dy)
+                    self.c_p['stepper_starting_position'][2] -= dz
+    def run(self):
+        in_rough_location = False
         while self.c_p['program_running']:
             if self.c_p['tracking_on']:
                 # TODO make it possible to adjust tracking parameters on the fly
                 # Do the particle tracking.
                 # Note that the tracking algorithm can easily be replaced if need be
-                x, y, tmp = find_QDs(self.c_p['image'],
+                x, y, ret_img = find_QDs(self.c_p['image'],
                                     inner_filter_width=7, outer_filter_width=180,
                                     particle_upper_size_threshold=700) # 12 240
+                # QDs have been located, now check if one is trapped.
                 self.c_p['particle_centers'] = [x, y]
-                # This sort of works for the polymerized areas.
+                self.trapped_now()
+
+                '''
+                # TODO When rough location is correct then do this
                 if self.c_p['position_QD_in_pattern'].get():
-                    self.move_to_array_position()
+                    # Take a small step towards the target location
+                    dx, dy = self.find_array_position()
+                    d = (dx**2 + dy**2) * 1e6
+                    # Check if QD is trapped and we are in the correct position for the next QD
+                    print('Distance to target: ', d)
+                    #if self.c_p['QD_currently_trapped'] and d < 0.5**2:
+                    if d < 0.1:
+                        # We are close to the correct area => polymerize!
+                        print('Sticking!')
+                        self.stick_quantum_dot()
+
+                        # Check if enought quantum dots have been stuck
+                        if self.c_p['QDs_placed'] == len(self.c_p['QD_target_loc_x']):
+                            print('Done')
+                '''
 
                 if self.c_p['move_QDs'].get():
-                    tmp = self.move_QD_to_location_rough(
-                     x=self.c_p['stepper_starting_position'][0],
-                     y=self.c_p['stepper_starting_position'][1])
-                    if tmp:
+                    # If we are far from the starting position simply move towards it
+                    dx = (self.c_p['stepper_current_position'][0] - self.c_p['stepper_starting_position'][0])**2
+                    dy = (self.c_p['stepper_current_position'][1] - self.c_p['stepper_starting_position'][1])**2
+                    if dx + dy > 0.01 **2:
+                        in_rough_location = self.move_QD_to_location_stepper(
+                         x=self.c_p['stepper_starting_position'][0],
+                         y=self.c_p['stepper_starting_position'][1])
+
+                    # The QD is clos to the correct position
+                    else:
+                        self.fine_move_QD()
+
+                    if in_rough_location:
                         self.c_p['move_QDs'].set(False)
+
             elif self.c_p['generate_training_data'].get():
                 self.generate_polymerization_training_data()
 

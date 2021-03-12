@@ -789,8 +789,8 @@ class XYZ_piezo_stage_motor(Thread):
                 else:
                     next_pos = self.c_p['piezo_current_position'][self.axis] + self.step#min(, d)
                 self.piezo_channel.SetPosition(Decimal(next_pos))
-            elif np.abs(d) > 0.05: # Don't want to make to many moves
-                self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
+            # elif np.abs(d) > 0.05: # Don't want to make too many moves
+            #     self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
 
             # TODO fix so that channel 2(z) behaves
             if self.axis == 2:

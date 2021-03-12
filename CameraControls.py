@@ -17,7 +17,7 @@ def get_camera_c_p():
     camera_c_p = {
         'new_video': False,
         'recording_duration': 3000,
-        'exposure_time': 25_000,  # ExposureTime in ms for thorlabs,
+        'exposure_time': 30_000,  # ExposureTime in ms for thorlabs,
         # mus for basler
         'framerate': 15,
         'recording': False,  # True if recording is on

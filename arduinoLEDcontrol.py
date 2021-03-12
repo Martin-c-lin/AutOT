@@ -11,6 +11,18 @@ def get_arduino_c_p():
 
 # TODO: This probably does not need to be a separate thread.
 
+def toggle_BG_shutter(c_p):
+
+    c_p['background_illumination'] = not c_p['background_illumination']
+    if c_p['background_illumination']:
+        # Open shutter
+        c_p['polymerization_LED'] = 'O'
+        c_p['exposure_time'] /= 7
+    else:
+        # Close shutter
+        c_p['polymerization_LED'] = 'C'
+        c_p['exposure_time'] *= 7
+    c_p['new_settings_camera'] = True
 
 class ArduinoLEDControlThread(Thread):
     '''
