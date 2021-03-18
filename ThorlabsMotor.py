@@ -905,7 +905,7 @@ def get_default_stepper_c_p():
         'stepper_max_speed': [0.01, 0.01, 0.01],
         'stepper_acc': [0.005, 0.005, 0.005],
         'new_stepper_velocity_params': [False, False, False],
-        'tilt': [0.05,-0.055], # How much the stage is tilting in x and y direction
+        'tilt': [0.0,0.0], # How much the stage is tilting in x and y direction
     }
     return stepper_c_p
 
@@ -963,6 +963,7 @@ class XYZ_stepper_stage_motor(Thread):
             self.stepper_channel.SetJogStepSize(Decimal(float(jog_distance)))
             self.stepper_channel.MoveJog(1, Int32(10000))
 
+    # TODO z-motor does not like that one changes speed while moving
     def set_velocity_params(self):
         tmp = self.stepper_channel.GetVelocityParams()
         stepper_speed =  float(str(tmp.MaxVelocity).replace(',', '.'))

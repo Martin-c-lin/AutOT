@@ -461,7 +461,8 @@ class UserInterface:
             c_p['piezo_move_to_target'][2] = not c_p['piezo_move_to_target'][2]
 
         if c_p['using_stepper_motors']:
-            c_p['stepper_target_position'][2] = c_p['stepper_starting_position'][2]
+            c_p['stepper_elevation'] = 0
+            #c_p['stepper_target_position'][2] = c_p['stepper_starting_position'][2]
 
     def toggle_move_piezo_to_target(self):
         if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
@@ -1226,7 +1227,10 @@ def compensate_focus_xy_move(c_p):
     dz = (c_p['tilt'][0] * dx) + (c_p['tilt'][1] * dy)
     if c_p['stage_piezos'] and c_p['piezos_activated'].get():
         z0 = c_p['piezo_starting_position'][2]
-        c_p['piezo_target_position'][2] = z0 + dz + c_p['piezo_elevation']
+        zt = z0 + dz/1000 + c_p['piezo_elevation']
+        if 0 < zt < 20:
+            c_p['piezo_target_position'][2] = zt
+            return
     z0 = c_p['stepper_starting_position'][2]
     target_pos = z0 + dz + c_p['stepper_elevation']
     c_p['stepper_target_position'][2] = target_pos
