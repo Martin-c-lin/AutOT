@@ -697,6 +697,9 @@ class UserInterface:
         self.to_array_position_button = tkinter.Checkbutton(top, text='Move to array pos',\
         variable=c_p['position_QD_in_pattern'], onvalue=True, offvalue=False)
         self.to_array_position_button.place(x=x_position, y=y_position.__next__())
+        self.override_trapped_button = tkinter.Checkbutton(top, text='Set QD trapped',\
+        variable=c_p['override_QD_trapped'], onvalue=True, offvalue=False)
+        c_p['override_QD_trapped'].set(False)
 
     def open_exposure_window(self):
         print('Opening exposure control window')
@@ -1084,8 +1087,12 @@ class UserInterface:
         c_p['QD_position_screen_x'] = []
         c_p['QD_position_screen_y'] = []
         # Calculate distance from laser to target location
-        separation_x = c_p['QD_target_loc_x'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - x
-        separation_y = c_p['QD_target_loc_y'][c_p['QDs_placed']] * c_p['mmToPixel']/1000 - y
+        # Get index so that we don't get an error when QDs_placed == len(QD_target_loc_x)
+        index = min(c_p['QDs_placed'], len(c_p['QD_target_loc_x'])-1)
+
+        separation_x = c_p['QD_target_loc_x'][index] * c_p['mmToPixel']/1000 - x
+        separation_y = c_p['QD_target_loc_y'][index] * c_p['mmToPixel']/1000 - y
+
         for x_loc, y_loc in zip(c_p['QD_target_loc_x'], c_p['QD_target_loc_y']):
             # Calcualte where in the image the markers should be put
             yc = int(x_loc * c_p['mmToPixel']/1000 - separation_x)
