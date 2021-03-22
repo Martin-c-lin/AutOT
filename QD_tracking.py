@@ -386,6 +386,7 @@ class QD_Tracking_Thread(Thread):
         choice = np.random.randint(-1,10)
         if choice == 1:
             pass
+        # TODO use pizeo for z-moves
         #     self.c_p['stepper_target_position'][2] += 0.0005
         # elif 0<= choice:
         #     self.c_p['stepper_target_position'][2] -= 0.0005
@@ -408,7 +409,7 @@ class QD_Tracking_Thread(Thread):
         # if dz > -0.02 or dz > 0.01:
         #     self.c_p['stepper_target_position'][2] = self.c_p['stepper_starting_position'][2] - 0.005
 
-    def move_QD_to_location_stepper(self, x, y, step = 0.0003):
+    def move_QD_to_location_stepper(self, x, y, small_step = 0.0003, large_step=0.001):
         '''
         Algorithm for pulling a quantum dot to the position specified in x,y
         using the stepper only.
@@ -424,12 +425,14 @@ class QD_Tracking_Thread(Thread):
         # the piezo.
         # TODO make it automatically avoid other QDs along the way.
         self.trapped_now()
+        step = small_step
         if self.c_p['closest_QD'] is not None:
             self.QD_unseen_counter = 0
             # Calcualte distance to target position
             if self.c_p['QD_currently_trapped']:
                 d = [x - self.c_p['stepper_current_position'][0], y - self.c_p['stepper_current_position'][1]]
                 print('Moving QD towards target', d, x , y )
+                step = small_step
             elif not self.c_p['QD_currently_trapped'] and self.c_p['QD_trapped']:
                 d = [0, 0] # Wait for qd to be trapped
             else:
@@ -438,7 +441,7 @@ class QD_Tracking_Thread(Thread):
                 dy = self.c_p['particle_centers'][1][self.c_p['closest_QD']] - self.c_p['traps_relative_pos'][1][0]
                 # TODO finish this function, increase step?
                 d = [dx/self.c_p['mmToPixel'], dy/self.c_p['mmToPixel']]
-
+                setp = large_step
                 print('Moving to trap a QD', d)
 
             # If we are close enough to target location, return
@@ -463,9 +466,70 @@ class QD_Tracking_Thread(Thread):
             # therefore the cunter is used
             self.QD_unseen_counter += 1
             # look for other particle
-            if self.QD_unseen_counter > 15:
+            if self.QD_unseen_counter > 20:
                  self.look_for_quantum_dot(x, y)
             return None
+
+    def push_QD_down(self, target_height=None, step=0.1, motor='piezo', tolerance=0.1):
+        '''
+        Function for pulling a QD down to target height.
+        Inputs:
+            Step - How large steps to take
+            motor - Which motor to use
+            tolerance - how close we need to move
+        # Returns False if not Done, True if done, and None if QD was lost.
+        '''
+        if motor == 'stepper':
+            current_position = 'stepper_current_position'
+            target_position = 'stepper_target_position'
+
+        elif motor == 'piezo':
+            if c_p['piezos_activated'].get():
+                print('Please deactivate manual piezo move to allow for automatic control.')
+                return None
+            current_position = 'piezo_current_position'
+            target_position = 'piezo_target_position'
+        else:
+            return None
+        if target_height is None:
+            if motor=='piezo':
+                target_height = self.c_p['piezo_starting_position'][2]
+            else:
+                target_height = self.c_p['stepper_starting_position'][2]
+
+        # Check trapped status
+        self.trapped_now()
+        d = target_height - self.c_p[current_position][2]
+        if self.c_p['QD_currently_trapped']:
+            self.QD_unseen_counter = 0
+
+            if d < 0:
+                self.c_p[target_position][2] = self.c_p[current_position][2] + max(-step, d)
+            else:
+                self.c_p[target_position][2] = self.c_p[current_position][2] + min(step, d)
+            print('Pizeo z move made towards target')
+            if np.abs(d) < tolerance:
+                print('Piezo movements are done now')
+                return True
+            else:
+                return False
+
+        # TODO move opposite direction to search for QD
+        else:
+            self.QD_unseen_counter += 1
+            # look for other particle
+        if self.QD_unseen_counter > 20:
+            if d < 0:
+                self.c_p[target_position][2] = self.c_p[current_position][2] - max(-step, d)
+            else:
+                self.c_p[target_position][2] = self.c_p[current_position][2] - min(step, d)
+
+        if self.QD_unseen_counter > 30:
+            # TODO move to predetermined safe position.
+            # Look for QD, return to safe state
+            return None
+
+        return False
 
     def move_QD_to_location(self, x, y, step = 0.0003, motor='stepper',
             tolerance=None):
@@ -885,7 +949,10 @@ class QD_Tracking_Thread(Thread):
                 # Note that the tracking algorithm can easily be replaced if need be
                 x, y, ret_img = find_QDs(self.c_p['image'],
                                     inner_filter_width=7, outer_filter_width=180,
-                                    particle_upper_size_threshold=700) # 12 240
+                                    particle_upper_size_threshold=700,
+                                    threshold=0.07, # Increased sensitivity
+                                    edge=120,
+                                    ) # 12 240
                 # QDs have been located, now check if one is trapped.
                 self.c_p['particle_centers'] = [x, y]
                 self.trapped_now()
@@ -913,20 +980,28 @@ class QD_Tracking_Thread(Thread):
                     # If we are far from the starting position simply move towards it
                     dx = (self.c_p['stepper_current_position'][0] - self.c_p['stepper_starting_position'][0])**2
                     dy = (self.c_p['stepper_current_position'][1] - self.c_p['stepper_starting_position'][1])**2
-                    if dx + dy > 0.01 **2:
-                        in_rough_location = self.move_QD_to_location_stepper(
+                    if dx + dy > 0.005 **2:
+                        in_rough_location = self.move_QD_to_location(
                          x=self.c_p['stepper_starting_position'][0],
-                         y=self.c_p['stepper_starting_position'][1])
+                         y=self.c_p['stepper_starting_position'][1],
+                         motor='stepper')
+
+                        # self.move_QD_to_location_stepper(
+                        #  x=self.c_p['stepper_starting_position'][0],
+                        #  y=self.c_p['stepper_starting_position'][1])
 
                     # The QD is clos to the correct position
-                    else:
-                        self.fine_move_QD()
+                    # else:
+                    #     self.fine_move_QD()
 
                     if in_rough_location:
                         self.c_p['move_QDs'].set(False)
+                #elif :
 
             elif self.c_p['generate_training_data'].get():
-                self.generate_polymerization_training_data()
+                if self.push_QD_down(target_height=5, step=0.1, motor='piezo', tolerance=0.1):
+                    self.c_p['generate_training_data'].set(False)
+                #self.generate_polymerization_training_data()
 
             sleep(self.sleep_time)
         self.__del__()

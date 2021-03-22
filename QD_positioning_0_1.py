@@ -1226,6 +1226,7 @@ def compensate_focus_xy_move(c_p):
     dy = (c_p['stepper_current_position'][1] - c_p['stepper_starting_position'][1])
     dz = (c_p['tilt'][0] * dx) + (c_p['tilt'][1] * dy)
     if c_p['stage_piezos'] and c_p['piezos_activated'].get():
+        # Automatic adjustment of xyz does not play very nicely with
         z0 = c_p['piezo_starting_position'][2]
         zt = z0 + dz/1000 + c_p['piezo_elevation']
         if 0 < zt < 20:
@@ -2216,12 +2217,12 @@ experiment_schedule = [
 c_p['experiment_schedule'] = experiment_schedule
 append_c_p(c_p, get_thread_activation_parameters())
 
-c_p['stage_stepper_x'] = True
-c_p['stage_stepper_y'] = True
-c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
+# c_p['stage_stepper_x'] = True
+# c_p['stage_stepper_y'] = True
+# c_p['stage_stepper_z'] = True
+# c_p['stage_piezo_x'] = True
+# c_p['stage_piezo_y'] = True
+# c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 

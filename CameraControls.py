@@ -206,7 +206,7 @@ class CameraThread(threading.Thread):
 
             self.cam.OffsetX = 0
             self.cam.Width = width
-            self.cam.OffsetX = 800 + offset_x
+            self.cam.OffsetX = 100 + offset_x
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = offset_y
