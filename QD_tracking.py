@@ -141,7 +141,7 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
 def find_QDs(image, inner_filter_width=15, outer_filter_width=300,
              threshold=0.11, particle_size_threshold=60,
              particle_upper_size_threshold=400, edge=80,
-             negative_particles= False):
+             negative_particles= False, fill_holes=False):
     '''
     Function for detecting the quantum dots.
 
@@ -198,12 +198,13 @@ def find_QDs(image, inner_filter_width=15, outer_filter_width=300,
                                         threshold=threshold,
                                         particle_size_threshold=particle_size_threshold,
                                         particle_upper_size_threshold=particle_upper_size_threshold,
-                                        fill_holes=True, check_circular=True)
+                                        fill_holes=fill_holes, check_circular=True)
     else:
         x, y, ret_img = find_particle_centers(image[edge:-edge,edge:-edge],
                                         threshold=threshold,
                                         particle_size_threshold=particle_size_threshold,
-                                        particle_upper_size_threshold=particle_upper_size_threshold)
+                                        particle_upper_size_threshold=particle_upper_size_threshold,
+                                        fill_holes=fill_holes)
 
     px = [s[1] - x_i - edge for x_i in x]
     py = [s[0] - y_i - edge for y_i in y]
@@ -278,7 +279,7 @@ def get_QD_tracking_c_p():
         'QD_target_loc_x_px': [1000],
         'QD_target_loc_y_px': [1000], # Where the QD should be put
         'QD_fine_target':[0,0],
-        'anchor_array_dist': [10, 10], # Distance between array and anchor(x,y) in microns
+        'anchor_array_dist': [10, -10], # Distance between array and anchor(x,y) in microns
         'polymerized_x': [],
         'polymerized_y': [],
         'polymerized_x_piezo':[],
@@ -339,6 +340,7 @@ class QD_Tracking_Thread(Thread):
         self.polymerization_position_piezo = [-1, -1]
         self.in_rough_location = False
         self.fine_position_found = False # Have we located the exact position of the next area?
+        self.in_z_position = False
         self.in_fine_position = False # Are we in the exact position of the next area?
         self.setDaemon(True)
 
@@ -369,6 +371,7 @@ class QD_Tracking_Thread(Thread):
             self.trapped_now()
         else:
             self.trapped_now()
+
     def move_to_target_location(self):
         '''
         Function for transporting a quantum dot to target location.
@@ -510,18 +513,19 @@ class QD_Tracking_Thread(Thread):
             tolerance - how close we need to move
         # Returns False if not Done, True if done, and None if QD was lost.
         '''
+        # Check which motor to use
         if motor == 'stepper':
             current_position = 'stepper_current_position'
             target_position = 'stepper_target_position'
-
         elif motor == 'piezo':
-            if c_p['piezos_activated'].get():
+            if self.c_p['piezos_activated'].get():
                 print('Please deactivate manual piezo move to allow for automatic control.')
                 return None
             current_position = 'piezo_current_position'
             target_position = 'piezo_target_position'
         else:
             return None
+
         if target_height is None:
             if motor=='piezo':
                 target_height = self.c_p['piezo_starting_position'][2]
@@ -637,10 +641,6 @@ class QD_Tracking_Thread(Thread):
                     print('Must use stepper instead of piezo, out of range')
                     return self.move_QD_to_location(x, y)
 
-                    # May be able to use the steppers here instead
-                    # dx = [ max(-step/500, d[0]/1000) if d[0] < 0 else ]
-                    # tx = self.c_p['stepper_current_position'] + ...
-                    # self.c_p['stepper_target_position'][0] =
             print('QD currently in trap:',self.c_p['QD_currently_trapped'], 'QD recently in trap', self.c_p['QD_trapped'])
             return False
 
@@ -660,8 +660,7 @@ class QD_Tracking_Thread(Thread):
         # Open shutter to stick the quantum dot
         print('Sticking a QD!')
         self.c_p['polymerization_LED'] = 'T'
-        sleep(1) # TODO save the polymerization time so we wait exactly the right amount of time
-        # Increase the stick count
+        sleep(self.c_p['polymerization_time']/1000 + 1)
 
 
     def locate_anchor_position(self):
@@ -676,13 +675,11 @@ class QD_Tracking_Thread(Thread):
             sleep(0.5)
 
         print('Trying to find anchor')
-        x, y, ret_img = find_QDs(self.c_p['image'],
-                            inner_filter_width=5, outer_filter_width=100,
-                            particle_size_threshold=7_000, # Need to test these sizes
-                            particle_upper_size_threshold=20_000,
-                            threshold=0.1, #07, # Increased sensitivity
-                            edge=120,
-                            )
+        x,y,ret_img =find_QDs(self.c_p['image'], inner_filter_width=5, outer_filter_width=70,
+                            particle_size_threshold=18_000, # Need to test these sizes
+                            particle_upper_size_threshold=100_000,
+                            threshold=0.09, #07, # Increased sensitivity
+                            edge=120,negative_particles=True, fill_holes=True)
         if self.c_p['background_illumination']:
             toggle_BG_shutter(self.c_p)
             sleep(0.5)
@@ -692,6 +689,8 @@ class QD_Tracking_Thread(Thread):
             tx = x[0] / self.c_p['mmToPixel'] * 1000
             ty = y[0] / self.c_p['mmToPixel'] * 1000
             return tx, ty
+        if len(x) > 1:
+            print('Found excessive number of anchors at locs', x, y)
         return None, None
 
     def locate_next_poly_area(self):
@@ -1053,6 +1052,7 @@ class QD_Tracking_Thread(Thread):
     def place_anchor(self):
 
         # TODO fix polymerization in this function. Do it in a loop so it can be cancelled
+        self.c_p['piezo_target_position'][2] = 2
         self.c_p['polymerization_LED'] = 'H'
         start_time = time()
         print('Creating anchor')
@@ -1061,6 +1061,7 @@ class QD_Tracking_Thread(Thread):
         self.c_p['Anchor_position'] = self.c_p['stepper_current_position'][0:2]
         self.c_p['Anchor_placed'] = True
         self.c_p['polymerization_LED'] = 'L'
+        self.c_p['piezo_target_position'][2] = 18
         self.c_p['stepper_starting_position'][0] = self.c_p['stepper_current_position'][0] + (self.c_p['anchor_array_dist'][0] / 1000)
         self.c_p['stepper_starting_position'][1] = self.c_p['stepper_current_position'][1] + (self.c_p['anchor_array_dist'][1] / 1000)
         print('New anchor created')
@@ -1096,13 +1097,8 @@ class QD_Tracking_Thread(Thread):
                          y=self.c_p['stepper_starting_position'][1],
                          motor='stepper')
 
-                    # The QD is close to the correct position
-                    # else:
-                    #     self.fine_move_QD()
-
                     if self.in_rough_location:
                         self.c_p['move_QDs'].set(False)
-                #elif :
 
             elif self.c_p['generate_training_data'].get():
                 # TODO handle z position
@@ -1127,14 +1123,17 @@ class QD_Tracking_Thread(Thread):
                     else: # TODO add correct condition here
                         self.in_rough_location = True
                     # We are close to starting position and have a QD
-                    if self.in_rough_location and not self.fine_position_found:
+                    if self.in_rough_location and not self.fine_position_found and not self.in_z_position:
                         # Locate fine position and update targets
+                        print('Moving qd to target height')
+                        self.in_z_position = self.push_QD_down(target_height=18)
+
+                    if self.in_rough_location and not self.fine_position_found and self.in_z_position:
                         print('Doing fine locating of area')
                         motor = self.locate_next_poly_area()
-
                         # We currently don't check for the case of the anchor not found
                         # We also automatically move the stepper if need be
-
+                        # TODO add
 
                     elif self.c_p['QD_currently_trapped'] and self.fine_position_found:
                         # We are close to the target and know where to move
@@ -1165,9 +1164,9 @@ class QD_Tracking_Thread(Thread):
                                 if self.c_p['QDs_placed'] < len(self.c_p['QD_target_loc_x']):
                                     # TODO may need to adjust this to compensate for the fact that the piezos are moving
                                     self.get_next_starting_position()
-                                    #self.c_p['piezo_elevation'] =
-                                else:
-                                    self.c_p['Anchor_placed'] = False
+                                    self.c_p['piezo_target_position'][2] = 2
+                                    self.in_z_position = False
+
                             else:
                                 self.move_QD_to_location(
                                     x=self.polymerization_position_piezo[0],

@@ -109,9 +109,11 @@ def find_particle_centers(image,threshold=120, particle_size_threshold=200,
             cy, cx = ndi.center_of_mass(separate_particles_image==group) # This is slow
             if check_circular:
                 M = measure.moments_central(separate_particles_image==group, order=2)
-                if 0.8 < (M[0,2] / M[2,0]) < 1.2:
+                if 0.7 < (M[0,2] / M[2,0]) < 1.3:
                     x.append(cx)
                     y.append(cy)
+                else:
+                    print('Noncircular object!', (M[0,2] / M[2,0]))
             else:
                 x.append(cx)
                 y.append(cy)

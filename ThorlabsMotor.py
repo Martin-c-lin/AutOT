@@ -735,7 +735,7 @@ def get_default_piezo_c_p():
     piezo_c_p = {
         'piezo_serial_no': '71165844',
         'piezo_starting_position': [0, 0, 0],
-        'piezo_target_position': [10, 10, 10],
+        'piezo_target_position': [10, 10, 18],
         'piezo_current_position': [0, 0, 0],
         'stage_piezo_connected': [False, False, False],
         'running': True,

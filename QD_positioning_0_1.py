@@ -409,6 +409,10 @@ class UserInterface:
             else:
                 self.mouse_set_laser_position()
 
+    def reset_printing_parameters(self):
+        c_p['Anchor_placed'] = False
+        c_p['QDs_placed'] = 0
+
     def mouse_set_laser_position(self):
         c_p['traps_absolute_pos'][0][0] = int(self.image_scale * c_p['mouse_position'][0] + c_p['AOI'][0])
         c_p['traps_absolute_pos'][1][0] = int(self.image_scale * c_p['mouse_position'][1] + c_p['AOI'][2])
@@ -701,6 +705,9 @@ class UserInterface:
         variable=c_p['override_QD_trapped'], onvalue=True, offvalue=False)
         c_p['override_QD_trapped'].set(False)
         self.override_trapped_button.place(x=x_position, y=y_position.__next__())
+        self.reset_array_printer_button = tkinter.Button(top, text='Reset printer',
+        command=self.reset_printing_parameters)
+        self.reset_array_printer_button.place(x=x_position, y=y_position.__next__())
 
     def open_exposure_window(self):
         print('Opening exposure control window')

@@ -6,6 +6,7 @@ def get_arduino_c_p():
     'polymerization_LED':'L',
     'polymerization_LED_status':'OFF',
     'background_illumination': False,
+    'polymerization_time':1000, # polymerization time in ms.
     }
     return arduino_c_p
 
@@ -46,6 +47,13 @@ class ArduinoLEDControlThread(Thread):
             # This function is made significantly faster by this check.
             if not self.last_write == self.c_p['polymerization_LED']:
                 self.last_write = self.c_p['polymerization_LED']
+
+                # If the polymerization time is updated this needs to be recorded
+                if self.last_write[0] == 'S':
+                    try:
+                        self.c_p['polymerization_time'] = int(self.c_p['polymerization_LED'][1:])
+                    except:
+                        print('Incorrect message')
                 message = self.last_write.encode('utf-8')
                 self.ArduinoUnoSerial.write(message)
 
