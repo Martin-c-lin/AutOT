@@ -700,6 +700,7 @@ class UserInterface:
         self.override_trapped_button = tkinter.Checkbutton(top, text='Set QD trapped',\
         variable=c_p['override_QD_trapped'], onvalue=True, offvalue=False)
         c_p['override_QD_trapped'].set(False)
+        self.override_trapped_button.place(x=x_position, y=y_position.__next__())
 
     def open_exposure_window(self):
         print('Opening exposure control window')
@@ -2224,12 +2225,12 @@ experiment_schedule = [
 c_p['experiment_schedule'] = experiment_schedule
 append_c_p(c_p, get_thread_activation_parameters())
 
-# c_p['stage_stepper_x'] = True
-# c_p['stage_stepper_y'] = True
-# c_p['stage_stepper_z'] = True
-# c_p['stage_piezo_x'] = True
-# c_p['stage_piezo_y'] = True
-# c_p['stage_piezo_z'] = True
+c_p['stage_stepper_x'] = True
+c_p['stage_stepper_y'] = True
+c_p['stage_stepper_z'] = True
+c_p['stage_piezo_x'] = True
+c_p['stage_piezo_y'] = True
+c_p['stage_piezo_z'] = True
 c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
 
