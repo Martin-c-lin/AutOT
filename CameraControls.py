@@ -233,6 +233,9 @@ class CameraThread(threading.Thread):
 
             self.set_basler_AOI()
             c_p['new_settings_camera'] = False
+
+            # TODO make it so that new camera exposure time does not turn off recording
+            # Replace new settings with new exposure time
             try:
                 self.cam.ExposureTime = c_p['exposure_time']
                 c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()

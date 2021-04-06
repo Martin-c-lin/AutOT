@@ -2238,8 +2238,9 @@ c_p['stage_stepper_z'] = True
 c_p['stage_piezo_x'] = True
 c_p['stage_piezo_y'] = True
 c_p['stage_piezo_z'] = True
-c_p['arduino_LED'] = True
 c_p['QD_tracking'] = True
+c_p['arduino_LED'] = True
+
 
 
 T_D = UserInterface(tkinter.Tk(), c_p, thread_list)

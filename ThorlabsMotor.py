@@ -905,7 +905,7 @@ def get_default_stepper_c_p():
         'stepper_max_speed': [0.01, 0.01, 0.01],
         'stepper_acc': [0.005, 0.005, 0.005],
         'new_stepper_velocity_params': [False, False, False],
-        'tilt': [0.0,0.0], # How much the stage is tilting in x and y direction
+        'tilt': [-0.0095, -0.0690], # How much the stage is tilting in x and y direction
     }
     return stepper_c_p
 

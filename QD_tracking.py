@@ -338,6 +338,7 @@ class QD_Tracking_Thread(Thread):
         self.piezo_step = 0.3
         self.anchor_time = 30 # Seconds to wait while anchor is being made
         self.polymerization_position_piezo = [-1, -1]
+        self.qd_search_height = 2
         self.in_rough_location = False
         self.fine_position_found = False # Have we located the exact position of the next area?
         self.in_z_position = False
@@ -649,9 +650,10 @@ class QD_Tracking_Thread(Thread):
             # therefore the cunter is used
             self.QD_unseen_counter += 1
             # look for other particle
-            if self.QD_unseen_counter > 15:
+            if self.QD_unseen_counter > 20:
                 # TODO consider moving the automatic looking for quantum dots outside this function
-                 self.look_for_quantum_dot(x, y)
+                self.c_p['piezo_current_position'][2] = self.qd_search_height
+                self.look_for_quantum_dot(x, y)
             return None
 
     def stick_quantum_dot(self):
