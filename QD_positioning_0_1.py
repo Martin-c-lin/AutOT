@@ -7,7 +7,7 @@ import find_particle_threshold as fpt
 import read_dict_from_file as rdff
 import ThorlabsShutter as TS
 import CameraControls
-from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p, toggle_BG_shutter
+from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p, toggle_BG_shutter, toggle_green_laser
 from CameraControls import update_traps_relative_pos # Moved this function
 from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p, get_save_path
 
@@ -675,6 +675,9 @@ class UserInterface:
         self.bg_illumination_button = tkinter.Button(
             top, text='Toggle on BG illumination', command= partial(toggle_BG_shutter, c_p))
         self.bg_illumination_button.place(x=x_position, y=generator_y.__next__())
+        self.green_laser_button = tkinter.Button(
+            top, text='Toggle green laser', command= partial(toggle_green_laser, c_p))
+        self.green_laser_button.place(x=x_position, y=generator_y.__next__())
         self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
 
     def add_piezo_activation_buttons(self, top, x_position, y_position):
@@ -969,6 +972,10 @@ class UserInterface:
                 self.bg_illumination_button.config(bg='green')
             else:
                 self.bg_illumination_button.config(bg='red')
+            if c_p['green_laser']:
+                self.green_laser_button.config(bg='green')
+            else:
+                self.green_laser_button.config(bg='red')
 
         # Update "move to target button", may not exist
         if c_p['stage_piezos']:

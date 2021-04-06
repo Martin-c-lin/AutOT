@@ -6,11 +6,13 @@ def get_arduino_c_p():
     'polymerization_LED':'L',
     'polymerization_LED_status':'OFF',
     'background_illumination': False,
+    'green_laser':True,
     'polymerization_time':1000, # polymerization time in ms.
     }
     return arduino_c_p
 
 # TODO: This probably does not need to be a separate thread.
+# TODO: Should communicate back and forth with the arduino.
 
 def toggle_BG_shutter(c_p):
 
@@ -18,11 +20,31 @@ def toggle_BG_shutter(c_p):
     if c_p['background_illumination']:
         # Open shutter
         c_p['polymerization_LED'] = 'O'
-        c_p['exposure_time'] /= 7
     else:
         # Close shutter
         c_p['polymerization_LED'] = 'C'
-        c_p['exposure_time'] *= 7
+    set_default_exposure(c_p)
+
+def toggle_green_laser(c_p):
+
+    c_p['green_laser'] = not c_p['green_laser']
+    if c_p['green_laser']:
+        # Open shutter
+        c_p['polymerization_LED'] = 'G'
+    else:
+        # Close shutter
+        c_p['polymerization_LED'] = 'B'
+    set_default_exposure(c_p)
+
+def set_default_exposure(c_p):
+
+    if c_p['background_illumination']:
+        c_p['exposure_time'] = 4000
+    elif c_p['green_laser'] and not c_p['background_illumination']:
+        c_p['exposure_time'] = 27000
+    elif not c_p['green_laser'] and not c_p['background_illumination']:
+        c_p['exposure_time'] = 120000
+
     c_p['new_settings_camera'] = True
 
 class ArduinoLEDControlThread(Thread):

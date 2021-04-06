@@ -1,5 +1,5 @@
 1:
 #To add comments write on lines without data. Do not use colon in the comments.
 # one can use either pixels or "SLM coordinates" to position the traps. Last position is anchor
-QD_target_loc_y:0,0,0,0,10,10,10,10,20,20,20,20,30,30,30,30 , 0
+QD_target_loc_y:0,0,0,0,10,10,10,10,20,20,20,20,30,30,30,30 , 20
 QD_target_loc_x:0,10,20,30,0,10,20,30,0,10,20,30,0,10,20,30 ,-15
