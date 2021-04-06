@@ -4,10 +4,13 @@ int onTime;
 int tmp;
 #include <Servo.h>
 Servo myServo;
+Servo greenLaserServo;
 int angle;
+int greenLaserAngle;
 
 void setup() {
-  myServo.attach(9);
+  myServo.attach(9);                       // Connect both servos.
+  greenLaserServo.attach(10);
   Serial.begin(9600);                      //initialize serial COM at 9600 baudrate
   pinMode(LED, OUTPUT);                    //declare the LED pin (12) as output
   digitalWrite(LED, LOW);
@@ -16,7 +19,10 @@ void setup() {
   onTime = 1000;
   delay(100);
   angle = 90;
+
   myServo.write(angle);
+  greenLaserAngle = 90;
+  greenLaserServo.write(greenLaserAngle);
 }
 
 void loop() {
@@ -58,14 +64,24 @@ void loop() {
       }    
     }
    if (incomingByte == 'O') {
-    Serial.println("Opening the shutter");
+    Serial.println("Opening the shutter.");
     angle = 180;
     myServo.write(angle);       
     }
    if (incomingByte == 'C') {
-    Serial.println("Closing the shutter");
+    Serial.println("Closing the shutter.");
     angle = 90;
     myServo.write(angle);      
+   }
+   if (incomingByte == 'G'){
+    Serial.println("Unblocking green laser.");
+    greenLaserAngle = 180;
+    greenLaserServo.write(greenLaserAngle);
+   }
+   if (incomingByte == 'B'){
+    Serial.println("Blocking green laser.");
+    greenLaserAngle = 90;
+    greenLaserServo.write(greenLaserAngle);
    }
   }
 }
