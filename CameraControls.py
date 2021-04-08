@@ -60,6 +60,8 @@ class CameraThread(threading.Thread):
             self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
             self.cam.Open()
         self.setDaemon(True)
+        self.video_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
+        self.video_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
         # Could change here to get color
         c_p['image'] = np.ones((self.c_p['AOI'][3], self.c_p['AOI'][1], 1))
 
@@ -113,6 +115,8 @@ class CameraThread(threading.Thread):
         fourcc = VideoWriter_fourcc(*'MJPG')
         image_width = c_p['AOI'][1]-c_p['AOI'][0]
         image_height = c_p['AOI'][3]-c_p['AOI'][2]
+        self.video_width = image_width
+        self.video_height = image_height
         video_name = c_p['recording_path'] + '/video-'+ c_p['measurement_name'] + \
             '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)+'.avi'
 
@@ -203,7 +207,8 @@ class CameraThread(threading.Thread):
             offset_x = c_p['AOI'][0]
             height = int(c_p['AOI'][3] - c_p['AOI'][2])
             offset_y = c_p['AOI'][2]
-
+            self.video_width = width
+            self.video_height = height
             self.cam.OffsetX = 0
             self.cam.Width = width
             self.cam.OffsetX = 100 + offset_x
@@ -215,6 +220,15 @@ class CameraThread(threading.Thread):
         except Exception as e:
             print('AOI not accepted', c_p['AOI'])
             print(e)
+
+    def update_basler_exposure(self):
+        try:
+            self.cam.ExposureTime = self.c_p['exposure_time']
+            self.c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()
+            self.c_p['framerate'] = round(float(self.c_p['framerate']), 1)
+            print('Read framerate to ', self.c_p['framerate'], ' fps.')
+        except:
+            print('Exposure time not accepted by camera')
 
     def basler_capture(self):
         '''
@@ -236,14 +250,15 @@ class CameraThread(threading.Thread):
 
             # TODO make it so that new camera exposure time does not turn off recording
             # Replace new settings with new exposure time
-            try:
-                self.cam.ExposureTime = c_p['exposure_time']
-                c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()
-                c_p['framerate'] = round(float(c_p['framerate']), 1)
-                print('Read framerate to ', c_p['framerate'], ' fps.')
-            except:
-                print('Exposure time not accepted by camera')
+            # try:
+            #     self.cam.ExposureTime = c_p['exposure_time']
+            #     c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()
+            #     c_p['framerate'] = round(float(c_p['framerate']), 1)
+            #     print('Read framerate to ', c_p['framerate'], ' fps.')
+            # except:
+            #     print('Exposure time not accepted by camera')
             # Grab one example image
+            self.update_basler_exposure()
             image_count = 0
 
             global image
@@ -266,7 +281,14 @@ class CameraThread(threading.Thread):
                             video.write(np.uint8(c_p['image']))
                         # Capture an image and update the image count
                         image_count = image_count+1
-
+                 if c_p['new_settings_camera']:
+                    #sleep(0.1)
+                    w = c_p['AOI'][1] - c_p['AOI'][0]
+                    h = c_p['AOI'][3] - c_p['AOI'][2]
+                    if w == self.video_width and h == self.video_height:
+                        self.update_basler_exposure()
+                        c_p['new_settings_camera'] = False
+                        print('Exposure updated,',h,w,self.video_width,self.video_height)
             self.cam.StopGrabbing()
 
             # Close the livefeed and calculate the fps of the captures
@@ -376,4 +398,4 @@ def zoom_out(c_p):
         set_AOI(c_p, left=0, right=672, up=0, down=512)
     elif c_p['camera_model'] == 'basler_large':
         set_AOI(c_p, left=0, right=3600, up=0, down=3008)
-    c_p['new_settings_camera'] = True
+    #c_p['new_settings_camera'] = True

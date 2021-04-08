@@ -1,6 +1,6 @@
 # Script for controlling the whole setup automagically
 import ThorlabsCam as TC
-import SLM, QD_tracking
+import SLM#, QD_tracking
 import ThorlabsMotor as TM
 import TemperatureControllerTED4015
 import find_particle_threshold as fpt
@@ -210,6 +210,7 @@ def start_threads(c_p, thread_list):
             print('Could not start shutter thread')
 
     if c_p['QD_tracking']:
+        import QD_tracking
         append_c_p(c_p, QD_tracking.get_QD_tracking_c_p())
 
         try:
@@ -2239,13 +2240,13 @@ experiment_schedule = [
 c_p['experiment_schedule'] = experiment_schedule
 append_c_p(c_p, get_thread_activation_parameters())
 
-c_p['stage_stepper_x'] = True
-c_p['stage_stepper_y'] = True
-c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
-c_p['QD_tracking'] = True
+# c_p['stage_stepper_x'] = True
+# c_p['stage_stepper_y'] = True
+# c_p['stage_stepper_z'] = True
+# c_p['stage_piezo_x'] = True
+# c_p['stage_piezo_y'] = True
+# c_p['stage_piezo_z'] = True
+# c_p['QD_tracking'] = True
 c_p['arduino_LED'] = True
 
 
