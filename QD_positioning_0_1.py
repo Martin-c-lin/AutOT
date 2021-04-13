@@ -26,7 +26,7 @@ from numba import jit
 @jit(nopython=True)
 def subtract_bg(I1, I2):
     image = I1 - I2
-    image -= np.min(image)
+    image += 120 #-= np.min(image)
     return image
 
 def terminate_threads(thread_list, c_p):
@@ -264,7 +264,7 @@ class UserInterface:
         self.mini_canvas_width = 240
         self.mini_canvas_height = 200
         self.c_p = c_p
-        c_p['background'] =  np.int16(np.copy(c_p['image']))
+        self.save_background()
         self.c_p['bg_removal'] = False
         self.canvas = tkinter.Canvas(
             window, width=self.canvas_width, height=self.canvas_height)
@@ -728,7 +728,10 @@ class UserInterface:
         #
 
     def save_background(self):
-        self.c_p['background'] = np.int16(np.copy(c_p['image']))
+        # Saves an image to be used as background when subtracting bg
+
+        self.c_p['raw_background'] = np.copy(c_p['image'])
+        self.c_p['background'] = self.resize_display_image(np.int16(np.copy(c_p['image'])))
 
     def toggle_bg_removal(self):
         # TODO have all these toggle functions as lambda functions
@@ -1032,6 +1035,8 @@ class UserInterface:
             c_p['mouse_move_allowed'] = self.move_by_clicking.get()
 
     def resize_display_image(self, img):
+        # Reshapes the image img to fit perfectly into the tkninter window.
+
         img_size = np.shape(img)
         if img_size[1]==self.canvas_width or img_size[0] == self.canvas_height:
             return img
@@ -1198,11 +1203,8 @@ class UserInterface:
 
     def update(self):
          # Get a frame from the video source
-         if c_p['bg_removal'] and np.shape(c_p['background']) == np.shape(c_p['image'])\
-          and c_p['background_illumination']:
-            image = subtract_bg(np.int16(c_p['image']), c_p['background'])
-         else:
-             image = np.asarray(c_p['image'])
+
+         image = np.asarray(c_p['image'])
          image = image.astype('uint16')
          self.update_qd_on_screen_targets()
 
@@ -1225,16 +1227,19 @@ class UserInterface:
              c_p['scroll_for_z'] = self.z_scrolling.get()
              compensate_focus_xy_move(c_p)
 
-         # TODO add background subtrction as an option
-         # Save background image, save position of image and
-         # (Initially) Only available with bg illumination.
-
-
-
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
+
+         image = self.resize_display_image(image)
+
+         # Now do the background removal on the significantly smaller image.
+         if c_p['bg_removal'] and np.shape(c_p['background']) == np.shape(image)\
+            and c_p['background_illumination']:
+            image = subtract_bg(image, c_p['background'])
+
+
          # TODO make it possible to use 16 bit color(ie 12)
-         self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.resize_display_image(image)))
+         self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(image))
          # need to use a compatible image type
          self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW)
 
