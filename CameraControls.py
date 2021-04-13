@@ -13,7 +13,8 @@ def get_camera_c_p():
     '''
     Function for retrieving the c_p relevant for controlling the camera
     '''
-    # TODO make it so that the AOI of the basler camera is not hardcoded
+    # TODO make it so that the AOI of the basler camera is not hardcoded. Maybe
+    # make a camera model class?
     camera_c_p = {
         'new_video': False,
         'recording_duration': 3000,
@@ -248,16 +249,7 @@ class CameraThread(threading.Thread):
             self.set_basler_AOI()
             c_p['new_settings_camera'] = False
 
-            # TODO make it so that new camera exposure time does not turn off recording
-            # Replace new settings with new exposure time
-            # try:
-            #     self.cam.ExposureTime = c_p['exposure_time']
-            #     c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()
-            #     c_p['framerate'] = round(float(c_p['framerate']), 1)
-            #     print('Read framerate to ', c_p['framerate'], ' fps.')
-            # except:
-            #     print('Exposure time not accepted by camera')
-            # Grab one example image
+            # TODO replace c_p['new_settings_camera'] with two parameters, one for expsore and one for AOI
             self.update_basler_exposure()
             image_count = 0
 

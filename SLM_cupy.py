@@ -2,7 +2,7 @@ import numpy as np
 import cupy as cp
 from math import pi
 
-def  RM(N, M, Delta, image_width):
+def RM(N, M, Delta, image_width):
     pass
 
 def RS(N, M, Delta):

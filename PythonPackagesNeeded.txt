@@ -11,6 +11,8 @@ python-opencv ,
 keras , # Optional, only for deep-learning tracking.
 tensorflow , # Optional, only for deep-learning tracking.
 pyFFTW, For faster FFT tracking than numpy
+cupy, Can enable really fast tracking etc.
+
 For basler camera:
 
 swig (run "conda install -c anaconda siwg" before installing pypylon)
@@ -24,4 +26,4 @@ pynput - mouse controlls
 # TODO - Check that these are all that are needed and that the program works
 # after installing them.
 
-https://github.com/Galvant/InstrumentKit - for shutter
+https://github.com/Galvant/InstrumentKit - for Thorlabs shutter

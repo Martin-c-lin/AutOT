@@ -32,10 +32,9 @@ class mouseInputThread(Thread):
 
             if self.c_p['stage_piezos'] and self.c_p['piezos_activated'].get():
                 if dy < 0:
-                    self.c_p['piezo_elevation'] -= self.piezo_step_distance # max(self.c_p['piezo_current_position'][2] - self.piezo_step_distance, 1)
+                    self.c_p['piezo_elevation'] -= self.piezo_step_distance
                 else:
-                    self.c_p['piezo_elevation'] += self.piezo_step_distance # min(self.c_p['piezo_current_position'][2] + self.piezo_step_distance, 19)
-                print('Piezo z move')
+                    self.c_p['piezo_elevation'] += self.piezo_step_distance
 
             elif self.c_p['stepper_activated'].get():
                 if dy < 0:
@@ -46,5 +45,6 @@ class mouseInputThread(Thread):
 
     def run(self):
         # TODO This function can only stop when the mouse is mooved/scrolled
+        # Should probably let main interface handle the mouse positioning.
         with Listener(on_move=self.on_move, on_click=None, on_scroll=self.on_scroll) as listener:
             listener.join()

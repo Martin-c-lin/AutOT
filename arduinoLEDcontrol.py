@@ -37,7 +37,7 @@ def toggle_green_laser(c_p):
     set_default_exposure(c_p)
 
 def set_default_exposure(c_p):
-
+    # TODO replace this with a single parameter with 3 different values.
     if c_p['background_illumination']:
         c_p['exposure_time'] = 4000
     elif c_p['green_laser'] and not c_p['background_illumination']:
@@ -65,6 +65,9 @@ class ArduinoLEDControlThread(Thread):
 
         # The red LED should be blocked by default.
         self.ArduinoUnoSerial.write(b'C')
+        time.sleep(0.2)
+        self.ArduinoUnoSerial.write(b'G') # Turn the green on
+        # TODO make it so that this thread listens in on the arduino and has two way communications with it.
         while self.c_p['program_running']:
             # This function is made significantly faster by this check.
             if not self.last_write == self.c_p['polymerization_LED']:
@@ -87,4 +90,5 @@ class ArduinoLEDControlThread(Thread):
         self.ArduinoUnoSerial.write(b'L')
         time.sleep(self.sleep_time)
         self.ArduinoUnoSerial.write(b'C')
+        self.ArduinoUnoSerial.write(b'B')
         self.ArduinoUnoSerial.close()

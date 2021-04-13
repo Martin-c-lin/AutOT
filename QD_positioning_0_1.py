@@ -22,6 +22,12 @@ from tkinter import *  # TODO Should avoid this type of import statements.
 import PIL.Image, PIL.ImageTk
 from pypylon import pylon
 
+from numba import jit
+@jit(nopython=True)
+def subtract_bg(I1, I2):
+    image = I1 - I2
+    image -= np.min(image)
+    return image
 
 def terminate_threads(thread_list, c_p):
     '''
@@ -257,7 +263,9 @@ class UserInterface:
 
         self.mini_canvas_width = 240
         self.mini_canvas_height = 200
-
+        self.c_p = c_p
+        c_p['background'] =  np.int16(np.copy(c_p['image']))
+        self.c_p['bg_removal'] = False
         self.canvas = tkinter.Canvas(
             window, width=self.canvas_width, height=self.canvas_height)
         self.canvas.place(x=0, y=0)
@@ -276,7 +284,7 @@ class UserInterface:
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
-        self.create_indicators()
+        #self.create_indicators()
         self.update_qd_on_screen_targets(c_p['image'])
         CameraControls.zoom_out(c_p)
         # Computer cannot handle to have menus as well. Make program really slow
@@ -459,7 +467,6 @@ class UserInterface:
             c_p['stepper_starting_position'][2] = c_p['stepper_current_position'][2]
             c_p['stepper_elevation'] = 0
 
-
     def to_focus(self):
         global c_p
         if c_p['stage_piezos']:
@@ -599,8 +606,8 @@ class UserInterface:
     def place_polymerization_time(self, top, x, y):
 
         self.polymerization_scale = tkinter.Scale(top,
-            command=self.polymerization_time_command, from_=100,
-            to=5000, resolution=100, orient=HORIZONTAL)
+            command=self.polymerization_time_command, from_=50,
+            to=5000, resolution=50, orient=HORIZONTAL)
         self.polymerization_scale.set(1000)
         self.polymerization_label = Label(self.window, text="Polymerization time")
         self.polymerization_label.place(x=x-0, y=y-15)
@@ -611,7 +618,7 @@ class UserInterface:
         if c_p['camera_model'] == 'basler_large' or 'basler_fast':
             try:
                 exposure_time = int(entry)
-                if 59 < exposure_time < 1e6: # If you need more than that you are
+                if 59 < exposure_time < 2e6:
                     c_p['exposure_time'] = exposure_time
                     print("Exposure time set to ", exposure_time)
                     c_p['new_settings_camera'] = True
@@ -720,12 +727,19 @@ class UserInterface:
         #entry =
         #
 
+    def save_background(self):
+        self.c_p['background'] = np.int16(np.copy(c_p['image']))
+
+    def toggle_bg_removal(self):
+        # TODO have all these toggle functions as lambda functions
+        self.c_p['bg_removal'] = not self.c_p['bg_removal']
+
     def create_control_menu1(self):
         # self.control_menu.add_command(label="Set stepper speed", command=)
-        # TODO add sliders to the menu for motor speed and tracking settings.
-        # Also add sliders for exposure time and zoom level.Toggle laser indicators
+        # TODO Add sliders for exposure time and zoom level.Toggle laser indicators
         # can also be in a menu. Add tilt compensation control to motor menu.
         # Z stepping distance.
+        # Save settings?
         if c_p['using_stepper_motors']:
             pass
         self.control_menu.add_command(label="Save position", command=self.save_starting_position)
@@ -735,6 +749,9 @@ class UserInterface:
 
         self.camera_menu = Menu(self.menubar)
         self.camera_menu.add_command(label="Snapshot", command=snapshot)
+        self.camera_menu.add_command(label="Save bg", command=self.save_background)
+        self.camera_menu.add_command(label="Toggle bg removal", command=self.toggle_bg_removal)
+
         self.menubar.add_cascade(label="Camera control", menu=self.camera_menu)
 
     def create_buttons(self, top=None):
@@ -854,7 +871,12 @@ class UserInterface:
 
         if c_p['using_stepper_motors']:
             self.add_stepper_buttons(top, y_position_2, x_position_2 )
-
+        y1 = y_position_2.__next__()
+        y_position_2.__next__()
+        y_position_2.__next__()
+        y2 = y_position_2.__next__()
+        self.create_indicators(x=x_position_2, y1=y1, y2=y2)
+        y_position_2.__next__()
         self.move_by_clicking = tkinter.BooleanVar()
 
         if c_p['stage_piezos'] or c_p['using_stepper_motors']:
@@ -942,15 +964,13 @@ class UserInterface:
         else:
             self.home_z_button.config(text='Press to home z')
 
-    def create_indicators(self):
+    def create_indicators(self, x=1420, y1=760, y2=900):
         global c_p
-        # Update if recording is turned on or not
-        # TODO make it so that positions of buttons are not hardcoded
 
         self.position_label = Label(self.window, text=self.get_position_info())
-        self.position_label.place(x=1420, y=760)
+        self.position_label.place(x=x, y=y1)
         self.temperature_label = Label(self.window, text=self.get_temperature_info())
-        self.temperature_label.place(x=1420, y=900)
+        self.temperature_label.place(x=x, y=y2)
 
     def update_indicators(self):
         '''
@@ -1137,6 +1157,7 @@ class UserInterface:
                 print('Next QD should be: ', c_p['QD_target_loc_y_px'], c_p['QD_target_loc_x_px'])
             except:
                 pass
+
     def mark_polymerized_areas(self, image):
         if self.tracking_toggled.get():
             for x, y in zip(c_p['polymerized_x'], c_p['polymerized_y']):
@@ -1177,8 +1198,12 @@ class UserInterface:
 
     def update(self):
          # Get a frame from the video source
-         image = np.asarray(c_p['image'])
-         image = image.astype('uint8')
+         if c_p['bg_removal'] and np.shape(c_p['background']) == np.shape(c_p['image'])\
+          and c_p['background_illumination']:
+            image = subtract_bg(np.int16(c_p['image']), c_p['background'])
+         else:
+             image = np.asarray(c_p['image'])
+         image = image.astype('uint16')
          self.update_qd_on_screen_targets()
 
          if self.display_laser.get():
@@ -1199,6 +1224,12 @@ class UserInterface:
          if c_p['stage_piezos'] or c_p['using_stepper_motors']:
              c_p['scroll_for_z'] = self.z_scrolling.get()
              compensate_focus_xy_move(c_p)
+
+         # TODO add background subtrction as an option
+         # Save background image, save position of image and
+         # (Initially) Only available with bg illumination.
+
+
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
@@ -1245,6 +1276,7 @@ def compensate_focus_xy_move(c_p):
     Function for compensating the change in focus caused by x-y movement.
     Returns the positon in ticks which z  should take to compensate for the focus
     '''
+    # TODO this function handles the piezo and stepper oddly.
     dx = (c_p['stepper_current_position'][0] - c_p['stepper_starting_position'][0])
     dy = (c_p['stepper_current_position'][1] - c_p['stepper_starting_position'][1])
     dz = (c_p['tilt'][0] * dx) + (c_p['tilt'][1] * dy)
@@ -1255,6 +1287,10 @@ def compensate_focus_xy_move(c_p):
         if 0 < zt < 20:
             c_p['piezo_target_position'][2] = zt
             return
+        elif zt < 0:
+            c_p['piezo_target_position'][2] = 0
+        else:
+            c_p['piezo_target_position'][2] = 20
     z0 = c_p['stepper_starting_position'][2]
     target_pos = z0 + dz + c_p['stepper_elevation']
     c_p['stepper_target_position'][2] = target_pos
@@ -2246,7 +2282,7 @@ append_c_p(c_p, get_thread_activation_parameters())
 # c_p['stage_piezo_x'] = True
 # c_p['stage_piezo_y'] = True
 # c_p['stage_piezo_z'] = True
-# c_p['QD_tracking'] = True
+c_p['QD_tracking'] = True
 c_p['arduino_LED'] = True
 
 
