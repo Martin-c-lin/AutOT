@@ -292,6 +292,7 @@ def get_QD_tracking_c_p():
         'override_QD_trapped': BooleanVar(),
         'Anchor_placed': False,
         'Anchor_position':[5,5], # Position of anchor in stepper coordinates
+
     }
 
     return tracking_params
@@ -361,12 +362,22 @@ class QD_Tracking_Thread(Thread):
     def check_for_trapped_QDs(self):
         # TODO let this guy look only at a smalla area of the image if need be
         if not self.c_p['override_QD_trapped'].get():
-            x, y, ret_img = find_QDs(self.c_p['image'],
-                                inner_filter_width=7, outer_filter_width=180,
-                                particle_upper_size_threshold=700,
-                                threshold=0.1, #07, # Increased sensitivity
-                                edge=120,
-                                ) # 12 240
+            #TODO  Check illumination first.
+            if self.c_p['green_laser']:
+                x, y, ret_img = find_QDs(self.c_p['image'],
+                                    inner_filter_width=7, outer_filter_width=180,
+                                    particle_upper_size_threshold=700,
+                                    threshold=0.1, #07, # Increased sensitivity
+                                    edge=120,
+                                    ) # 12 240
+            else:
+                x, y, ret_img = find_QDs(self.c_p['image'], inner_filter_width=15,
+                                 outer_filter_width=160,
+                                 threshold=0.06, particle_size_threshold=60,
+                                 particle_upper_size_threshold=30000, edge=150,
+                                 negative_particles= False,
+                                 fill_holes=True
+                                 ) # 12 240
             # QDs have been located, now check if one is trapped.
             self.c_p['particle_centers'] = [x, y]
             self.trapped_now()
@@ -514,6 +525,7 @@ class QD_Tracking_Thread(Thread):
             tolerance - how close we need to move
         # Returns False if not Done, True if done, and None if QD was lost.
         '''
+        # TODO change so that it pushes as far as possible
         # Check which motor to use
         if motor == 'stepper':
             current_position = 'stepper_current_position'
@@ -566,6 +578,65 @@ class QD_Tracking_Thread(Thread):
             return None
 
         return False
+
+
+    def push_QD_to_glass(self, step=0.1, motor='piezo', tolerance=0.1):
+        '''
+        Function for pulling a QD down as far as possible.
+        Inputs:
+            Step - How large steps to take
+            motor - Which motor to use
+            tolerance - how close we need to move
+        # Returns False if not Done, True if done, and None if QD was lost.
+        '''
+        # TODO change so that it pushes as far as possible
+        # Check which motor to use
+        if motor == 'stepper':
+            current_position = 'stepper_current_position'
+            target_position = 'stepper_target_position'
+        elif motor == 'piezo':
+            if self.c_p['piezos_activated'].get():
+                print('Please deactivate manual piezo move to allow for automatic control.')
+                return None
+            current_position = 'piezo_current_position'
+            target_position = 'piezo_target_position'
+        else:
+            return None
+
+        # Check trapped status
+        self.trapped_now()
+        d = target_height - self.c_p[current_position][2]
+        if self.c_p['QD_currently_trapped']:
+            self.QD_unseen_counter = 0
+
+            if d < 0:
+                self.c_p[target_position][2] = self.c_p[current_position][2] + max(-step, d)
+            else:
+                self.c_p[target_position][2] = self.c_p[current_position][2] + min(step, d)
+            print('Pizeo z move made towards target')
+            if np.abs(d) < tolerance:
+                print('Piezo movements are done now')
+                return True
+            else:
+                return False
+
+        # TODO move opposite direction to search for QD
+        else:
+            self.QD_unseen_counter += 1
+            # look for other particle
+        if self.QD_unseen_counter > 20:
+            if d < 0:
+                self.c_p[target_position][2] = self.c_p[current_position][2] - max(-step, d)
+            else:
+                self.c_p[target_position][2] = self.c_p[current_position][2] - min(step, d)
+
+        if self.QD_unseen_counter > 30:
+            # TODO move to predetermined safe position.
+            # Look for QD, return to safe state
+            return None
+
+        return False
+
 
     def move_QD_to_location(self, x, y, step = 0.0003, motor='stepper',
             tolerance=None):
@@ -1101,6 +1172,9 @@ class QD_Tracking_Thread(Thread):
 
                     if self.in_rough_location:
                         self.c_p['move_QDs'].set(False)
+                # TODO make it possible to test the move down button
+                if self.c_p['test_move_down'].get():
+                    self.push_QD_down()
 
             elif self.c_p['generate_training_data'].get():
                 # TODO handle z position

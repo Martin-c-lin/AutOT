@@ -720,6 +720,11 @@ class UserInterface:
         command=self.reset_printing_parameters)
         self.reset_array_printer_button.place(x=x_position, y=y_position.__next__())
 
+        c_p['test_move_down'] = tkinter.BooleanVar()
+        self.move_down_button = tkinter.Checkbutton(top, text='Move down QDs',
+            variable=c_p['test_move_down'], onvalue=True, offvalue=False)
+        self.move_down_button.place(x=x_position, y=y_position.__next__())
+
     def open_exposure_window(self):
         print('Opening exposure control window')
         # dialog_box = tkinter.Toplevel(self.window)
