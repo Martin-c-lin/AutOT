@@ -619,7 +619,7 @@ class QD_Tracking_Thread(Thread):
         else:
             self.QD_unseen_counter += 1
             # look for other particle
-        if self.QD_unseen_counter >= 50 and self.QD_unseen_counter%5 == 0:
+        if self.QD_unseen_counter >= 50 and self.QD_unseen_counter % 5 == 0:
             # WE have not seen the QD in a while, move up instead
             self.c_p[target_position][2] = self.c_p[current_position][2] - step
 
