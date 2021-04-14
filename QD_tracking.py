@@ -344,6 +344,7 @@ class QD_Tracking_Thread(Thread):
         self.fine_position_found = False # Have we located the exact position of the next area?
         self.in_z_position = False
         self.in_fine_position = False # Are we in the exact position of the next area?
+        self.printing_height = 0
         self.setDaemon(True)
 
     def __del__(self):
@@ -608,32 +609,19 @@ class QD_Tracking_Thread(Thread):
         d = target_height - self.c_p[current_position][2]
         if self.c_p['QD_currently_trapped']:
             self.QD_unseen_counter = 0
-
-            if d < 0:
-                self.c_p[target_position][2] = self.c_p[current_position][2] + max(-step, d)
-            else:
-                self.c_p[target_position][2] = self.c_p[current_position][2] + min(step, d)
-            print('Pizeo z move made towards target')
-            if np.abs(d) < tolerance:
-                print('Piezo movements are done now')
+            if self.printing_height > self.c_p[current_position][2] + step:
+                print('Great height already found ', self.printing_height)
                 return True
-            else:
-                return False
+            self.c_p[target_position][2] = self.c_p[current_position][2] + step
+            self.printing_height = max(self.printing_height, self.c_p[current_position][2])
 
         # TODO move opposite direction to search for QD
         else:
             self.QD_unseen_counter += 1
             # look for other particle
-        if self.QD_unseen_counter > 20:
-            if d < 0:
-                self.c_p[target_position][2] = self.c_p[current_position][2] - max(-step, d)
-            else:
-                self.c_p[target_position][2] = self.c_p[current_position][2] - min(step, d)
-
-        if self.QD_unseen_counter > 30:
-            # TODO move to predetermined safe position.
-            # Look for QD, return to safe state
-            return None
+        if self.QD_unseen_counter >= 50 and self.QD_unseen_counter%5 == 0:
+            # WE have not seen the QD in a while, move up instead
+            self.c_p[target_position][2] = self.c_p[current_position][2] - step
 
         return False
 
