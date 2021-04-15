@@ -363,24 +363,28 @@ class QD_Tracking_Thread(Thread):
     def check_for_trapped_QDs(self):
         # TODO let this guy look only at a smalla area of the image if need be
         if not self.c_p['override_QD_trapped'].get():
-            #TODO  Check illumination first.
-            if self.c_p['green_laser']:
+            if self.c_p['green_laser'] and not self.c_p['background_illumination']:
                 x, y, ret_img = find_QDs(self.c_p['image'],
                                     inner_filter_width=7, outer_filter_width=180,
                                     particle_upper_size_threshold=700,
                                     threshold=0.1, #07, # Increased sensitivity
                                     edge=120,
                                     ) # 12 240
+            elif not self.c_p['background_illumination']:
+                # we can allow ourselves to be a bit more restrictive in this case
+                x, y ,ret_img = find_particle_centers(image1, threshold=22, particle_size_threshold=200,
+                                particle_upper_size_threshold=5000,
+                                bright_particle=True, fill_holes=False)
+                # x, y, ret_img = find_QDs(self.c_p['image'], inner_filter_width=15,
+                #                  outer_filter_width=160,
+                #                  threshold=0.25, particle_size_threshold=60,
+                #                  particle_upper_size_threshold=30000, edge=150,
+                #                  negative_particles= False,
+                #                  fill_holes=True) # 12 240
             else:
-                 # we can allow ourselves to be a bit more restrictive in this case
-
-                x, y, ret_img = find_QDs(self.c_p['image'], inner_filter_width=15,
-                                 outer_filter_width=160,
-                                 threshold=0.25, particle_size_threshold=60,
-                                 particle_upper_size_threshold=30000, edge=150,
-                                 negative_particles= False,
-                                 fill_holes=True
-                                 ) # 12 240
+                x=[]
+                y=[]
+                print('Cannot see QDs with background led turnd on!')
             # QDs have been located, now check if one is trapped.
             self.c_p['particle_centers'] = [x, y]
             self.trapped_now()
