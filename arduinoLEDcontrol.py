@@ -65,8 +65,8 @@ class ArduinoLEDControlThread(Thread):
 
         # The red LED should be blocked by default.
         self.ArduinoUnoSerial.write(b'C')
-        time.sleep(0.2)
-        self.ArduinoUnoSerial.write(b'G') # Turn the green on
+        time.sleep(1)
+        toggle_green_laser(self.c_p)
         # TODO make it so that this thread listens in on the arduino and has two way communications with it.
         while self.c_p['program_running']:
             # This function is made significantly faster by this check.
@@ -90,5 +90,6 @@ class ArduinoLEDControlThread(Thread):
         self.ArduinoUnoSerial.write(b'L')
         time.sleep(self.sleep_time)
         self.ArduinoUnoSerial.write(b'C')
+        time.sleep(self.sleep_time)
         self.ArduinoUnoSerial.write(b'B')
         self.ArduinoUnoSerial.close()

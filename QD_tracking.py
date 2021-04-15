@@ -372,9 +372,11 @@ class QD_Tracking_Thread(Thread):
                                     edge=120,
                                     ) # 12 240
             else:
+                 # we can allow ourselves to be a bit more restrictive in this case
+
                 x, y, ret_img = find_QDs(self.c_p['image'], inner_filter_width=15,
                                  outer_filter_width=160,
-                                 threshold=0.06, particle_size_threshold=60,
+                                 threshold=0.25, particle_size_threshold=60,
                                  particle_upper_size_threshold=30000, edge=150,
                                  negative_particles= False,
                                  fill_holes=True
@@ -606,23 +608,27 @@ class QD_Tracking_Thread(Thread):
 
         # Check trapped status
         self.trapped_now()
-        d = target_height - self.c_p[current_position][2]
+
         if self.c_p['QD_currently_trapped']:
             self.QD_unseen_counter = 0
             if self.printing_height > self.c_p[current_position][2] + step:
                 print('Great height already found ', self.printing_height)
                 return True
-            self.c_p[target_position][2] = self.c_p[current_position][2] + step
+            if self.c_p[current_position][2]  > 19.8:
+                print('Error, cannot push further!')
+                return False
+            #self.c_p[target_position][2] = self.c_p[current_position][2] + step
+            self.c_p['piezo_elevation'] += step
             self.printing_height = max(self.printing_height, self.c_p[current_position][2])
-
+            sleep(self.sleep_time)
         # TODO move opposite direction to search for QD
         else:
             self.QD_unseen_counter += 1
             # look for other particle
         if self.QD_unseen_counter >= 50 and self.QD_unseen_counter % 5 == 0:
             # WE have not seen the QD in a while, move up instead
-            self.c_p[target_position][2] = self.c_p[current_position][2] - step
-
+            #self.c_p[target_position][2] = self.c_p[current_position][2] - step
+            self.c_p['piezo_elevation'] -= step
         return False
 
 
@@ -1162,7 +1168,7 @@ class QD_Tracking_Thread(Thread):
                         self.c_p['move_QDs'].set(False)
                 # TODO make it possible to test the move down button
                 if self.c_p['test_move_down'].get():
-                    self.push_QD_down()
+                    self.push_QD_to_glass()
 
             elif self.c_p['generate_training_data'].get():
                 # TODO handle z position
