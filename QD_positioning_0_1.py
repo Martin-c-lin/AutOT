@@ -1292,13 +1292,15 @@ def compensate_focus_xy_move(c_p):
     dz = (c_p['tilt'][0] * dx) + (c_p['tilt'][1] * dy)
 
 
-    if c_p['stage_piezos'] and c_p['piezos_activated'].get():
+    #if c_p['stage_piezos'] and c_p['piezos_activated'].get():
         # Automatic adjustment of xyz does not play very nicely with
+
+    if c_p['stage_piezos']:
         z0 = c_p['piezo_starting_position'][2]
         zt = z0 + c_p['piezo_elevation'] # + dz/1000
         if 0 < zt < 20:
             c_p['piezo_target_position'][2] = zt
-            return
+            #return
         elif zt < 0:
             c_p['piezo_target_position'][2] = 0
         else:

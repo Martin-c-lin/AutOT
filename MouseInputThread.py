@@ -35,6 +35,10 @@ class mouseInputThread(Thread):
                     self.c_p['piezo_elevation'] -= self.piezo_step_distance
                 else:
                     self.c_p['piezo_elevation'] += self.piezo_step_distance
+                if self.c_p['piezo_elevation'] + self.c_p['piezo_starting_position'][2] > 20:
+                    self.c_p['piezo_elevation'] = 20 - self.c_p['piezo_starting_position'][2]
+                elif self.c_p['piezo_elevation'] < 0:
+                    self.c_p['piezo_elevation'] = - self.c_p['piezo_starting_position'][2]
 
             elif self.c_p['stepper_activated'].get():
                 if dy < 0:

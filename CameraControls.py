@@ -270,7 +270,7 @@ class CameraThread(threading.Thread):
                             if not video_created:
                                 video, experiment_info_name, exp_info_params = self.create_video_writer()
                                 video_created = True
-                            video.write(np.uint8(c_p['image']))
+                            video.write(np.uint8(c_p['image']))  # consider adding text to one corner
                         # Capture an image and update the image count
                         image_count = image_count+1
                  if c_p['new_settings_camera']:

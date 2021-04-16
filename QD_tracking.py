@@ -345,6 +345,8 @@ class QD_Tracking_Thread(Thread):
         self.in_z_position = False
         self.in_fine_position = False # Are we in the exact position of the next area?
         self.printing_height = 0
+        self.z_push_direction = 'down' # which direction is the QD being pushed, up or down
+        self.lifts_made = 0 # number of intermeiate lifts which have been made to find QDs while pushing down
         self.setDaemon(True)
 
     def __del__(self):
@@ -372,7 +374,7 @@ class QD_Tracking_Thread(Thread):
                                     ) # 12 240
             elif not self.c_p['background_illumination']:
                 # we can allow ourselves to be a bit more restrictive in this case
-                x, y ,ret_img = find_particle_centers(image1, threshold=22, particle_size_threshold=200,
+                x, y ,ret_img = find_particle_centers(self.c_p['image'], threshold=18, particle_size_threshold=200,
                                 particle_upper_size_threshold=5000,
                                 bright_particle=True, fill_holes=False)
                 # x, y, ret_img = find_QDs(self.c_p['image'], inner_filter_width=15,
@@ -587,7 +589,8 @@ class QD_Tracking_Thread(Thread):
         return False
 
 
-    def push_QD_to_glass(self, step=0.1, motor='piezo', tolerance=0.1):
+    def push_QD_to_glass(self, step=0.05, motor='piezo', tolerance=0.1):
+
         '''
         Function for pulling a QD down as far as possible.
         Inputs:
@@ -596,8 +599,7 @@ class QD_Tracking_Thread(Thread):
             tolerance - how close we need to move
         # Returns False if not Done, True if done, and None if QD was lost.
         '''
-        # TODO change so that it pushes as far as possible
-        # Check which motor to use
+        # TODO integrate the stepper in a good way as well as a reset function.
         if motor == 'stepper':
             current_position = 'stepper_current_position'
             target_position = 'stepper_target_position'
@@ -617,11 +619,13 @@ class QD_Tracking_Thread(Thread):
             self.QD_unseen_counter = 0
             if self.printing_height > self.c_p[current_position][2] + step:
                 print('Great height already found ', self.printing_height)
+                self.c_p['test_move_down'].set(False)
+                self.printing_height = 0
                 return True
             if self.c_p[current_position][2]  > 19.8:
                 print('Error, cannot push further!')
+                self.c_p['test_move_down'].set(False)
                 return False
-            #self.c_p[target_position][2] = self.c_p[current_position][2] + step
             self.c_p['piezo_elevation'] += step
             self.printing_height = max(self.printing_height, self.c_p[current_position][2])
             sleep(self.sleep_time)
@@ -629,9 +633,9 @@ class QD_Tracking_Thread(Thread):
         else:
             self.QD_unseen_counter += 1
             # look for other particle
-        if self.QD_unseen_counter >= 50 and self.QD_unseen_counter % 5 == 0:
+        if self.QD_unseen_counter >= 150 and self.QD_unseen_counter % 5 == 0:
             # WE have not seen the QD in a while, move up instead
-            #self.c_p[target_position][2] = self.c_p[current_position][2] - step
+            # TODO allow for some upwards movement. Add countere for upward moves.
             self.c_p['piezo_elevation'] -= step
         return False
 
@@ -1262,34 +1266,3 @@ class QD_Tracking_Thread(Thread):
 
             sleep(self.sleep_time)
         self.__del__()
-
-
-
-# x, y, ret_img = find_QDs(self.c_p['image'],
-#                     inner_filter_width=7, outer_filter_width=180,
-#                     particle_upper_size_threshold=700,
-#                     threshold=0.07, # Increased sensitivity
-#                     edge=120,
-#                     ) # 12 240
-# # QDs have been located, now check if one is trapped.
-# self.c_p['particle_centers'] = [x, y]
-# self.trapped_now()
-
-'''
-# TODO When rough location is correct then do this
-if self.c_p['position_QD_in_pattern'].get():
-    # Take a small step towards the target location
-    dx, dy = self.find_array_position()
-    d = (dx**2 + dy**2) * 1e6
-    # Check if QD is trapped and we are in the correct position for the next QD
-    print('Distance to target: ', d)
-    #if self.c_p['QD_currently_trapped'] and d < 0.5**2:
-    if d < 0.1:
-        # We are close to the correct area => polymerize!
-        print('Sticking!')
-        self.stick_quantum_dot()
-
-        # Check if enought quantum dots have been stuck
-        if self.c_p['QDs_placed'] == len(self.c_p['QD_target_loc_x']):
-            print('Done')
-'''

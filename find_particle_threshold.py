@@ -35,7 +35,7 @@ def find_single_particle_center(img,threshold=127):
     # if np.isnan(cx) return inf?
     return cx,cy,th1
 
-def threshold_image(image,threshold=120,bright_particle=True):
+def threshold_image(image,threshold=120, bright_particle=True):
         img_temp = cv2.medianBlur(image,5)
         if bright_particle:
             ret,thresholded_image = cv2.threshold(img_temp,threshold,255,cv2.THRESH_BINARY)
@@ -88,7 +88,7 @@ def find_particle_centers(image,threshold=120, particle_size_threshold=200,
     """
 
     # Do thresholding of the image
-    thresholded_image = cv2.blur(image,(8,8)) > threshold
+    thresholded_image = cv2.blur(image, (8, 8)) > threshold
     if fill_holes:
         # Fill holes in the image before labeling
         thresholded_image = ndi.morphology.binary_fill_holes(thresholded_image)
@@ -109,11 +109,11 @@ def find_particle_centers(image,threshold=120, particle_size_threshold=200,
             cy, cx = ndi.center_of_mass(separate_particles_image==group) # This is slow
             if check_circular:
                 M = measure.moments_central(separate_particles_image==group, order=2)
-                if 0.7 < (M[0,2] / M[2,0]) < 1.3:
+                if 0.7 < (M[0, 2] / M[2, 0]) < 1.3:
                     x.append(cx)
                     y.append(cy)
                 else:
-                    print('Noncircular object!', (M[0,2] / M[2,0]))
+                    print('Noncircular object!', (M[0, 2] / M[2, 0]))
             else:
                 x.append(cx)
                 y.append(cy)
