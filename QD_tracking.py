@@ -141,7 +141,8 @@ def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
 def find_QDs(image, inner_filter_width=15, outer_filter_width=300,
              threshold=0.11, particle_size_threshold=60,
              particle_upper_size_threshold=400, edge=80,
-             negative_particles= False, fill_holes=False):
+             negative_particles= False, fill_holes=False,
+             check_circular=False):
     '''
     Function for detecting the quantum dots.
 
@@ -198,7 +199,7 @@ def find_QDs(image, inner_filter_width=15, outer_filter_width=300,
                                         threshold=threshold,
                                         particle_size_threshold=particle_size_threshold,
                                         particle_upper_size_threshold=particle_upper_size_threshold,
-                                        fill_holes=fill_holes, check_circular=True)
+                                        fill_holes=fill_holes, check_circular=check_circular)
     else:
         x, y, ret_img = find_particle_centers(image[edge:-edge,edge:-edge],
                                         threshold=threshold,
@@ -208,7 +209,7 @@ def find_QDs(image, inner_filter_width=15, outer_filter_width=300,
 
     px = [s[1] - x_i - edge for x_i in x]
     py = [s[0] - y_i - edge for y_i in y]
-    return px, py, ret_img
+    return px, py, image#ret_img
 
 
 def find_optimal_move(p1, p2):
@@ -361,6 +362,23 @@ class QD_Tracking_Thread(Thread):
             self.c_p['QD_trapped_counter'] += 1
             if self.c_p['QD_trapped_counter'] >= self.c_p['max_trapped_counter']:
                 self.c_p['QD_trapped'] = False
+
+    def check_for_cured_areas(self):
+
+
+            # We only look for polymerized areas when we have background_illumination
+        try:
+            subtracted = self.c_p['image'] - self.c_p['raw_background']
+        except:
+            subtracted = np.copy(self.c_p['image'])
+
+        self.c_p['polymerized_x'], self.c_p['polymerized_y'],_ = find_QDs(
+                            subtracted, inner_filter_width=7, outer_filter_width=80,
+                            particle_size_threshold=1_000, # Need to test these sizes
+                            particle_upper_size_threshold=100_000,
+                            threshold=threshold, #07, # Increased sensitivity
+                            edge=120,negative_particles=False, fill_holes=True,
+                            check_circular=False)
 
     def check_for_trapped_QDs(self):
         # TODO let this guy look only at a smalla area of the image if need be
@@ -737,7 +755,6 @@ class QD_Tracking_Thread(Thread):
         self.c_p['polymerization_LED'] = 'T'
         sleep(self.c_p['polymerization_time']/1000 + 1)
 
-
     def locate_anchor_position(self):
         '''
         Calculates the position of the anchor in the image in microns.
@@ -754,7 +771,8 @@ class QD_Tracking_Thread(Thread):
                             particle_size_threshold=18_000, # Need to test these sizes
                             particle_upper_size_threshold=100_000,
                             threshold=0.09, #07, # Increased sensitivity
-                            edge=120,negative_particles=True, fill_holes=True)
+                            edge=120,negative_particles=True, fill_holes=True,
+                            check_circular=True)
         if self.c_p['background_illumination']:
             toggle_BG_shutter(self.c_p)
             sleep(0.5)
@@ -1160,23 +1178,25 @@ class QD_Tracking_Thread(Thread):
 
                 # Do the particle tracking.
                 # Note that the tracking algorithm can easily be replaced if need be
-                self.check_for_trapped_QDs()
+                if self.c_p['background_illumination']:
+                    self.check_for_cured_areas()
+                else:
+                    self.check_for_trapped_QDs()
+                    if self.c_p['move_QDs'].get() and self.c_p['QDs_placed'] < len(self.c_p['QD_target_loc_x']):
+                        # If we are far from the starting position simply move towards it
+                        dx = (self.c_p['stepper_current_position'][0] - self.c_p['stepper_starting_position'][0])**2
+                        dy = (self.c_p['stepper_current_position'][1] - self.c_p['stepper_starting_position'][1])**2
+                        if dx + dy > 0.005 **2:
+                            self.in_rough_location = self.move_QD_to_location(
+                             x=self.c_p['stepper_starting_position'][0],
+                             y=self.c_p['stepper_starting_position'][1],
+                             motor='stepper')
 
-                if self.c_p['move_QDs'].get() and self.c_p['QDs_placed'] < len(self.c_p['QD_target_loc_x']):
-                    # If we are far from the starting position simply move towards it
-                    dx = (self.c_p['stepper_current_position'][0] - self.c_p['stepper_starting_position'][0])**2
-                    dy = (self.c_p['stepper_current_position'][1] - self.c_p['stepper_starting_position'][1])**2
-                    if dx + dy > 0.005 **2:
-                        self.in_rough_location = self.move_QD_to_location(
-                         x=self.c_p['stepper_starting_position'][0],
-                         y=self.c_p['stepper_starting_position'][1],
-                         motor='stepper')
-
-                    if self.in_rough_location:
-                        self.c_p['move_QDs'].set(False)
-                # TODO make it possible to test the move down button
-                if self.c_p['test_move_down'].get():
-                    self.push_QD_to_glass()
+                        if self.in_rough_location:
+                            self.c_p['move_QDs'].set(False)
+                    # TODO make it possible to test the move down button
+                    if self.c_p['test_move_down'].get():
+                        self.push_QD_to_glass()
 
             elif self.c_p['generate_training_data'].get():
                 # TODO handle z position

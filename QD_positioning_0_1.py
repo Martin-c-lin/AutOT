@@ -791,6 +791,7 @@ class UserInterface:
             command=toggle_bright_particle)
 
         self.exposure_entry = tkinter.Entry(top, bd=5)
+        #TODO Replace with a c_p parameter only 
         self.tracking_toggled = tkinter.BooleanVar()
         self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
                 variable=self.tracking_toggled, onvalue=True, offvalue=False)
