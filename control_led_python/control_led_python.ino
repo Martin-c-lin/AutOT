@@ -5,12 +5,16 @@ int tmp;
 #include <Servo.h>
 Servo myServo;
 Servo greenLaserServo;
+Servo blueLaserServo;
+
 int angle;
 int greenLaserAngle;
+int blueLaserAngle;
 
 void setup() {
   myServo.attach(9);                       // Connect both servos.
   greenLaserServo.attach(10);
+  blueLaserServo.attach(5);
   Serial.begin(9600);                      //initialize serial COM at 9600 baudrate
   pinMode(LED, OUTPUT);                    //declare the LED pin (12) as output
   digitalWrite(LED, LOW);
@@ -23,11 +27,15 @@ void setup() {
   myServo.write(angle);
   greenLaserAngle = 90;
   greenLaserServo.write(greenLaserAngle);
+
+  blueLaserAngle = 90;
+  blueLaserServo.write(blueLaserAngle);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  
+  // TODO rewrite this code to make it more readable and easier to use.
+  // See if there is a case statement which may be used. Perhaps  2 letter signals?
   if (Serial.available() > 0) {
     // read the oldest byte in the serial buffer:
     incomingByte = Serial.read();
@@ -82,6 +90,16 @@ void loop() {
     Serial.println("Blocking green laser.");
     greenLaserAngle = 90;
     greenLaserServo.write(greenLaserAngle);
+   }
+   if (incomingByte == 'Q'){
+    Serial.println("Unblocking blue laser.");
+    blueLaserAngle = 120;
+    blueLaserServo.write(blueLaserAngle);
+   }
+   if (incomingByte == 'W'){
+    Serial.println("Blocking blue laser.");
+    blueLaserAngle = 90;
+    blueLaserServo.write(blueLaserAngle);
    }
   }
 }

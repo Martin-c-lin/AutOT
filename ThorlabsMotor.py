@@ -998,6 +998,7 @@ class XYZ_stepper_stage_motor(Thread):
             if self.c_p['new_stepper_velocity_params'][self.axis]:
                 self.c_p['new_stepper_velocity_params'][self.axis] = False
                 self.stepper_channel.StopImmediate()
+                self.is_moving = False
                 self.set_velocity_params()
 
             self.update_current_position()

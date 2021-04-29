@@ -347,7 +347,7 @@ class QD_Tracking_Thread(Thread):
         self.in_fine_position = False # Are we in the exact position of the next area?
         self.printing_height = 0
         self.z_push_direction = 'down' # which direction is the QD being pushed, up or down
-        self.lifts_made = 0 # number of intermeiate lifts which have been made to find QDs while pushing down
+        self.up_steps = 0 # number of intermeiate lifts which have been made to find QDs while pushing down
         self.setDaemon(True)
 
     def __del__(self):
@@ -376,7 +376,7 @@ class QD_Tracking_Thread(Thread):
                             subtracted, inner_filter_width=7, outer_filter_width=80,
                             particle_size_threshold=1_000, # Need to test these sizes
                             particle_upper_size_threshold=100_000,
-                            threshold=threshold, #07, # Increased sensitivity
+                            threshold=0.1, #07, # Increased sensitivity
                             edge=120,negative_particles=False, fill_holes=True,
                             check_circular=False)
 
@@ -392,7 +392,7 @@ class QD_Tracking_Thread(Thread):
                                     ) # 12 240
             elif not self.c_p['background_illumination']:
                 # we can allow ourselves to be a bit more restrictive in this case
-                x, y ,ret_img = find_particle_centers(self.c_p['image'], threshold=18, particle_size_threshold=200,
+                x, y ,ret_img = find_particle_centers(self.c_p['image'], threshold=17, particle_size_threshold=150,
                                 particle_upper_size_threshold=5000,
                                 bright_particle=True, fill_holes=False)
                 # x, y, ret_img = find_QDs(self.c_p['image'], inner_filter_width=15,
@@ -464,6 +464,7 @@ class QD_Tracking_Thread(Thread):
         # elif 0<= choice:
         #     self.c_p['stepper_target_position'][2] -= 0.0005
         #     print('Changing focus a bit')
+        # Make it move all the way to the QD it has seen.
         else:
             # Move in xy-plane
             if 2 <= choice <=3:
@@ -606,6 +607,11 @@ class QD_Tracking_Thread(Thread):
 
         return False
 
+    def reset_pushing(self):
+        # Sets the variables/parameters used when pushing to their default value
+        self.c_p['test_move_down'].set(False)
+        self.printing_height = 0
+        self.up_steps = 0
 
     def push_QD_to_glass(self, step=0.05, motor='piezo', tolerance=0.1):
 
@@ -635,28 +641,36 @@ class QD_Tracking_Thread(Thread):
 
         if self.c_p['QD_currently_trapped']:
             self.QD_unseen_counter = 0
-            if self.printing_height > self.c_p[current_position][2] + step:
+            if self.up_steps > 50: #self.printing_height > self.c_p[current_position][2] + step:
                 print('Great height already found ', self.printing_height)
-                self.c_p['test_move_down'].set(False)
-                self.printing_height = 0
+                self.reset_pushing()
                 return True
             if self.c_p[current_position][2]  > 19.8:
                 print('Error, cannot push further!')
-                self.c_p['test_move_down'].set(False)
+                self.reset_pushing()
                 return False
             self.c_p['piezo_elevation'] += step
             self.printing_height = max(self.printing_height, self.c_p[current_position][2])
             sleep(self.sleep_time)
-        # TODO move opposite direction to search for QD
+        # TODO How do we determine when to stop pushing?
+        # Make it possible to reset this function externally.
         else:
             self.QD_unseen_counter += 1
+            sleep(self.sleep_time)
+            if self.QD_unseen_counter % 10 == 0:
+                self.c_p['piezo_elevation'] -= step
+                self.up_steps += 1
+                print('Waiting for QD to catch up. Have waited for ',
+                    self.QD_unseen_counter, ' iterations')
             # look for other particle
-        if self.QD_unseen_counter >= 150 and self.QD_unseen_counter % 5 == 0:
+        if self.QD_unseen_counter >= 200:
             # WE have not seen the QD in a while, move up instead
             # TODO allow for some upwards movement. Add countere for upward moves.
-            self.c_p['piezo_elevation'] -= step
+            # self.surface_found = True
+            print('QD lost!')
+            self.reset_pushing()
+            return False
         return False
-
 
     def move_QD_to_location(self, x, y, step = 0.0003, motor='stepper',
             tolerance=None):
@@ -741,10 +755,11 @@ class QD_Tracking_Thread(Thread):
             # therefore the cunter is used
             self.QD_unseen_counter += 1
             # look for other particle
-            if self.QD_unseen_counter > 20:
+            if self.QD_unseen_counter > 40:
                 # TODO consider moving the automatic looking for quantum dots outside this function
                 self.c_p['piezo_current_position'][2] = self.qd_search_height
                 self.look_for_quantum_dot(x, y)
+            # TODO find a better way of dealing with losing a QD. That is move back to get it
             return None
 
     def stick_quantum_dot(self):

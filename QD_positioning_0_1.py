@@ -483,10 +483,12 @@ class UserInterface:
             c_p['piezo_move_to_target'] = [True, True, False]
 
     def toggle_polymerization_LED(self):
-        if c_p['polymerization_LED'] == 'L':
-            c_p['polymerization_LED'] = 'H'
+        if c_p['polymerization_LED_status'] == 'OFF':
+            c_p['polymerization_LED'] = 'Q'
+            c_p['polymerization_LED_status'] = 'ON'
         else:
-            c_p['polymerization_LED'] = 'L'
+            c_p['polymerization_LED'] = 'W'
+            c_p['polymerization_LED_status'] = 'OFF'
 
     def connect_disconnect_motorX(self):
         global c_p
@@ -523,7 +525,7 @@ class UserInterface:
 
     def timed_polymerization(self):
         global c_p
-        c_p['polymerization_LED'] = 'T'
+        c_p['polymerization_LED'] = 'E'
 
     def add_stepper_buttons(self, top, generator_y, position_x):
         c_p['stepper_activated'] = tkinter.BooleanVar()
@@ -791,7 +793,7 @@ class UserInterface:
             command=toggle_bright_particle)
 
         self.exposure_entry = tkinter.Entry(top, bd=5)
-        #TODO Replace with a c_p parameter only 
+        #TODO Replace with a c_p parameter only
         self.tracking_toggled = tkinter.BooleanVar()
         self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
                 variable=self.tracking_toggled, onvalue=True, offvalue=False)
@@ -1302,7 +1304,7 @@ def compensate_focus_xy_move(c_p):
         if 0 < zt < 20:
             c_p['piezo_target_position'][2] = zt
             #return
-        elif zt < 0:
+        elif zt <= 0:
             c_p['piezo_target_position'][2] = 0
         else:
             c_p['piezo_target_position'][2] = 20
@@ -2292,12 +2294,12 @@ experiment_schedule = [
 c_p['experiment_schedule'] = experiment_schedule
 append_c_p(c_p, get_thread_activation_parameters())
 
-c_p['stage_stepper_x'] = True
-c_p['stage_stepper_y'] = True
-c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
+# c_p['stage_stepper_x'] = True
+# c_p['stage_stepper_y'] = True
+# c_p['stage_stepper_z'] = True
+# c_p['stage_piezo_x'] = True
+# c_p['stage_piezo_y'] = True
+# c_p['stage_piezo_z'] = True
 c_p['QD_tracking'] = True
 c_p['arduino_LED'] = True
 

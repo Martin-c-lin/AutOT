@@ -43,7 +43,7 @@ def set_default_exposure(c_p):
     elif c_p['green_laser'] and not c_p['background_illumination']:
         c_p['exposure_time'] = 27000
     elif not c_p['green_laser'] and not c_p['background_illumination']:
-        c_p['exposure_time'] = 120000
+        c_p['exposure_time'] = 160000
 
     c_p['new_settings_camera'] = True
 
@@ -87,7 +87,7 @@ class ArduinoLEDControlThread(Thread):
                     self.c_p['polymerization_LED'] = 'L'
             time.sleep(self.sleep_time)
         # Turn off blue LED and block the red before exiting.
-        self.ArduinoUnoSerial.write(b'L')
+        self.ArduinoUnoSerial.write(b'W')
         time.sleep(self.sleep_time)
         self.ArduinoUnoSerial.write(b'C')
         time.sleep(self.sleep_time)
