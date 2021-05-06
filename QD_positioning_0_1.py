@@ -995,7 +995,7 @@ class UserInterface:
             self.recording_button.config(text='Turn on recording', bg='red')
 
         if c_p['arduino_LED']:
-            if c_p['polymerization_LED'] == 'H':
+            if c_p['polymerization_LED_status'] == 'ON':
                 self.arduino_LED_button.config(bg='green')
             else:
                 self.arduino_LED_button.config(bg='red')
@@ -1301,13 +1301,13 @@ def compensate_focus_xy_move(c_p):
     if c_p['stage_piezos']:
         z0 = c_p['piezo_starting_position'][2]
         zt = z0 + c_p['piezo_elevation'] # + dz/1000
-        if 0 < zt < 20:
+        if 0.1 < zt < 19.9:
             c_p['piezo_target_position'][2] = zt
             #return
         elif zt <= 0:
-            c_p['piezo_target_position'][2] = 0
+            c_p['piezo_target_position'][2] = 0.1
         else:
-            c_p['piezo_target_position'][2] = 20
+            c_p['piezo_target_position'][2] = 19.9
 
     z0 = c_p['stepper_starting_position'][2]
     target_pos = z0 + dz + c_p['stepper_elevation']
@@ -2294,9 +2294,9 @@ experiment_schedule = [
 c_p['experiment_schedule'] = experiment_schedule
 append_c_p(c_p, get_thread_activation_parameters())
 
-# c_p['stage_stepper_x'] = True
-# c_p['stage_stepper_y'] = True
-# c_p['stage_stepper_z'] = True
+c_p['stage_stepper_x'] = True
+c_p['stage_stepper_y'] = True
+c_p['stage_stepper_z'] = True
 # c_p['stage_piezo_x'] = True
 # c_p['stage_piezo_y'] = True
 # c_p['stage_piezo_z'] = True

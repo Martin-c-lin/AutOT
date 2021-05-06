@@ -76,7 +76,7 @@ void loop() {
 
       case 'O':
         Serial.println("Opening the shutter.");
-        angle = 180; // TODO replace with better name
+        angle = 140; // TODO replace with better name
         myServo.write(angle);
         break;
 

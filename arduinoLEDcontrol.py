@@ -79,6 +79,9 @@ class ArduinoLEDControlThread(Thread):
                         self.c_p['polymerization_time'] = int(self.c_p['polymerization_LED'][1:])
                     except:
                         print('Incorrect message')
+                if self.last_write == 'T':
+                    self.c_p['polymerization_LED_status'] = 'ON'
+
                 message = self.last_write.encode('utf-8')
                 self.ArduinoUnoSerial.write(message)
 
