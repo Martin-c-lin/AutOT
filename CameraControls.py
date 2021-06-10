@@ -29,7 +29,7 @@ def get_camera_c_p():
         # Needed for not
     }
     if camera_c_p['camera_model'] == 'basler_large':
-        camera_c_p['mmToPixel'] = 37_100#37_700  # 33_000
+        camera_c_p['mmToPixel'] = 37_700 # Made a control measurement and found it to be 37.7
     else:
         camera_c_p['mmToPixel'] = 17736/0.7 if camera_c_p['camera_model'] == 'thorlabs' else 16140/0.7
     camera_c_p['slm_to_pixel'] = 5_000_000 if camera_c_p['camera_model'] == 'basler_fast' else 4_550_000

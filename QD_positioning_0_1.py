@@ -953,10 +953,11 @@ class UserInterface:
             position_text += 'Piezo y: ' + str(c_p['piezo_current_position'][1]) + '\n'
             position_text += 'Piezo z: ' + str(c_p['piezo_current_position'][2]) + '\n'
 
-        position_text += '\n Experiments run ' + str(c_p['experiment_progress'])
-        position_text += ' out of ' + str(c_p['nbr_experiments'])
-        position_text += '  ' + str(c_p['experiment_runtime']) + 's run out of ' + str(c_p['recording_duration'])
-        position_text += '\n Current search direction is: ' + str(c_p['search_direction'] + '\n')
+        if c_p['tracking']:
+            position_text += '\n Experiments run ' + str(c_p['experiment_progress'])
+            position_text += ' out of ' + str(c_p['nbr_experiments'])
+            position_text += '  ' + str(c_p['experiment_runtime']) + 's run out of ' + str(c_p['recording_duration'])
+            position_text += '\n Current search direction is: ' + str(c_p['search_direction'] + '\n')
 
         return position_text
 
@@ -2294,9 +2295,9 @@ experiment_schedule = [
 c_p['experiment_schedule'] = experiment_schedule
 append_c_p(c_p, get_thread_activation_parameters())
 
-c_p['stage_stepper_x'] = True
-c_p['stage_stepper_y'] = True
-c_p['stage_stepper_z'] = True
+# c_p['stage_stepper_x'] = True
+# c_p['stage_stepper_y'] = True
+# c_p['stage_stepper_z'] = True
 # c_p['stage_piezo_x'] = True
 # c_p['stage_piezo_y'] = True
 # c_p['stage_piezo_z'] = True

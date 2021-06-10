@@ -84,6 +84,14 @@ outer_mask = create_circular_mask_inverse(image_shape[0], image_shape[1], s,
 # TODO make the mask and outer mask FFT-shifted so we don't need to do that
 # withe the for each image. Combine into a single mask
 
+def autoset_laser_position(c_p):
+    '''
+    Function for calculating the exact position of the laser once a QD (or set of QDs)
+    have been trapped.
+    '''
+    # This is a bit tricky since it requires one to take multiple images and
+    # process these to get an average
+
 def fourier_filter(image, inner_filter_width=20, outer_filter_width=100):
     '''
     Function which filters outs the low frequency componentes of a image.
@@ -667,9 +675,9 @@ class QD_Tracking_Thread(Thread):
             self.QD_unseen_counter += 1
             # look for other particle
             if self.QD_unseen_counter > 30:
-                # TODO test if this works,
+                # TODO test if this works, - it does not
                 # find a better way of dealing with losing a QD. That is move back to get it
-                self.c_p[target_position] = self.last_trapped_pos
+                #self.c_p[target_position][0:1] = self.last_trapped_pos
                 print('Moved to previous position')
             if self.QD_unseen_counter > 40:
                 self.c_p['piezo_current_position'][2] = self.qd_search_height
@@ -1039,7 +1047,7 @@ class QD_Tracking_Thread(Thread):
                             self.c_p['move_QDs'].set(False)
                     # Test the pushing function.
                     if self.c_p['test_move_down'].get():
-                        self.push_QD_to_glass(motor='stepper', step=1e-4)
+                        self.push_QD_to_glass(motor='stepper', step=6e-5)
 
             elif self.c_p['generate_training_data'].get():
                 # TODO handle z position
