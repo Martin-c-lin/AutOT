@@ -19,6 +19,7 @@ from functools import partial
 from datetime import datetime
 from cv2 import VideoWriter, VideoWriter_fourcc
 from tkinter import *  # TODO Should avoid this type of import statements.
+from tkinter import simpledialog
 import PIL.Image, PIL.ImageTk
 from pypylon import pylon
 
@@ -170,7 +171,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_stepper_x'] or c_p['stage_stepper_y'] or c_p['stage_stepper_z']:
         c_p['using_stepper_motors'] = True
         append_c_p(c_p, TM.get_default_stepper_c_p())
-        controller_device_stepper = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
+        self.controller_device_stepper = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
         # self.stepper_activated = tkinter.BooleanVar()
         # self.stepper_activated.set(True)
     else:
@@ -179,7 +180,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_stepper_x']:
         try:
             thread_stepper_x = TM.XYZ_stepper_stage_motor(11, 'stepper_X',1,0,
-            c_p, controller_device=controller_device_stepper)
+            c_p, controller_device=self.controller_device_stepper)
             thread_stepper_x.start()
             thread_list.append(thread_stepper_x)
         except:
@@ -188,7 +189,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_stepper_y']:
         try:
             thread_stepper_y = TM.XYZ_stepper_stage_motor(12, 'stepper_Y',2,1,
-            c_p, controller_device=controller_device_stepper)
+            c_p, controller_device=self.controller_device_stepper)
             thread_stepper_y.start()
             thread_list.append(thread_stepper_y)
         except:
@@ -197,7 +198,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_stepper_z']:
         try:
             thread_stepper_z = TM.XYZ_stepper_stage_motor(13, 'stepper_Z',3,2,
-            c_p, controller_device=controller_device_stepper)
+            c_p, controller_device=self.controller_device_stepper)
             thread_stepper_z.start()
             thread_list.append(thread_stepper_z)
             c_p['stepper_elevation'] = 0
@@ -535,11 +536,15 @@ class UserInterface:
         self.place_motor_speed_scale(top, x=position_x, y=generator_y.__next__())
         c_p['stepper_activated'].set(True)
 
+    def connect_stepper_motors(self):
+        """
+        Function for connecting/disconnecting stepper motors.
+        """
+
+
     def z_control_buttons(self, top, y_position, x_position):
-        # self.save_z_button = tkinter.Button(
-        #     top, text='Save z pos', command=self.save_starting_position)
+
         y_pos = y_position.__next__()
-        # self.save_z_button.place(x=x_position, y=y_pos)
 
         self.to_focus_button = tkinter.Button(
             top, text='To focus', command=self.to_focus)
@@ -615,8 +620,14 @@ class UserInterface:
         self.polymerization_label.place(x=x-0, y=y-15)
         self.polymerization_scale.place(x=x, y=y)
 
-    def set_exposure(self):
-        entry = self.exposure_entry.get()
+    def set_exposure(self, entry=None):
+        """
+        Sets the exposure time of the camera to the value specified in entry
+        """
+        if entry is None:
+            print('No exposure time supplied')
+            return
+
         if c_p['camera_model'] == 'basler_large' or 'basler_fast':
             try:
                 exposure_time = int(entry)
@@ -628,7 +639,6 @@ class UserInterface:
                     print('Exposure time out of bounds!')
             except:
                 print('Cannot convert entry to integer')
-            self.exposure_entry.delete(0, last=5000)
         elif c_p['camera_model'] == 'ThorlabsCam':
             try:
                 exposure_time = float(entry)
@@ -640,7 +650,6 @@ class UserInterface:
                     print('Exposure time out of bounds!')
             except:
                 print('Cannot convert entry to integer')
-            self.exposure_entry.delete(0, last=5000)
 
     def set_temperature(self):
         entry = self.temperature_entry.get()
@@ -744,6 +753,11 @@ class UserInterface:
         # TODO have all these toggle functions as lambda functions
         self.c_p['bg_removal'] = not self.c_p['bg_removal']
 
+    def set_exposure_dialog(self):
+        user_input = simpledialog.askstring("Exposure time dialog",
+        " Set exposure time (microseconds) ")
+        self.set_exposure(user_input)
+
     def create_control_menu1(self):
         # self.control_menu.add_command(label="Set stepper speed", command=)
         # TODO Add sliders for exposure time and zoom level.Toggle laser indicators
@@ -761,6 +775,7 @@ class UserInterface:
         self.camera_menu.add_command(label="Snapshot", command=snapshot)
         self.camera_menu.add_command(label="Save bg", command=self.save_background)
         self.camera_menu.add_command(label="Toggle bg removal", command=self.toggle_bg_removal)
+        self.camera_menu.add_command(label="Exposure time", command=self.set_exposure_dialog)
 
         self.menubar.add_cascade(label="Camera control", menu=self.camera_menu)
 
@@ -792,7 +807,6 @@ class UserInterface:
             top, text='Toggle particle brightness',
             command=toggle_bright_particle)
 
-        self.exposure_entry = tkinter.Entry(top, bd=5)
         #TODO Replace with a c_p parameter only
         self.tracking_toggled = tkinter.BooleanVar()
         self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
@@ -803,8 +817,6 @@ class UserInterface:
         temperature_output_button = tkinter.Button(top,
             text='toggle temperature output', command=toggle_temperature_output)
 
-        set_exposure_button = tkinter.Button(top, text='Set exposure',
-            command=self.set_exposure)
 
         experiment_schedule_button = tkinter.Button(top,
             text='Select experiment schedule',
@@ -846,8 +858,6 @@ class UserInterface:
         self.laser_position_button.place(x=x_position, y=y_position.__next__())
 
         # Second column
-        self.exposure_entry.place(x=x_position_2, y=y_position_2.__next__())
-        set_exposure_button.place(x=x_position_2, y=y_position_2.__next__())
         experiment_schedule_button.place(x=x_position_2, y=y_position_2.__next__())
         self.diplay_laser_button.place(x=x_position_2, y=y_position_2.__next__())
 
@@ -2295,9 +2305,9 @@ experiment_schedule = [
 c_p['experiment_schedule'] = experiment_schedule
 append_c_p(c_p, get_thread_activation_parameters())
 
-# c_p['stage_stepper_x'] = True
-# c_p['stage_stepper_y'] = True
-# c_p['stage_stepper_z'] = True
+c_p['stage_stepper_x'] = True
+c_p['stage_stepper_y'] = True
+c_p['stage_stepper_z'] = True
 # c_p['stage_piezo_x'] = True
 # c_p['stage_piezo_y'] = True
 # c_p['stage_piezo_z'] = True
