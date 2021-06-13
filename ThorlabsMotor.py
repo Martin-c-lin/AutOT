@@ -740,6 +740,8 @@ def get_default_piezo_c_p():
         'stage_piezo_connected': [False, False, False],
         'running': True,
         'piezo_move_to_target': [False, False, False],
+        'connect_piezos': False,
+        'piezo_controller': None, # TODO finish implementation so that Piezos could be disconnected on the fly.
     }
     return piezo_c_p
 
@@ -765,21 +767,26 @@ class XYZ_piezo_stage_motor(Thread):
         self.sleep_time = sleep_time
         self.target_key = target_key
         self.step = step
-        if controller_device is None:
-            controller_device = ConnectBenchtopPiezoController(serialNo)
-        self.controller_device = controller_device
-        self.piezo_channel = ConnectPiezoStageChannel(controller_device, channel)
-        self.update_current_position()
-        self.c_p['piezo_starting_position'][self.axis] = self.c_p['piezo_current_position'][self.axis]#self.piezo_channel.GetPosition()
-        self.c_p['stage_piezo_connected'][self.axis] = True
-        print(self.c_p['piezo_starting_position'][self.axis])
+        self.piezo_channel = None
+
+    def connect_piezo_channel(self):
+        try:
+            print('Connecting channel', self.channel)
+            self.piezo_channel = ConnectPiezoStageChannel(self.c_p['piezo_controller'], self.channel)
+            print('Piezo channel connected')
+        except:
+            # Error probably due to controller not being connected.
+            pass
 
     def update_current_position(self):
-        tmp = str(self.piezo_channel.GetPosition())
-        self.c_p['piezo_current_position'][self.axis] = float(tmp.replace(',', '.'))
+        if self.piezo_channel.IsConnected:
+            tmp = str(self.piezo_channel.GetPosition())
+            self.c_p['piezo_current_position'][self.axis] = float(tmp.replace(',', '.'))
 
     def update_position(self):
         # Update c_p position
+        if not self.piezo_channel.IsConnected:
+            return
         self.update_current_position()
         if 0 <= self.c_p['piezo_target_position'][self.axis] <= 20:
             d = self.c_p['piezo_target_position'][self.axis] - self.c_p['piezo_current_position'][self.axis]
@@ -789,9 +796,6 @@ class XYZ_piezo_stage_motor(Thread):
                 else:
                     next_pos = self.c_p['piezo_current_position'][self.axis] + self.step#min(, d)
                 self.piezo_channel.SetPosition(Decimal(next_pos))
-            # elif np.abs(d) > 0.05: # Don't want to make too many moves
-            #     self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
-
             # TODO fix so that channel 2(z) behaves
             if self.axis == 2:
                 self.piezo_channel.SetPosition(Decimal(self.c_p['piezo_target_position'][self.axis]))
@@ -806,21 +810,28 @@ class XYZ_piezo_stage_motor(Thread):
         sleep(self.sleep_time)
         # TODO test change made to prevent excess moves
         while self.c_p['program_running']:
+            if self.piezo_channel is not None and self.piezo_channel.IsConnected:
 
-            # Check if we should move the piezo to a specific location.
-            if self.c_p['piezo_move_to_target'][self.axis]:
-                index = self.c_p['QDs_placed'] if self.axis < 2 else 0
-                d =  self.c_p['piezo_current_position'][self.axis] - self.c_p[self.target_key][index]
+                # Check if we should move the piezo to a specific location.
+                if self.c_p['piezo_move_to_target'][self.axis]:
+                    index = self.c_p['QDs_placed'] if self.axis < 2 else 0
+                    d =  self.c_p['piezo_current_position'][self.axis] - self.c_p[self.target_key][index]
 
-                # Don't make really small moves
-                if d < -0.05:
-                    self.c_p['piezo_target_position'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-self.step, d)
-                elif d > 0.05:
-                    self.c_p['piezo_target_position'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(self.step, d)
-                # if np.abs(d) < 0.05:
-                #     self.c_p['piezo_move_to_target'][self.axis] = False
+                    # Don't make really small moves
+                    if d < -0.05:
+                        self.c_p['piezo_target_position'][self.axis] = self.c_p['piezo_current_position'][self.axis] - max(-self.step, d)
+                    elif d > 0.05:
+                        self.c_p['piezo_target_position'][self.axis] = self.c_p['piezo_current_position'][self.axis] - min(self.step, d)
+                    # if np.abs(d) < 0.05:
+                    #     self.c_p['piezo_move_to_target'][self.axis] = False
 
-            self.update_position()
+                self.update_position()
+            elif self.c_p['connect_piezos']:
+                self.connect_piezo_channel()
+                if self.piezo_channel is not None and self.piezo_channel.IsConnected:
+                    self.update_current_position()
+                    self.c_p['piezo_starting_position'][self.axis] = self.c_p['piezo_current_position'][self.axis]#self.piezo_channel.GetPosition()
+                    self.c_p['stage_piezo_connected'][self.axis] = True
             sleep(self.sleep_time)
 
     # Had trouble with piezos not reconnecting after restartng program.
@@ -906,6 +917,9 @@ def get_default_stepper_c_p():
         'stepper_acc': [0.005, 0.005, 0.005],
         'new_stepper_velocity_params': [False, False, False],
         'tilt': [0, 0], # How much the stage is tilting in x and y direction
+        'connect_steppers': False, # Should steppers be connected?
+        'steppers_connected': [False, False, False], # Are the steppers connected?
+        'stepper_controller': None,
     }
     return stepper_c_p
 
@@ -927,13 +941,15 @@ class XYZ_stepper_stage_motor(Thread):
         self.step = step
         self.is_moving = False
         self.move_direction = 1
-        if controller_device is None:
-            controller_device = ConnectBenchtopStepperController(serialNo)
-        self.controller_device = controller_device
-        self.stepper_channel = ConnectBenchtopStepperChannel(controller_device, channel)
-        self.c_p['stepper_starting_position'][self.axis] = self.update_current_position()
-        self.c_p['stepper_target_position'][self.axis] =  self.c_p['stepper_starting_position'][self.axis]
-        self.c_p['stage_stepper_connected'][self.axis] = True
+        self.stepper_channel = None
+
+    def connect_channel(self):
+        try:
+            self.stepper_channel = ConnectBenchtopStepperChannel(
+                self.c_p['stepper_controller'], self.channel)
+        except:
+            pass
+            #print('Error connecting motor')
 
     def update_current_position(self):
         decimal_pos = self.stepper_channel.Position
@@ -991,43 +1007,56 @@ class XYZ_stepper_stage_motor(Thread):
             print('Could not set velocity params.')
 
     def run(self):
-        self.set_jog_velocity_params()
-        self.set_velocity_params()
-        self.move_absolute()
+
         while self.c_p['program_running']:
-            if self.c_p['new_stepper_velocity_params'][self.axis]:
-                self.c_p['new_stepper_velocity_params'][self.axis] = False
-                self.stepper_channel.StopImmediate()
-                self.is_moving = False
-                self.set_velocity_params()
+            if self.stepper_channel is not None and self.stepper_channel.IsConnected:
+                if self.c_p['new_stepper_velocity_params'][self.axis]:
+                    self.c_p['new_stepper_velocity_params'][self.axis] = False
+                    self.stepper_channel.StopImmediate()
+                    self.is_moving = False
+                    self.set_velocity_params()
 
-            self.update_current_position()
-            jog_distance = self.get_jog_distance()
-            move_dir = 1 if np.sign(jog_distance) > 0 else 2
+                self.update_current_position()
+                jog_distance = self.get_jog_distance()
+                move_dir = 1 if np.sign(jog_distance) > 0 else 2
 
-            if move_dir != self.move_direction:
-                self.stepper_channel.StopImmediate()
-                self.is_moving = False
-                self.move_direction = move_dir
+                if move_dir != self.move_direction:
+                    self.stepper_channel.StopImmediate()
+                    self.is_moving = False
+                    self.move_direction = move_dir
 
-            if not self.is_moving and np.abs(jog_distance) >= self.step:
-                self.stepper_channel.MoveContinuous(self.move_direction)
-                self.is_moving = True
+                if not self.is_moving and np.abs(jog_distance) >= self.step:
+                    self.stepper_channel.MoveContinuous(self.move_direction)
+                    self.is_moving = True
 
-            elif np.abs(jog_distance) <= self.step:
-                self.stepper_channel.StopImmediate()
-                self.is_moving = False
+                elif np.abs(jog_distance) <= self.step:
+                    self.stepper_channel.StopImmediate()
+                    self.is_moving = False
+            elif self.c_p['connect_steppers']:
+                self.connect_channel()
+                if self.stepper_channel is not None and self.stepper_channel.IsConnected:
+                    self.c_p['stepper_starting_position'][self.axis] = self.update_current_position()
+                    self.c_p['stepper_target_position'][self.axis] =  self.c_p['stepper_starting_position'][self.axis]
+                    self.c_p['stage_stepper_connected'][self.axis] = True
+                    self.set_jog_velocity_params()
+                    self.set_velocity_params()
+                    self.move_absolute()
             sleep(self.sleep_time)
+            if self.stepper_channel is not None:
+                self.c_p['steppers_connected'][self.axis] = self.stepper_channel.IsConnected
+
+        # Program is terminating. Stop the motor
         try:
             self.stepper_channel.StopImmediate()
         except:
             pass
+
         self.__del__()
 
     def __del__(self):
         try:
             self.stepper_channel.StopImmediate()
+            self.stepper_channel.StopPolling()
+            self.stepper_channel.Disconnect()
         except:
             print('Could not stop')
-        self.stepper_channel.StopPolling()
-        self.stepper_channel.Disconnect()

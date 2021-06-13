@@ -19,7 +19,7 @@ from functools import partial
 from datetime import datetime
 from cv2 import VideoWriter, VideoWriter_fourcc
 from tkinter import *  # TODO Should avoid this type of import statements.
-from tkinter import simpledialog
+from tkinter import simpledialog, ttk
 import PIL.Image, PIL.ImageTk
 from pypylon import pylon
 
@@ -125,14 +125,15 @@ def start_threads(c_p, thread_list):
     if c_p['stage_piezo_x'] or c_p['stage_piezo_y'] or c_p['stage_piezo_z']:
         c_p['stage_piezos'] = True
         append_c_p(c_p, TM.get_default_piezo_c_p())
-        controller_device_piezo = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
-        #self.controller_device_piezo = controller_device_piezo
+        try:
+            c_p['piezo_controller'] = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
+        except:
+            print('Could not connect piezo controller')
 
     if c_p['stage_piezo_x']:
         # OBS assumes that the x-motor is connected to channel 1
         try:
             thread_piezo_x = TM.XYZ_piezo_stage_motor(8, 'piezo_x', 1,0, c_p,
-                controller_device=controller_device_piezo,
                 target_key='QD_target_loc_x')
             thread_piezo_x.start()
             thread_list.append(thread_piezo_x)
@@ -145,7 +146,6 @@ def start_threads(c_p, thread_list):
         # OBS assumes that the y-motor is connected to channel 2
         try:
             thread_piezo_y = TM.XYZ_piezo_stage_motor(9, 'piezo_y', 2,1, c_p,
-                controller_device=controller_device_piezo,
                 target_key='QD_target_loc_y')
             thread_piezo_y.start()
             thread_list.append(thread_piezo_y)
@@ -157,7 +157,6 @@ def start_threads(c_p, thread_list):
         # OBS assumes that the z-motor is connected to channel 3
         try:
             thread_piezo_z = TM.XYZ_piezo_stage_motor(10, 'piezo_z', 3,2, c_p,
-                controller_device=controller_device_piezo,
                 target_key='QD_target_loc_z', step=1)
             thread_piezo_z.start()
             thread_list.append(thread_piezo_z)
@@ -168,19 +167,21 @@ def start_threads(c_p, thread_list):
 
     # If there is any stepper motor to connect, then add necessary c_p and
     # connect benchtop controller.
+    # TODO: Don't really need the stage_stepper... parameters any more
     if c_p['stage_stepper_x'] or c_p['stage_stepper_y'] or c_p['stage_stepper_z']:
         c_p['using_stepper_motors'] = True
         append_c_p(c_p, TM.get_default_stepper_c_p())
-        self.controller_device_stepper = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
-        # self.stepper_activated = tkinter.BooleanVar()
-        # self.stepper_activated.set(True)
+        try:
+            c_p['stepper_controller'] = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
+        except:
+            print('Could not connect stepper controller.')
     else:
         c_p['using_stepper_motors'] = False
 
     if c_p['stage_stepper_x']:
         try:
             thread_stepper_x = TM.XYZ_stepper_stage_motor(11, 'stepper_X',1,0,
-            c_p, controller_device=self.controller_device_stepper)
+            c_p, controller_device=c_p['stepper_controller'])
             thread_stepper_x.start()
             thread_list.append(thread_stepper_x)
         except:
@@ -189,7 +190,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_stepper_y']:
         try:
             thread_stepper_y = TM.XYZ_stepper_stage_motor(12, 'stepper_Y',2,1,
-            c_p, controller_device=self.controller_device_stepper)
+            c_p, controller_device=c_p['stepper_controller'])
             thread_stepper_y.start()
             thread_list.append(thread_stepper_y)
         except:
@@ -198,7 +199,7 @@ def start_threads(c_p, thread_list):
     if c_p['stage_stepper_z']:
         try:
             thread_stepper_z = TM.XYZ_stepper_stage_motor(13, 'stepper_Z',3,2,
-            c_p, controller_device=self.controller_device_stepper)
+            c_p, controller_device=c_p['stepper_controller'])
             thread_stepper_z.start()
             thread_list.append(thread_stepper_z)
             c_p['stepper_elevation'] = 0
@@ -540,7 +541,41 @@ class UserInterface:
         """
         Function for connecting/disconnecting stepper motors.
         """
+        c_p['connect_steppers'] = not c_p['connect_steppers']
 
+        if not c_p['connect_steppers']:
+            #TODO: This should be executed async
+            try:
+                c_p['stepper_controller'].Disconnect()
+            except:
+                print('Steppers already disconnected')
+            c_p['steppers_connected'] = [False, False, False]
+        else:
+            try:
+                c_p['stepper_controller'] = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
+            except:
+                pass
+            c_p['connect_steppers'] = c_p['stepper_controller'].IsConnected
+
+    def connect_stage_piezos(self):
+        """
+        Function for connecting/disconnecing piezos
+        """
+        c_p['connect_piezos'] = not c_p['connect_piezos']
+
+        if not c_p['connect_piezos']:
+            try:
+                c_p['piezo_controller'].Disconnect()
+            except:
+                print('Piezo controller not connected')
+            c_p['stage_piezo_connected'] = [False,False,False]
+        else:
+            try:
+                c_p['piezo_controller'] = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
+            except:
+                print('Error connecting piezo controller')
+                pass
+            c_p['connect_piezos'] = c_p['piezo_controller'].IsConnected
 
     def z_control_buttons(self, top, y_position, x_position):
 
@@ -599,7 +634,7 @@ class UserInterface:
     def place_motor_speed_scale(self, top, x, y):
 
         self.motor_scale = tkinter.Scale(top, command=self.motor_scale_command,
-        orient=HORIZONTAL, from_=0.5, to=50, resolution=0.5)
+        orient=HORIZONTAL, from_=0.5, to=50, resolution=0.5, length=200)
         self.motor_speed_label = Label(self.window, text="Stepper speed [microns/s]")
         self.motor_speed_label.place(x=x-10, y=y-15)
         self.motor_scale.place(x=x, y=y)
@@ -736,13 +771,6 @@ class UserInterface:
             variable=c_p['test_move_down'], onvalue=True, offvalue=False)
         self.move_down_button.place(x=x_position, y=y_position.__next__())
 
-    def open_exposure_window(self):
-        print('Opening exposure control window')
-        # dialog_box = tkinter.Toplevel(self.window)
-        # confirm_button = tkinter.Button(dialog_box)
-        #entry =
-        #
-
     def save_background(self):
         # Saves an image to be used as background when subtracting bg
 
@@ -768,6 +796,9 @@ class UserInterface:
             pass
         self.control_menu.add_command(label="Save position", command=self.save_starting_position)
         self.control_menu.add_command(label="Exit program", command=self.window.quit)
+        self.control_menu.add_command(label='Connect/disconnect steppers', command=self.connect_stepper_motors)
+        self.control_menu.add_command(label='Connect/disconnect piezos', command=self.connect_stage_piezos)
+        self.control_menu.add_command(label='Select experiment schedule', command=self.read_experiment_dictionary)
         self.control_menu.add_separator()
         self.menubar.add_cascade(label="Basic controls", menu=self.control_menu)
 
@@ -818,10 +849,10 @@ class UserInterface:
             text='toggle temperature output', command=toggle_temperature_output)
 
 
-        experiment_schedule_button = tkinter.Button(top,
-            text='Select experiment schedule',
-            command=self.read_experiment_dictionary
-            )
+        # experiment_schedule_button = tkinter.Button(top,
+        #     text='Select experiment schedule',
+        #     command=self.read_experiment_dictionary
+        #     )
         self.display_laser = tkinter.BooleanVar()
         self.diplay_laser_button = tkinter.Checkbutton(top, text='Laser indicator',\
         variable=self.display_laser, onvalue=True, offvalue=False)
@@ -857,8 +888,11 @@ class UserInterface:
             variable=self.set_laser_position, onvalue=True, offvalue=False)
         self.laser_position_button.place(x=x_position, y=y_position.__next__())
 
+        # Add column separator
+        self.columnn_separator = ttk.Separator(top, orient='vertical')
+        self.columnn_separator.place(x=x_position_2-10,y=0, width=5, height=self.canvas_height-200)
         # Second column
-        experiment_schedule_button.place(x=x_position_2, y=y_position_2.__next__())
+        # experiment_schedule_button.place(x=x_position_2, y=y_position_2.__next__())
         self.diplay_laser_button.place(x=x_position_2, y=y_position_2.__next__())
 
         # Motor buttons. Attributes of UserInterface class os we can easily change
@@ -2308,9 +2342,9 @@ append_c_p(c_p, get_thread_activation_parameters())
 c_p['stage_stepper_x'] = True
 c_p['stage_stepper_y'] = True
 c_p['stage_stepper_z'] = True
-# c_p['stage_piezo_x'] = True
-# c_p['stage_piezo_y'] = True
-# c_p['stage_piezo_z'] = True
+c_p['stage_piezo_x'] = True
+c_p['stage_piezo_y'] = True
+c_p['stage_piezo_z'] = True
 c_p['QD_tracking'] = True
 c_p['arduino_LED'] = True
 
