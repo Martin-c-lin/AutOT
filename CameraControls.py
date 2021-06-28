@@ -26,6 +26,10 @@ def get_camera_c_p():
         'zoomed_in': False,  # Keeps track of whether the image is cropped or
         'camera_model': 'basler_large',  # basler_fast, thorlabs are options
         'camera_orientatation': 'down',  # direction camera is mounted in.
+        'camera_width':3600,
+        'camera_height':3008,
+        'default_offset_x':1000, # Used to center the camera on the sample
+        'default_offset_y':0,
         # Needed for not
     }
     if camera_c_p['camera_model'] == 'basler_large':
@@ -212,10 +216,10 @@ class CameraThread(threading.Thread):
             self.video_height = height
             self.cam.OffsetX = 0
             self.cam.Width = width
-            self.cam.OffsetX = 1000 + offset_x
+            self.cam.OffsetX = c_p['default_offset_x'] + offset_x
             self.cam.OffsetY = 0
             self.cam.Height = height
-            self.cam.OffsetY = offset_y
+            self.cam.OffsetY = c_p['default_offset_y'] + offset_y
             print('Offsets: ', offset_x, offset_y)
 
         except Exception as e:
@@ -279,8 +283,10 @@ class CameraThread(threading.Thread):
                     h = c_p['AOI'][3] - c_p['AOI'][2]
                     if w == self.video_width and h == self.video_height:
                         self.update_basler_exposure()
+                        self.set_basler_AOI() # TODO test if this works, zoom in and change laser position
+
                         c_p['new_settings_camera'] = False
-                        print('Exposure updated,',h,w,self.video_width,self.video_height)
+                        print('Exposure updated')
             self.cam.StopGrabbing()
 
             # Close the livefeed and calculate the fps of the captures

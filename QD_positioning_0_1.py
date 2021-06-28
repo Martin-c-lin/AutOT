@@ -20,6 +20,7 @@ from datetime import datetime
 from cv2 import VideoWriter, VideoWriter_fourcc
 from tkinter import *  # TODO Should avoid this type of import statements.
 from tkinter import simpledialog, ttk
+from tkinter.messagebox import showinfo
 import PIL.Image, PIL.ImageTk
 from pypylon import pylon
 
@@ -292,7 +293,7 @@ class UserInterface:
         # Computer cannot handle to have menus as well. Make program really slow
         self.menubar = tkinter.Menu(self.window)
         self.control_menu = tkinter.Menu(self.menubar)
-        self.create_control_menu1()
+        self.create_control_menus()
         self.window.config(menu=self.menubar)
         self.update()
         self.window.mainloop()
@@ -419,6 +420,8 @@ class UserInterface:
                 self.set_laser_position.set(False)
             else:
                 self.mouse_set_laser_position()
+                # TODO test if the camera settings update works
+                c_p['new_settings_camera'] = True
 
     def reset_printing_parameters(self):
         c_p['Anchor_placed'] = False
@@ -645,6 +648,65 @@ class UserInterface:
         global c_p
         c_p['polymerization_LED'] = 'S ' + str(value)
 
+    def x_zoom_command(self, value):
+        """
+        Changes the AOI of the camera so that it is of width value centerd at
+        the current laser position.
+        """
+        try:
+            width = int(value)
+        except:
+            print('Massive error! Cannot convert x-zoom value')
+            return
+
+        #top = int(max(c_p['traps_absolute_pos'][0][0]-edge, 0))
+        #bottom = int(min(c_p['traps_absolute_pos'][0][0]+edge, np.shape(image)[0]))
+
+
+        # Calcualte where the right and left position of the AOI is.
+        # Needs to be divisble with 16 to be accepted by camera
+        tmp = int(c_p['traps_absolute_pos'][1][0]  + width/2)
+        right = int(min(tmp - (tmp%16), c_p['camera_width'] ))
+
+        tmp = int(c_p['traps_absolute_pos'][1][0] - width/2)
+        left = int(max(tmp - (tmp%16), 0))
+
+        c_p['AOI'][0] = left
+        c_p['AOI'][1] = right
+
+        c_p['new_settings_camera'] = True
+        print('X-zoom done')
+
+    def y_zoom_command(self, value):
+        """
+        Changes the AOI of the camera so that it is of height value centerd at
+        the current laser position.
+        """
+
+        try:
+            height = int(value)
+        except:
+            print('Massive error! Cannot convert y-zoom value')
+            return
+
+        #top = int(max(c_p['traps_absolute_pos'][0][0]-edge, 0))
+        #bottom = int(min(c_p['traps_absolute_pos'][0][0]+edge, np.shape(image)[0]))
+
+
+        # Calcualte where the right and left position of the AOI is.
+        # Needs to be divisble with 16 to be accepted by camera
+        tmp = int(c_p['traps_absolute_pos'][0][0]  + height/2)
+        bottom = int(min(tmp - (tmp%16), c_p['camera_width'] ))
+
+        tmp = int(c_p['traps_absolute_pos'][0][0] - height/2)
+        top = int(max(tmp - (tmp%16), 0))
+
+        c_p['AOI'][2] = top
+        c_p['AOI'][3] = bottom
+
+        c_p['new_settings_camera'] = True
+        print('Y-zoom done')
+
     def place_polymerization_time(self, top, x, y):
 
         self.polymerization_scale = tkinter.Scale(top,
@@ -654,6 +716,26 @@ class UserInterface:
         self.polymerization_label = Label(self.window, text="Polymerization time")
         self.polymerization_label.place(x=x-0, y=y-15)
         self.polymerization_scale.place(x=x, y=y)
+
+    def place_manual_zoom_sliders(self, top, x, y, x1, y1):
+        """
+        Puts sliders used for controlling the AOI on the GUI.
+        """
+        self.x_zoom_slider = tkinter.Scale(top,
+            command=self.x_zoom_command, from_=32,
+            to=c_p['camera_width'], resolution=32, orient=HORIZONTAL)
+        self.x_zoom_slider.set(c_p['camera_width'])
+        self.x_slider_label = Label(self.window, text='x-zoom')
+        self.x_slider_label.place(x=x, y=y-15)
+        self.x_zoom_slider.place(x=x, y=y)
+
+        self.y_zoom_slider = tkinter.Scale(top,
+            command=self.y_zoom_command, from_=32,
+            to=c_p['camera_height'], resolution=32, orient=HORIZONTAL)
+        self.y_zoom_slider.set(c_p['camera_height'])
+        self.y_slider_label = Label(self.window, text='y-zoom')
+        self.y_slider_label.place(x=x1, y=y1-15)
+        self.y_zoom_slider.place(x=x1, y=y1)
 
     def set_exposure(self, entry=None):
         """
@@ -734,6 +816,9 @@ class UserInterface:
         self.green_laser_button.place(x=x_position, y=generator_y.__next__())
         self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
 
+        self.place_manual_zoom_sliders(top, x=x_position, y=generator_y.__next__(),
+            x1=x_position, y1=generator_y.__next__())
+
     def add_piezo_activation_buttons(self, top, x_position, y_position):
         c_p['piezos_activated'] = tkinter.BooleanVar()
         self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
@@ -786,14 +871,24 @@ class UserInterface:
         " Set exposure time (microseconds) ")
         self.set_exposure(user_input)
 
-    def create_control_menu1(self):
-        # self.control_menu.add_command(label="Set stepper speed", command=)
-        # TODO Add sliders for exposure time and zoom level.Toggle laser indicators
+    def show_camera_info(self):
+        """
+        Opens a small pop-up window with basic camera info such as model,
+        framerate, image size and exposure time.
+        """
+        camera_info = f"Model: {c_p['camera_model']} , framerate: {c_p['framerate']} , exposure time: {c_p['exposure_time']}\n"
+        camera_AOI_info = f"Current area of interest: {c_p['AOI']}, maximum width: {c_p['camera_width']} , maximum image height: {c_p['camera_height']}"
+        showinfo(camera_info, camera_AOI_info)
+
+    def create_control_menus(self):
+        """
+        Creates the Basic controls and Camera menus on top of the GUI.
+        """
+        # TODO Toggle laser indicators
         # can also be in a menu. Add tilt compensation control to motor menu.
         # Z stepping distance.
         # Save settings?
-        if c_p['using_stepper_motors']:
-            pass
+
         self.control_menu.add_command(label="Save position", command=self.save_starting_position)
         self.control_menu.add_command(label="Exit program", command=self.window.quit)
         self.control_menu.add_command(label='Connect/disconnect steppers', command=self.connect_stepper_motors)
@@ -807,6 +902,7 @@ class UserInterface:
         self.camera_menu.add_command(label="Save bg", command=self.save_background)
         self.camera_menu.add_command(label="Toggle bg removal", command=self.toggle_bg_removal)
         self.camera_menu.add_command(label="Exposure time", command=self.set_exposure_dialog)
+        self.camera_menu.add_command(label="Show camera info", command=self.show_camera_info)
 
         self.menubar.add_cascade(label="Camera control", menu=self.camera_menu)
 

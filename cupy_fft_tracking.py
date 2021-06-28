@@ -46,7 +46,7 @@ def pycu_fourier_filter(image, filter_bounds=[10, 200]):
     global image_shape, filter_sizes, gpu_mask
     shape = cp.shape(image)
     if not shape[0] == image_shape[0] or not shape[1] == image_shape[1] or not \
-        filter_sizes[0] == inner_filter_width or not filter_sizes[0] == outer_filter_width:
+        filter_sizes[0] == filter_bounds[0] or not filter_sizes[0] == filter_bounds[1]:
         image_shape[0] = shape[0]
         image_shape[1] = shape[1]
         filter_sizes[0] = filter_bounds[0]
@@ -87,6 +87,6 @@ def pycu_fourier_tracking(image, threshold=0.12, size_bounds=[30,1500], filter_b
         threshold, size_bounds)
     # px = [s[1] - x_i - edge for x_i in x]
     # py = [s[0] - y_i - edge for y_i in y]
-    px = [xi + edge for x_i in x]
-    py = [xi + edge for y_i in y]
+    px = [x_i + edge for x_i in x]
+    py = [y_i + edge for y_i in y]
     return px, py
