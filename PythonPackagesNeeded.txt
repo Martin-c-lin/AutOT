@@ -7,7 +7,7 @@ ctypes (should be installed already) ,
 pywin32 ,
 nicelib ,
 Instrumental-lib ,
-python-opencv ,
+opencv-python,
 keras , # Optional, only for deep-learning tracking.
 tensorflow , # Optional, only for deep-learning tracking.
 pyFFTW, For faster FFT tracking than numpy
@@ -15,7 +15,7 @@ cupy, Can enable really fast tracking etc.
 
 For basler camera:
 
-swig (run "conda install -c anaconda siwg" before installing pypylon)
+swig (run "conda install -c anaconda swig" before installing pypylon)
 pypylon - follow instructions in website. Used
 pypylon-1.5.4-cp37-cp37m-win_amd64.whl . Might also need setup-tools
 

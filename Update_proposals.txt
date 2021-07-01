@@ -1,6 +1,4 @@
 Try to make a single API on which one can build other applications.
-Have c_p as input to the different threads and put the threads in separate files.
-EX - temperature thread in temperature_controller file.
 
 Add possibility to "home" motors to a presaved location.
 
@@ -14,13 +12,8 @@ threads.
 
 Make it so that stepper and "normal motors" implement the same interface
 
+Simplify and unify the naming in the c_p. For instance; replace
+motor_starting_position with motorStartPos.
 
-Exception in thread Thread-camera:
-Traceback (most recent call last):
-  File "C:\Users\Feynman\Anaconda3\lib\threading.py", line 917, in _bootstrap_inner
-    self.run()
-  File "C:\Martin\AutOT\CameraControls.py", line 240, in run
-    self.thorlabs_capture()
-  File "C:\Martin\AutOT\CameraControls.py", line 138, in thorlabs_capture
-    outfile = open(experiment_info_name, 'wb')
-FileNotFoundError: [Errno 2] No such file or directory: 'F:/Martin/D2020-11-10/data-11-2-42'
+Move ExperimentControlThread into a spearate file similar to what I did with the
+ QD_tracking. stepper_target_position -> stepTargPos

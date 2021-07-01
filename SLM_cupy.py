@@ -64,7 +64,7 @@ def GSW(N, M, Delta=None, image_width=1080, nbr_iterations=30):
     Delta_J = cp.exp(1j*Delta)
     for J in range(nbr_iterations):
         V = cp.reshape(cp.mean((cp.exp(1j * (I_m * Phi) - Delta)), axis=1), (M, 1))
-        V_abs = abs(V)
+        V_abs = abs(V) # TODO check if we can use cp abs and cp sum to speed up further
         W = cp.mean(V_abs) * cp.divide(W,V_abs)
         Phi = cp.angle(sum(cp.multiply(Delta_J, cp.divide(cp.multiply(W, V), V_abs)*I_N)))
         #print('Iteration: ', J+1, 'of ', nbr_iterations)

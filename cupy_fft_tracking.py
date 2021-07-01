@@ -79,8 +79,9 @@ def pycu_extract_particle_positions(image, threshold=0.12, size_bounds=[30,1500]
             y_positions.append(cp.sum(tmp[1]) / tot)
     return x_positions, y_positions, labelled[0]
 
-def pycu_fourier_tracking(image, threshold=0.12, size_bounds=[30,1500], filter_bounds=[10, 200],
-        edge=80):
+def pycu_fourier_tracking(image, threshold=0.12, size_bounds=[30,1500],
+        filter_bounds=[10, 200], edge=80):
+
     gpu_frame = cp.asarray(image)
     gpu_frame = pycu_fourier_filter(gpu_frame, filter_bounds)
     x,y,ret = pycu_extract_particle_positions(gpu_frame[edge:-edge,edge:-edge],
