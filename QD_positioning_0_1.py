@@ -326,7 +326,7 @@ class UserInterface:
                 c_p['tracking_on'] = True
             else:
                 c_p['experiment_progress'] = 0
-            update_c_p(experiment_list[0])
+            update_c_p(c_p, experiment_list[0])
             c_p['nbr_experiments'] = len(c_p['experiment_schedule'])
             # Update recording path
             name = filepath[filepath.rfind('/')+1:filepath.rfind('.')]
@@ -511,7 +511,7 @@ class UserInterface:
         global c_p
         c_p['should_shutter_open'] = True
 
-    def get_y_separation(self, start=50, distance=40):
+    def get_y_separation(self, start=5, distance=38):
         # Simple generator to avoid printing all the y-positions of the
         # buttons
         index = 0
@@ -649,6 +649,7 @@ class UserInterface:
         c_p['polymerization_LED'] = 'S ' + str(value)
 
     def x_zoom_command(self, value):
+        # TODO Make the x and y zooms inside the same function
         """
         Changes the AOI of the camera so that it is of width value centerd at
         the current laser position.
@@ -665,17 +666,18 @@ class UserInterface:
 
         # Calcualte where the right and left position of the AOI is.
         # Needs to be divisble with 16 to be accepted by camera
-        tmp = int(c_p['traps_absolute_pos'][1][0]  + width/2)
+        tmp = int(c_p['traps_absolute_pos'][0][0]  + width/2)
         right = int(min(tmp - (tmp%16), c_p['camera_width'] ))
 
-        tmp = int(c_p['traps_absolute_pos'][1][0] - width/2)
+        tmp = int(c_p['traps_absolute_pos'][0][0] - width/2)
         left = int(max(tmp - (tmp%16), 0))
-
         c_p['AOI'][0] = left
         c_p['AOI'][1] = right
 
         c_p['new_settings_camera'] = True
-        print('X-zoom done')
+        #print('X-zoom done', c_p['traps_absolute_pos'][0][0], left, right)
+        update_traps_relative_pos(c_p)
+
 
     def y_zoom_command(self, value):
         """
@@ -695,17 +697,18 @@ class UserInterface:
 
         # Calcualte where the right and left position of the AOI is.
         # Needs to be divisble with 16 to be accepted by camera
-        tmp = int(c_p['traps_absolute_pos'][0][0]  + height/2)
+        tmp = int(c_p['traps_absolute_pos'][1][0]  + height/2)
         bottom = int(min(tmp - (tmp%16), c_p['camera_width'] ))
 
-        tmp = int(c_p['traps_absolute_pos'][0][0] - height/2)
+        tmp = int(c_p['traps_absolute_pos'][1][0] - height/2)
         top = int(max(tmp - (tmp%16), 0))
 
         c_p['AOI'][2] = top
         c_p['AOI'][3] = bottom
 
         c_p['new_settings_camera'] = True
-        print('Y-zoom done')
+        update_traps_relative_pos(c_p)
+
 
     def place_polymerization_time(self, top, x, y):
 
@@ -815,9 +818,12 @@ class UserInterface:
             top, text='Toggle green laser', command= partial(toggle_green_laser, c_p))
         self.green_laser_button.place(x=x_position, y=generator_y.__next__())
         self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
-
-        self.place_manual_zoom_sliders(top, x=x_position, y=generator_y.__next__(),
-            x1=x_position, y1=generator_y.__next__())
+        generator_y.__next__()
+        y0 = generator_y.__next__()
+        generator_y.__next__()
+        y1 = generator_y.__next__()
+        self.place_manual_zoom_sliders(top, x=x_position, y=y0,
+            x1=x_position, y1=y1)
 
     def add_piezo_activation_buttons(self, top, x_position, y_position):
         c_p['piezos_activated'] = tkinter.BooleanVar()
@@ -878,7 +884,7 @@ class UserInterface:
         """
         camera_info = f"Model: {c_p['camera_model']} , framerate: {c_p['framerate']} , exposure time: {c_p['exposure_time']}\n"
         camera_AOI_info = f"Current area of interest: {c_p['AOI']}, maximum width: {c_p['camera_width']} , maximum image height: {c_p['camera_height']}"
-        showinfo(camera_info, camera_AOI_info)
+        showinfo(title="Camera feeed info", message=camera_info+camera_AOI_info)
 
     def create_control_menus(self):
         """
@@ -982,7 +988,7 @@ class UserInterface:
         self.set_laser_position = tkinter.BooleanVar()
         self.laser_position_button = tkinter.Checkbutton(top, text='Set laser position',
             variable=self.set_laser_position, onvalue=True, offvalue=False)
-        self.laser_position_button.place(x=x_position, y=y_position.__next__())
+        self.laser_position_button.place(x=x_position_2, y=y_position_2.__next__())
 
         # Add column separator
         self.columnn_separator = ttk.Separator(top, orient='vertical')
@@ -1043,11 +1049,17 @@ class UserInterface:
 
     def get_temperature_info(self):
         """
-        ---
+        Returns a string containg a description of the statys of the temperature
+        controller. Specifically current, temperature, target temperature,
+        connection status and if the temperature is stable or not.
         """
         global c_p
         if c_p['temperature_controller_connected']:
-            temperature_info = 'Current objective temperature is: '+str(c_p['current_temperature'])+' C'+'\n setpoint temperature is: '+str(c_p['setpoint_temperature'])+' C'
+            temperature_info = 'Current objective temperature is: '
+            temperature_info += str(c_p['current_temperature'])+' C'
+            temperature_info += '\n setpoint temperature is: '
+            temperature_info += str(c_p['setpoint_temperature'])+' C'
+
             if c_p['temperature_stable']:
                 temperature_info += '\nTemperature is stable. '
             else:
@@ -1095,8 +1107,8 @@ class UserInterface:
 
         if c_p['tracking']:
             position_text += '\n Experiments run ' + str(c_p['experiment_progress'])
-            position_text += ' out of ' + str(c_p['nbr_experiments'])
-            position_text += '  ' + str(c_p['experiment_runtime']) + 's run out of ' + str(c_p['recording_duration'])
+            position_text += ' out of ' + str(c_p['nbr_experiments']) + '  '
+            position_text += str(c_p['experiment_runtime']) + 's run out of ' + str(c_p['recording_duration'])
             position_text += '\n Current search direction is: ' + str(c_p['search_direction'] + '\n')
 
         return position_text
@@ -1225,8 +1237,8 @@ class UserInterface:
             # Not implemented yet
             pass
         # Calculate travel distance
-        dx = float(c_p['traps_relative_pos'][0,0] - self.image_scale*c_p['mouse_position'][0])/c_p['mmToPixel']
-        dy = float(c_p['traps_relative_pos'][1,0] - self.image_scale*c_p['mouse_position'][1])/c_p['mmToPixel']
+        dx = float(c_p['traps_relative_pos'][0,0] - self.image_scale * c_p['mouse_position'][0]) / c_p['mmToPixel']
+        dy = float(c_p['traps_relative_pos'][1,0] - self.image_scale * c_p['mouse_position'][1]) / c_p['mmToPixel']
 
         # Checks which motors are connected and activated, acts accordingly.
         if c_p['stage_piezos'] and c_p['using_stepper_motors'] and \
@@ -1259,7 +1271,8 @@ class UserInterface:
              image[x-10:x+10, y] = 0
              image[x, y-10:y+10] = 0
          except:
-             print('Warning could not display laser position',x,y,np.size(image))
+             pass
+             #print('Warning could not display laser position',x,y,np.size(image))
 
     def update_qd_on_screen_targets(self, image=None):
         '''
@@ -1313,6 +1326,10 @@ class UserInterface:
                 pass
 
     def mark_polymerized_areas(self, image):
+        """
+        Marks the polynerized areas in an image if the positions of these are
+        known.
+        """
         if self.tracking_toggled.get():
             for x, y in zip(c_p['polymerized_x'], c_p['polymerized_y']):
                 x = int(x)
@@ -1351,7 +1368,10 @@ class UserInterface:
                 print(' Warning could not display particle at position: ', x, y)
 
     def update(self):
-         # Get a frame from the video source
+         """
+         Updates the live video feed and all monitors(motor positions, temperature etc).
+         This function calls itself recursively.
+         """
 
          image = np.asarray(c_p['image'])
          image = image.astype('uint16')
@@ -1406,6 +1426,7 @@ class SLM_window(Frame):
     def __init__(self,c_p, master=None):
         Frame.__init__(self, master)
         self.master = master
+        # TODO make it possible to adjust this in the program or at least in c_p
         self.master.geometry("1920x1080+1920+0")
         self.pack(fill=BOTH, expand=1)
 
@@ -1434,10 +1455,6 @@ def compensate_focus_xy_move(c_p):
     dx = (c_p['stepper_current_position'][0] - c_p['stepper_starting_position'][0])
     dy = (c_p['stepper_current_position'][1] - c_p['stepper_starting_position'][1])
     dz = (c_p['tilt'][0] * dx) + (c_p['tilt'][1] * dy)
-
-
-    #if c_p['stage_piezos'] and c_p['piezos_activated'].get():
-        # Automatic adjustment of xyz does not play very nicely with
 
     if c_p['stage_piezos']:
         z0 = c_p['piezo_starting_position'][2]
@@ -1665,7 +1682,7 @@ class ExperimentControlThread(threading.Thread):
                 setup_dict = c_p['experiment_schedule'][c_p['experiment_progress']]
                 print('Next experiment is', setup_dict)
                 run_finished = False
-                update_c_p(setup_dict)
+                update_c_p(c_p, setup_dict)
                 full_xm = copy.copy(c_p['xm']) # for adding one trap at a time.
                 full_ym = copy.copy(c_p['ym']) # Using copy since
                 time_remaining = c_p['recording_duration']
@@ -1684,7 +1701,7 @@ class ExperimentControlThread(threading.Thread):
                         nbr_active_traps = min(3,len(full_xm))
                         active_traps_dict = {'xm':full_xm[:nbr_active_traps],
                             'ym':full_ym[:nbr_active_traps]}
-                        update_c_p(active_traps_dict)
+                        update_c_p(c_p, active_traps_dict)
                 # Start looking for particles.
                 while not run_finished and c_p['tracking_on']:
                    time.sleep(0.3)
@@ -1710,7 +1727,7 @@ class ExperimentControlThread(threading.Thread):
                             nbr_active_traps += 1
                             active_traps_dict = {'xm':full_xm[:nbr_active_traps],
                                 'ym':full_ym[:nbr_active_traps]}
-                            update_c_p(active_traps_dict)
+                            update_c_p(c_p, active_traps_dict)
 
                        # No more traps to activate, can start lifting.
                        elif self.lift_for_experiment():
@@ -1893,7 +1910,7 @@ def path_search(filled_traps_locs, target_particle_location,
             return 0, 0, False
 
 
-def update_c_p(update_dict, wait_for_completion=True):
+def update_c_p(c_p, update_dict, wait_for_completion=True):
     '''
     Simple function for updating c_p['keys'] with new values 'values'.
     Ensures that all updates where successfull.
@@ -1903,8 +1920,6 @@ def update_c_p(update_dict, wait_for_completion=True):
     Highly suggest usage of measurement_name to make it easier to keep track of
     the data.
     '''
-
-    global c_p
 
     ok_parameters = ['use_LGO', 'LGO_order', 'xm', 'ym', 'zm', 'setpoint_temperature',
     'recording_duration', 'target_experiment_z', 'SLM_iterations',
@@ -1961,14 +1976,6 @@ def update_c_p(update_dict, wait_for_completion=True):
         time.sleep(0.3)
 
     # Check if there is an old phasemask to be used.
-    # if 'load_phasemask' in update_dict:
-    #     try:
-    #         data = np.load(update_dict['load_phasemask'])
-    #         c_p['phasemask'] = data['phasemask']
-    #         time.sleep(0.5)
-    #     except:
-    #         print('Could not load phasemask from ', update_dict['load_phasemask'])
-
     # Await stable temperature
     while c_p['need_T_stable'] and not c_p['temperature_stable'] and\
         c_p['temperature_controller_connected']:
@@ -2184,28 +2191,12 @@ def stage_piezo_manual_move(axis, distance):
     c_p['piezo_target_position'][axis] = max(0.0, c_p['piezo_target_position'][axis])
     c_p['piezo_target_position'][axis] = min(20.0, c_p['piezo_target_position'][axis])
 
-def stage_stepper_manual_move(axis, distance):
-    # Move the stepper motor distance (measured in mm)
-    c_p['stepper_target_position'][axis] += distance
-    # Check if move was ok
-    c_p['stepper_target_position'][axis] = max(0, c_p['stepper_target_position'][axis] )
-    c_p['stepper_target_position'][axis] = min(20, c_p['stepper_target_position'][axis] )
 
 def toggle_recording():
     '''
     Button function for starting of recording
     '''
     c_p['recording'] = not c_p['recording']
-    print('Recording is on')
-
-
-def stop_recording():
-    '''
-    Button function for starting of recording
-    '''
-    c_p['recording']= False
-    print('Recording is off')
-
 
 def snapshot(label=None):
     """

@@ -26,8 +26,8 @@ def get_camera_c_p():
         'zoomed_in': False,  # Keeps track of whether the image is cropped or
         'camera_model': 'basler_large',  # basler_fast, thorlabs are options
         'camera_orientatation': 'down',  # direction camera is mounted in.
-        'camera_width':3600,
-        'camera_height':3008,
+        'camera_width':4000,
+        'camera_height':3040,
         'default_offset_x':1000, # Used to center the camera on the sample
         'default_offset_y':0,
         # Needed for not
@@ -212,6 +212,7 @@ class CameraThread(threading.Thread):
             offset_x = c_p['AOI'][0]
             height = int(c_p['AOI'][3] - c_p['AOI'][2])
             offset_y = c_p['AOI'][2]
+            print(self.cam.Width.GetMax(), self.cam.Height.GetMax())
             self.video_width = width
             self.video_height = height
             self.cam.OffsetX = 0
@@ -220,6 +221,8 @@ class CameraThread(threading.Thread):
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = c_p['default_offset_y'] + offset_y
+            #self.cam.Height = height
+            #self.cam.Width = width
             print('Offsets: ', offset_x, offset_y)
 
         except Exception as e:
@@ -278,22 +281,24 @@ class CameraThread(threading.Thread):
                         # Capture an image and update the image count
                         image_count = image_count+1
                  if c_p['new_settings_camera']:
-                    #sleep(0.1)
                     w = c_p['AOI'][1] - c_p['AOI'][0]
                     h = c_p['AOI'][3] - c_p['AOI'][2]
                     if w == self.video_width and h == self.video_height:
                         self.update_basler_exposure()
-                        self.set_basler_AOI() # TODO test if this works, zoom in and change laser position
+                        #self.set_basler_AOI() # TODO test if this works, zoom in and change laser position
 
                         c_p['new_settings_camera'] = False
-                        print('Exposure updated')
             self.cam.StopGrabbing()
 
             # Close the livefeed and calculate the fps of the captures
             end = time.time()
 
             # Calculate FPS
-            fps = image_count/(end-start)
+            try:
+                fps = image_count/(end-start)
+            except:
+                fps = -1
+
             print('Capture sequence finished', image_count,
                   'Images captured in ', end-start, 'seconds. \n FPS is ', fps)
 
