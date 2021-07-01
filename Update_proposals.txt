@@ -6,6 +6,7 @@ Make it possible to build different applications on using these basic building b
 
 Consider splitting c_p into different subdictionaries, one per thread.
 Then we would have for instance c_p_temperature(),c_p_camera etc
+Could make each thread add its necessary parameters to c_p itself.
 
 Investigate if I can replace c_p with something similar to events for the
 threads.

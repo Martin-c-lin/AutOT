@@ -304,8 +304,6 @@ class UserInterface:
         c_p['program_running'] = False
         c_p['motor_running'] = False
         c_p['tracking_on'] = False
-        # if c_p['stage_piezos']:
-        #     self.controller_device_piezo.Disconnect()
         terminate_threads(thread_list, c_p)
 
     def read_experiment_dictionary(self):
@@ -335,9 +333,11 @@ class UserInterface:
             print('Invalid or empty file.')
         self.update_qd_on_screen_targets(c_p['image'])
 
-    def create_trap_image(self):
-        # Creates a mini image which shows the AOI and the relative position
-        # of traps and particles(estimated from tracking thread)
+    def create_trap_image(self, mini_image_width=240):
+        """
+        Creates a mini image which shows the AOI and the relative position
+        of traps and particles(estimated from tracking thread)
+        """
 
         global c_p
         trap_x = c_p['traps_absolute_pos'][0]
@@ -346,9 +346,10 @@ class UserInterface:
         particle_y = c_p['particle_centers'][1]
         AOI = c_p['AOI']
         # Define new mini-image
-        mini_image = np.zeros((200,240,3))
-        scale_factor = c_p['AOI'][1]/240
-        #scale_factor = 5
+
+        scale_factor = c_p['camera_width'] / mini_image_width
+        mini_image_height = int(scale_factor * c_p['camera_height'])
+        mini_image = np.zeros((mini_image_height, mini_image_width, 3))
 
         l = int(round(AOI[2]/scale_factor))  # left
         r = int(round(AOI[3]/scale_factor))  # right
@@ -362,7 +363,7 @@ class UserInterface:
                 x = int(round(x/scale_factor))
                 y = int(round(y/scale_factor))
 
-                if 2 <= x <= 238 and 2 <= y <= 198:
+                if 2 <= x <= mini_image_width-2 and 2 <= y <= mini_image_height-2:
                     mini_image[(y-2):(y+3),x,0] = 255
                     mini_image[y,(x-2):(x+3),0] = 255
 
@@ -372,7 +373,7 @@ class UserInterface:
                 # Round down and recalculate
                 x = int(round(x/scale_factor + u))
                 y = int(round(y/scale_factor + l))
-                if 1 <= x <= 239 and 1 <= y <= 199:
+                if 1 <= x <= mini_image_width-1 and 1 <= y <= mini_image_height:
                     mini_image[y-1:y+2,x-1:x+2,2] = 255
 
         # Draw the AOI
@@ -714,7 +715,7 @@ class UserInterface:
 
         self.polymerization_scale = tkinter.Scale(top,
             command=self.polymerization_time_command, from_=50,
-            to=5000, resolution=50, orient=HORIZONTAL)
+            to=5000, resolution=50, orient=HORIZONTAL, length=150)
         self.polymerization_scale.set(1000)
         self.polymerization_label = Label(self.window, text="Polymerization time")
         self.polymerization_label.place(x=x-0, y=y-15)
@@ -724,9 +725,10 @@ class UserInterface:
         """
         Puts sliders used for controlling the AOI on the GUI.
         """
+        L = 150 # length of scale in pixels
         self.x_zoom_slider = tkinter.Scale(top,
             command=self.x_zoom_command, from_=32,
-            to=c_p['camera_width'], resolution=32, orient=HORIZONTAL)
+            to=c_p['camera_width'], resolution=32, orient=HORIZONTAL, length=L)
         self.x_zoom_slider.set(c_p['camera_width'])
         self.x_slider_label = Label(self.window, text='x-zoom')
         self.x_slider_label.place(x=x, y=y-15)
@@ -734,7 +736,7 @@ class UserInterface:
 
         self.y_zoom_slider = tkinter.Scale(top,
             command=self.y_zoom_command, from_=32,
-            to=c_p['camera_height'], resolution=32, orient=HORIZONTAL)
+            to=c_p['camera_height'], resolution=32, orient=HORIZONTAL, length=L)
         self.y_zoom_slider.set(c_p['camera_height'])
         self.y_slider_label = Label(self.window, text='y-zoom')
         self.y_slider_label.place(x=x1, y=y1-15)

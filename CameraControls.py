@@ -4,7 +4,6 @@ import threading
 import time
 import pickle
 from cv2 import VideoWriter, VideoWriter_fourcc
-# import PIL.Image, PIL.ImageTk
 from pypylon import pylon
 from datetime import datetime
 
@@ -15,6 +14,7 @@ def get_camera_c_p():
     '''
     # TODO make it so that the AOI of the basler camera is not hardcoded. Maybe
     # make a camera model class?
+    # Make it easier to change objective?
     camera_c_p = {
         'new_video': False,
         'recording_duration': 3000,
@@ -22,21 +22,35 @@ def get_camera_c_p():
         # mus for basler
         'framerate': 15,
         'recording': False,  # True if recording is on
-        'AOI': [0, 3600, 0, 3008],  # Default for basler camera [0,1200,0,1000]
+        'AOI': [0, 480, 0, 480],  # Default for
         'zoomed_in': False,  # Keeps track of whether the image is cropped or
         'camera_model': 'basler_large',  # basler_fast, thorlabs are options
         'camera_orientatation': 'down',  # direction camera is mounted in.
-        'camera_width':4000,
-        'camera_height':3040,
-        'default_offset_x':1000, # Used to center the camera on the sample
+        'default_offset_x':0, # Used to center the camera on the sample
         'default_offset_y':0,
         # Needed for not
     }
+
+    # Add custom parameters for different cameras.
     if camera_c_p['camera_model'] == 'basler_large':
         camera_c_p['mmToPixel'] = 37_700 # Made a control measurement and found it to be 37.7
-    else:
-        camera_c_p['mmToPixel'] = 17736/0.7 if camera_c_p['camera_model'] == 'thorlabs' else 16140/0.7
+        camera_c_p['camera_width'] = 4000
+        camera_c_p['camera_height'] = 3040
+        camera_c_p['default_offset_x'] = 1000
+
+    elif camera_c_p['camera_model'] == 'thorlabs':
+        camera_c_p['mmToPixel'] = 17736/0.7
+        camera_c_p['camera_width'] = 1200
+        camera_c_p['camera_height'] = 1080
+
+    elif camera_c_p['camera_model'] == 'basler_fast':
+        camera_c_p['mmToPixel'] = 16140/0.7
+        camera_c_p['camera_width'] = 672
+        camera_c_p['camera_height'] = 512
+
     camera_c_p['slm_to_pixel'] = 5_000_000 if camera_c_p['camera_model'] == 'basler_fast' else 4_550_000
+    camera_c_p['AOI'] = [0, camera_c_p['camera_width'], 0, camera_c_p['camera_height']]
+
     return camera_c_p
 
 
@@ -57,10 +71,6 @@ class CameraThread(threading.Thread):
             c_p['exposure_time'] = 20
         else:
             # Get a basler camera
-            self.c_p['AOI'][0] = 0
-            self.c_p['AOI'][1] = 3600 if self.c_p['camera_model'] == 'basler_large' else 672
-            self.c_p['AOI'][2] = 0
-            self.c_p['AOI'][3] = 3008 if self.c_p['camera_model'] == 'basler_large' else 512
             tlf = pylon.TlFactory.GetInstance()
             self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
             self.cam.Open()
@@ -71,10 +81,13 @@ class CameraThread(threading.Thread):
         c_p['image'] = np.ones((self.c_p['AOI'][3], self.c_p['AOI'][1], 1))
 
     def __del__(self):
-        if self.c_p['camera_model'] == 'basler_large' or self.c_p['camera_model'] == 'basler_fast':
-            self.cam.Close()
-        else:
+        """
+        Closes the camera in preparation of terminating the thread.
+        """
+        if self.c_p['camera_model'] == 'ThorlabsCam':
             self.cam.close()
+        else:
+            self.cam.Close()
 
     def get_important_parameters(self):
         '''
@@ -136,9 +149,6 @@ class CameraThread(threading.Thread):
 
         return video, experiment_info_name, exp_info_params
 
-    def turn_image():
-        # Function which compensates for camera orientation in the image
-        pass
 
     def thorlabs_capture(self):
         number_images_saved = 0
@@ -178,8 +188,6 @@ class CameraThread(threading.Thread):
             end = time.time()
             self.cam.stop_live_video()
             fps = image_count/(end-start)
-            print('Capture sequence finished', image_count,
-                  'Images captured in ', end-start, 'seconds. \n FPS is ', fps)
 
             if video_created:
                 video.release()
@@ -195,7 +203,6 @@ class CameraThread(threading.Thread):
         '''
         Function for setting AOI of basler camera to c_p['AOI']
         '''
-        #global c_p
         c_p = self.c_p
         try:
             '''
@@ -205,14 +212,12 @@ class CameraThread(threading.Thread):
             below. Conditions might need to be changed if the usecase of this
             funciton change
             '''
-            camera_width = 3600 if self.c_p['camera_model']=='basler_large' else 672
-            camera_height = 3008 if self.c_p['camera_model']=='basler_large' else 512
 
             width = int(c_p['AOI'][1] - c_p['AOI'][0])
             offset_x = c_p['AOI'][0]
             height = int(c_p['AOI'][3] - c_p['AOI'][2])
             offset_y = c_p['AOI'][2]
-            print(self.cam.Width.GetMax(), self.cam.Height.GetMax())
+            #print(self.cam.Width.GetMax(), self.cam.Height.GetMax())
             self.video_width = width
             self.video_height = height
             self.cam.OffsetX = 0
@@ -221,9 +226,6 @@ class CameraThread(threading.Thread):
             self.cam.OffsetY = 0
             self.cam.Height = height
             self.cam.OffsetY = c_p['default_offset_y'] + offset_y
-            #self.cam.Height = height
-            #self.cam.Width = width
-            print('Offsets: ', offset_x, offset_y)
 
         except Exception as e:
             print('AOI not accepted', c_p['AOI'])
@@ -234,7 +236,6 @@ class CameraThread(threading.Thread):
             self.cam.ExposureTime = self.c_p['exposure_time']
             self.c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()
             self.c_p['framerate'] = round(float(self.c_p['framerate']), 1)
-            print('Read framerate to ', self.c_p['framerate'], ' fps.')
         except:
             print('Exposure time not accepted by camera')
 
@@ -256,7 +257,8 @@ class CameraThread(threading.Thread):
             self.set_basler_AOI()
             c_p['new_settings_camera'] = False
 
-            # TODO replace c_p['new_settings_camera'] with two parameters, one for expsore and one for AOI
+            #TODO replace c_p['new_settings_camera'] with two parameters and
+            # one for expsore and one for AOI
             self.update_basler_exposure()
             image_count = 0
 
@@ -277,7 +279,8 @@ class CameraThread(threading.Thread):
                             if not video_created:
                                 video, experiment_info_name, exp_info_params = self.create_video_writer()
                                 video_created = True
-                            video.write(np.uint8(c_p['image']))  # consider adding text to one corner
+                            video.write(np.uint8(c_p['image']))
+                            # consider adding text to one corner
                         # Capture an image and update the image count
                         image_count = image_count+1
                  if c_p['new_settings_camera']:
@@ -285,22 +288,15 @@ class CameraThread(threading.Thread):
                     h = c_p['AOI'][3] - c_p['AOI'][2]
                     if w == self.video_width and h == self.video_height:
                         self.update_basler_exposure()
-                        #self.set_basler_AOI() # TODO test if this works, zoom in and change laser position
-
                         c_p['new_settings_camera'] = False
             self.cam.StopGrabbing()
 
             # Close the livefeed and calculate the fps of the captures
             end = time.time()
-
-            # Calculate FPS
             try:
                 fps = image_count/(end-start)
             except:
                 fps = -1
-
-            print('Capture sequence finished', image_count,
-                  'Images captured in ', end-start, 'seconds. \n FPS is ', fps)
 
             if video_created:
                 video.release()
@@ -317,6 +313,7 @@ class CameraThread(threading.Thread):
             self.thorlabs_capture()
         elif self.c_p['camera_model'] == 'basler_large' or 'basler_fast':
             self.basler_capture()
+        return
 
 
 def set_AOI(c_p, left=None, right=None, up=None, down=None):
@@ -341,50 +338,32 @@ def set_AOI(c_p, left=None, right=None, up=None, down=None):
     '''
 
     # If exact values have been provided for all the corners change AOI
-    if c_p['camera_model'] == 'ThorlabsCam':
-        if left is not None and right is not None and up is not None and down is not None:
-            if 0<=left<=1279 and left<=right<=1280 and 0<=up<=1079 and up<=down<=1080:
-                c_p['AOI'][0] = left
-                c_p['AOI'][1] = right
-                c_p['AOI'][2] = up
-                c_p['AOI'][3] = down
-            else:
-                print("Trying to set invalid area")
-    elif c_p['camera_model'] == 'basler_large':
-        if left is not None and right is not None and up is not None and down is not None:
-            if 0<=left<3600 and left<=right<=3600 and 0<=up<3008 and up<=down<=3008:
-                c_p['AOI'][0] = left
-                c_p['AOI'][1] = right
-                c_p['AOI'][2] = up
-                c_p['AOI'][3] = down
-            else:
-                print("Trying to set invalid area")
-    else:
-        if left is not None and right is not None and up is not None and down is not None:
-            if 0<=left<672 and left<=right<=672 and 0<=up<512 and up<=down<=512:
-                c_p['AOI'][0] = left
-                c_p['AOI'][1] = right
-                c_p['AOI'][2] = up
-                c_p['AOI'][3] = down
-            else:
-                print("Trying to set invalid area")
-
-    print('Setting AOI to ', c_p['AOI'])
+    h_max = c_p['camera_width']
+    v_max = c_p['camera_height']
+    if left is not None and right is not None and up is not None and down is not None:
+        if 0<=left<=h_max-1 and left<=right<=h_max and 0<=up<=v_max and up<=down<=v_max:
+            c_p['AOI'][0] = left
+            c_p['AOI'][1] = right
+            c_p['AOI'][2] = up
+            c_p['AOI'][3] = down
+        else:
+            print("Trying to set invalid area")
+            return
 
     # Inform the camera and display thread about the updated AOI
     c_p['new_settings_camera'] = True
     c_p['new_AOI_display'] = True
-    print('AOI changed')
+
     # Update trap relative position
     update_traps_relative_pos(c_p)
 
-    # Give motor threads time to catch up
+    # Threads time to catch up
     time.sleep(0.1)
 
 
 def update_traps_relative_pos(c_p):
     '''
-    Updates the relative position of the traps when zooming in.
+    Updates the relative position of the traps when zooming in/out.
     '''
     tmp_x = [x - c_p['AOI'][0] for x in c_p['traps_absolute_pos'][0]]
     tmp_y = [y - c_p['AOI'][2] for y in c_p['traps_absolute_pos'][1]]
@@ -393,12 +372,10 @@ def update_traps_relative_pos(c_p):
 
 
 def zoom_out(c_p):
-    print('trying to zoom out')
+    '''
+    Zooming out the camera AOI to the maximum allowed.
+    '''
     # Reset camera to fullscreen view
-    if c_p['camera_model'] == 'ThorlabsCam':
-        set_AOI(c_p, left=0, right=1200, up=0, down=1000)
-    elif c_p['camera_model'] == 'basler_fast':
-        set_AOI(c_p, left=0, right=672, up=0, down=512)
-    elif c_p['camera_model'] == 'basler_large':
-        set_AOI(c_p, left=0, right=3600, up=0, down=3008)
-    #c_p['new_settings_camera'] = True
+    set_AOI(c_p, left=0, right=int(c_p['camera_width']), up=0,
+            down=int(c_p['camera_height']))
+    c_p['new_settings_camera'] = True
