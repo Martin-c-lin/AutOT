@@ -21,10 +21,11 @@ def get_camera_c_p():
         'exposure_time': 30_000,  # ExposureTime in ms for thorlabs,
         # mus for basler
         'framerate': 15,
+        'max_framerate': 10_000, # maximum framerate allowed.
         'recording': False,  # True if recording is on
         'AOI': [0, 480, 0, 480],  # Default for
         'zoomed_in': False,  # Keeps track of whether the image is cropped or
-        'camera_model': 'basler_large',  # basler_fast, thorlabs are options
+        'camera_model': 'basler_fast',  # basler_fast, thorlabs are options
         'camera_orientatation': 'down',  # direction camera is mounted in.
         'default_offset_x':0, # Used to center the camera on the sample
         'default_offset_y':0,
@@ -106,6 +107,7 @@ class CameraThread(threading.Thread):
             'zm': c_p['zm'],
             'use_LGO': c_p['use_LGO'],
             'LGO_order': c_p['LGO_order'],
+            'max_framerate': c_p['max_framerate'],
             'setpoint_temperature': c_p['setpoint_temperature'],
             'target_experiment_z': c_p['target_experiment_z'],
             'temperature_output_on': c_p['temperature_output_on'],
@@ -149,6 +151,7 @@ class CameraThread(threading.Thread):
 
         return video, experiment_info_name, exp_info_params
 
+# TODO make it possible to terminate a video without changing camera settings
 
     def thorlabs_capture(self):
         number_images_saved = 0
@@ -286,6 +289,8 @@ class CameraThread(threading.Thread):
                  if c_p['new_settings_camera']:
                     w = c_p['AOI'][1] - c_p['AOI'][0]
                     h = c_p['AOI'][3] - c_p['AOI'][2]
+                    self.cam.AcquisitionFrameRateEnable.SetValue(True);
+                    self.cam.AcquisitionFrameRate.SetValue(c_p['max_framerate'])
                     if w == self.video_width and h == self.video_height:
                         self.update_basler_exposure()
                         c_p['new_settings_camera'] = False
@@ -378,4 +383,5 @@ def zoom_out(c_p):
     # Reset camera to fullscreen view
     set_AOI(c_p, left=0, right=int(c_p['camera_width']), up=0,
             down=int(c_p['camera_height']))
+    print('Zoomed out', c_p['camera_width'], c_p['camera_height'])
     c_p['new_settings_camera'] = True

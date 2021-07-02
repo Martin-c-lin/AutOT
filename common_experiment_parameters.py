@@ -4,10 +4,12 @@ import numpy as np
 import os
 
 
-def get_save_path(base_path='F:/Martin/D', extension_path=""):
+def get_save_path(base_path='D:/Martin/Experiment results/Day_', extension_path=""):
     '''
-
-
+    Gets a path to a folder in which to save the data of todays experiments.
+    Will create a new folder if there is not already one for todays experiments.
+    # NOTE the base path may need to be changed if the program is installed in
+    another computer!
     Parameters
     ----------
     base_path : TYPE, optional

@@ -254,10 +254,11 @@ def start_threads(c_p, thread_list):
 
 
 class UserInterface:
+    """
 
+    """
     def __init__(self, window, c_p, thread_list, use_SLM=False):
         self.window = window
-        #self.window.title(window_title)
         start_threads(c_p, thread_list)
         # Create a canvas that can fit the above video source size
         # TODO: Add simpler way to label outputs(videos, images etc) from the program
@@ -282,12 +283,11 @@ class UserInterface:
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
         self.image_scale = 1 # scale of image being displayed
-        self.delay = 50 #50 standard how often to update view in ms intervals
+        self.delay = 25 #50 standard how often to update view in ms intervals
         self.zoomed_in = False
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
 
-        #self.create_indicators()
         self.update_qd_on_screen_targets(c_p['image'])
         CameraControls.zoom_out(c_p)
         # Computer cannot handle to have menus as well. Make program really slow
@@ -649,63 +649,27 @@ class UserInterface:
         global c_p
         c_p['polymerization_LED'] = 'S ' + str(value)
 
-    def x_zoom_command(self, value):
-        # TODO Make the x and y zooms inside the same function
+    def zoom_command(self, value, center, max_width, indices):
         """
         Changes the AOI of the camera so that it is of width value centerd at
-        the current laser position.
+        the target position.
         """
         try:
             width = int(value)
         except:
             print('Massive error! Cannot convert x-zoom value')
             return
-
-        #top = int(max(c_p['traps_absolute_pos'][0][0]-edge, 0))
-        #bottom = int(min(c_p['traps_absolute_pos'][0][0]+edge, np.shape(image)[0]))
-
-
         # Calcualte where the right and left position of the AOI is.
         # Needs to be divisble with 16 to be accepted by camera
-        tmp = int(c_p['traps_absolute_pos'][0][0]  + width/2)
-        right = int(min(tmp - (tmp%16), c_p['camera_width'] ))
+        if center > max_width:
+            center = int(max_width)/2
+        tmp = int(center  + width/2)
+        right = int(min(tmp - (tmp%16), max_width ))
 
-        tmp = int(c_p['traps_absolute_pos'][0][0] - width/2)
+        tmp = int(center - width/2)
         left = int(max(tmp - (tmp%16), 0))
-        c_p['AOI'][0] = left
-        c_p['AOI'][1] = right
-
-        c_p['new_settings_camera'] = True
-        #print('X-zoom done', c_p['traps_absolute_pos'][0][0], left, right)
-        update_traps_relative_pos(c_p)
-
-
-    def y_zoom_command(self, value):
-        """
-        Changes the AOI of the camera so that it is of height value centerd at
-        the current laser position.
-        """
-
-        try:
-            height = int(value)
-        except:
-            print('Massive error! Cannot convert y-zoom value')
-            return
-
-        #top = int(max(c_p['traps_absolute_pos'][0][0]-edge, 0))
-        #bottom = int(min(c_p['traps_absolute_pos'][0][0]+edge, np.shape(image)[0]))
-
-
-        # Calcualte where the right and left position of the AOI is.
-        # Needs to be divisble with 16 to be accepted by camera
-        tmp = int(c_p['traps_absolute_pos'][1][0]  + height/2)
-        bottom = int(min(tmp - (tmp%16), c_p['camera_width'] ))
-
-        tmp = int(c_p['traps_absolute_pos'][1][0] - height/2)
-        top = int(max(tmp - (tmp%16), 0))
-
-        c_p['AOI'][2] = top
-        c_p['AOI'][3] = bottom
+        c_p['AOI'][indices[0]] = left
+        c_p['AOI'][indices[1]] = right
 
         c_p['new_settings_camera'] = True
         update_traps_relative_pos(c_p)
@@ -726,16 +690,20 @@ class UserInterface:
         Puts sliders used for controlling the AOI on the GUI.
         """
         L = 150 # length of scale in pixels
+        self.x_zoom = partial(self.zoom_command, center=c_p['traps_absolute_pos'][0][0],
+            max_width=c_p['camera_width'], indices=[0, 1])
         self.x_zoom_slider = tkinter.Scale(top,
-            command=self.x_zoom_command, from_=32,
+            command=self.x_zoom, from_=32,
             to=c_p['camera_width'], resolution=32, orient=HORIZONTAL, length=L)
         self.x_zoom_slider.set(c_p['camera_width'])
         self.x_slider_label = Label(self.window, text='x-zoom')
         self.x_slider_label.place(x=x, y=y-15)
         self.x_zoom_slider.place(x=x, y=y)
 
+        self.y_zoom = partial(self.zoom_command, center=c_p['traps_absolute_pos'][1][0],
+            max_width=c_p['camera_height'], indices=[2, 3])
         self.y_zoom_slider = tkinter.Scale(top,
-            command=self.y_zoom_command, from_=32,
+            command=self.y_zoom, from_=32,
             to=c_p['camera_height'], resolution=32, orient=HORIZONTAL, length=L)
         self.y_zoom_slider.set(c_p['camera_height'])
         self.y_slider_label = Label(self.window, text='y-zoom')
@@ -879,6 +847,29 @@ class UserInterface:
         " Set exposure time (microseconds) ")
         self.set_exposure(user_input)
 
+    def max_framerate_dialog(self):
+        """
+        Opens a dialog box prompting the user to enter a new framerate for the
+        camera
+        """
+        if c_p['camera_model'] == 'ThorlabsCam':
+            # Not implemented in thorlabs_capture yet :/
+            return
+        user_input = simpledialog.askstring("Framerate dialog",
+        " Set framerate (frames per second) ")
+        try:
+            FPS = float(user_input)
+
+        except:
+            showinfo("Warning!",
+                "Entered framerate could not be converted to number!")
+        if FPS <= 0:
+            # Raise exception
+            return
+        c_p['max_framerate'] = FPS
+        c_p['new_settings_camera'] = True
+
+
     def show_camera_info(self):
         """
         Opens a small pop-up window with basic camera info such as model,
@@ -911,6 +902,7 @@ class UserInterface:
         self.camera_menu.add_command(label="Toggle bg removal", command=self.toggle_bg_removal)
         self.camera_menu.add_command(label="Exposure time", command=self.set_exposure_dialog)
         self.camera_menu.add_command(label="Show camera info", command=self.show_camera_info)
+        self.camera_menu.add_command(label="Set max framerate", command=self.max_framerate_dialog)
 
         self.menubar.add_cascade(label="Camera control", menu=self.camera_menu)
 
@@ -2410,7 +2402,7 @@ def move_particles_slowly(last_d=30e-6):
 
 ############### Main script starts here ####################################
 c_p = get_default_c_p()
-c_p['camera_model'] = 'basler_large'#'ThorlabsCam'
+c_p['camera_model'] = 'basler_fast'#'basler_large'#'ThorlabsCam'
 
 
 # Create a empty list to put the threads in
