@@ -22,7 +22,8 @@ pypylon-1.5.4-cp37-cp37m-win_amd64.whl . Might also need setup-tools
 pynput - mouse controlls
 	- Generally can just google any errors that occur.
 	First or second proposed solution most often fixes the problem.
-
+skvideo
+ffmpeg
 # TODO - Check that these are all that are needed and that the program works
 # after installing them.
 

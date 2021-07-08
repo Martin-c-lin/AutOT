@@ -559,7 +559,8 @@ class UserInterface:
                 c_p['stepper_controller'] = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
             except:
                 pass
-            c_p['connect_steppers'] = c_p['stepper_controller'].IsConnected
+            if c_p['stepper_controller'] is not None:
+                c_p['connect_steppers'] = c_p['stepper_controller'].IsConnected
 
     def connect_stage_piezos(self):
         """
@@ -592,7 +593,7 @@ class UserInterface:
         # TODO make the scrolling work only when mouse is on the canvas
         self.move_by_clicking_button = tkinter.Checkbutton(top, text='move by clicking',\
         variable=self.move_by_clicking, onvalue=True, offvalue=False)
-        self.move_by_clicking.set(True)
+        self.move_by_clicking.set(False)
         self.z_scrolling = tkinter.BooleanVar()
         self.z_scrolling_button = tkinter.Checkbutton(top, text='scroll for z-control',\
         variable=self.z_scrolling, onvalue=True, offvalue=False)
@@ -649,7 +650,7 @@ class UserInterface:
         global c_p
         c_p['polymerization_LED'] = 'S ' + str(value)
 
-    def zoom_command(self, value, center, max_width, indices):
+    def zoom_command(self, value, axis, max_width, indices):
         """
         Changes the AOI of the camera so that it is of width value centerd at
         the target position.
@@ -661,7 +662,15 @@ class UserInterface:
             return
         # Calcualte where the right and left position of the AOI is.
         # Needs to be divisble with 16 to be accepted by camera
+
+        if axis == 0:
+            center = c_p['traps_absolute_pos'][0][0]
+        elif axis == 1:
+            center = c_p['traps_absolute_pos'][1][0]
+        else:
+            return
         if center > max_width:
+            print(center)
             center = int(max_width)/2
         tmp = int(center  + width/2)
         right = int(min(tmp - (tmp%16), max_width ))
@@ -670,7 +679,6 @@ class UserInterface:
         left = int(max(tmp - (tmp%16), 0))
         c_p['AOI'][indices[0]] = left
         c_p['AOI'][indices[1]] = right
-
         c_p['new_settings_camera'] = True
         update_traps_relative_pos(c_p)
 
@@ -690,21 +698,23 @@ class UserInterface:
         Puts sliders used for controlling the AOI on the GUI.
         """
         L = 150 # length of scale in pixels
-        self.x_zoom = partial(self.zoom_command, center=c_p['traps_absolute_pos'][0][0],
+        #c_p['traps_absolute_pos'][0][0]
+        self.x_zoom = partial(self.zoom_command, axis=0,#center=c_p['traps_absolute_pos'][0][0],
             max_width=c_p['camera_width'], indices=[0, 1])
+        # Center does not get updated when using partial!
         self.x_zoom_slider = tkinter.Scale(top,
             command=self.x_zoom, from_=32,
-            to=c_p['camera_width'], resolution=32, orient=HORIZONTAL, length=L)
+            to=c_p['camera_width'], resolution=16, orient=HORIZONTAL, length=L)
         self.x_zoom_slider.set(c_p['camera_width'])
         self.x_slider_label = Label(self.window, text='x-zoom')
         self.x_slider_label.place(x=x, y=y-15)
         self.x_zoom_slider.place(x=x, y=y)
 
-        self.y_zoom = partial(self.zoom_command, center=c_p['traps_absolute_pos'][1][0],
+        self.y_zoom = partial(self.zoom_command, axis=1,
             max_width=c_p['camera_height'], indices=[2, 3])
         self.y_zoom_slider = tkinter.Scale(top,
             command=self.y_zoom, from_=32,
-            to=c_p['camera_height'], resolution=32, orient=HORIZONTAL, length=L)
+            to=c_p['camera_height'], resolution=16, orient=HORIZONTAL, length=L)
         self.y_zoom_slider.set(c_p['camera_height'])
         self.y_slider_label = Label(self.window, text='y-zoom')
         self.y_slider_label.place(x=x1, y=y1-15)
@@ -1201,6 +1211,7 @@ class UserInterface:
         else:
             dim = ( int(self.canvas_height), int(self.canvas_height/img_size[0]*img_size[1]))
         self.image_scale = max(img_size[1]/self.canvas_width, img_size[0]/self.canvas_height)
+
         return cv2.resize(img, (dim[1],dim[0]), interpolation = cv2.INTER_AREA)
 
     def get_mouse_position(self):

@@ -6,7 +6,7 @@ import pickle
 from cv2 import VideoWriter, VideoWriter_fourcc
 from pypylon import pylon
 from datetime import datetime
-
+import skvideo.io
 
 def get_camera_c_p():
     '''
@@ -29,13 +29,14 @@ def get_camera_c_p():
         'camera_orientatation': 'down',  # direction camera is mounted in.
         'default_offset_x':0, # Used to center the camera on the sample
         'default_offset_y':0,
+        'bitrate': '300000000', # Default value 3e8 default
         # Needed for not
     }
-
+# TODO recording with ffmpeg is really slow!
     # Add custom parameters for different cameras.
     if camera_c_p['camera_model'] == 'basler_large':
         camera_c_p['mmToPixel'] = 37_700 # Made a control measurement and found it to be 37.7
-        camera_c_p['camera_width'] = 4000
+        camera_c_p['camera_width'] = 4096
         camera_c_p['camera_height'] = 3040
         camera_c_p['default_offset_x'] = 1000
 
@@ -45,13 +46,13 @@ def get_camera_c_p():
         camera_c_p['camera_height'] = 1080
 
     elif camera_c_p['camera_model'] == 'basler_fast':
-        camera_c_p['mmToPixel'] = 16140/0.7
+        camera_c_p['mmToPixel'] = 21_500#37_700#16140/0.7
         camera_c_p['camera_width'] = 672
         camera_c_p['camera_height'] = 512
 
     camera_c_p['slm_to_pixel'] = 5_000_000 if camera_c_p['camera_model'] == 'basler_fast' else 4_550_000
     camera_c_p['AOI'] = [0, camera_c_p['camera_width'], 0, camera_c_p['camera_height']]
-
+    print(camera_c_p['AOI'])
     return camera_c_p
 
 
@@ -151,6 +152,37 @@ class CameraThread(threading.Thread):
 
         return video, experiment_info_name, exp_info_params
 
+
+    def create_HQ_video_writer(self):
+        """
+        Crates a high quality video writer for lossless recording.
+        """
+        c_p = self.c_p
+        now = datetime.now()
+        frame_rate = str(min(500, int(c_p['framerate'])))
+
+        image_width = c_p['AOI'][1]-c_p['AOI'][0]
+        image_height = c_p['AOI'][3]-c_p['AOI'][2]
+        self.video_width = image_width
+        self.video_height = image_height
+        video_name = c_p['recording_path'] + '/video-'+ c_p['measurement_name'] + \
+            '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)+'.mp4'
+
+        experiment_info_name = c_p['recording_path'] + '/data-' + c_p['measurement_name'] + \
+            str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
+
+        print('Image width,height,framerate', image_width, image_height, int(c_p['framerate']))
+
+        video = skvideo.io.FFmpegWriter(video_name, outputdict={
+                                         '-b':c_p['bitrate'],
+                                         '-r':frame_rate, # Does not like this
+                                         # specifying codec and bitrate, 'vcodec': 'libx264',
+                                        })
+        exp_info_params = self.get_important_parameters()
+
+        return video, experiment_info_name, exp_info_params
+
+
 # TODO make it possible to terminate a video without changing camera settings
 
     def thorlabs_capture(self):
@@ -182,8 +214,10 @@ class CameraThread(threading.Thread):
 
                     if not video_created:
                         video, experiment_info_name, exp_info_params = self.create_video_writer()
+
                         video_created = True
                     video.write(c_p['image'])
+
                 # Capture an image and update the image count
                 image_count = image_count+1
                 c_p['image'] = self.cam.latest_frame()[:, :, 0]
@@ -224,14 +258,19 @@ class CameraThread(threading.Thread):
             self.video_width = width
             self.video_height = height
             self.cam.OffsetX = 0
-            self.cam.Width = width
-            self.cam.OffsetX = c_p['default_offset_x'] + offset_x
             self.cam.OffsetY = 0
+            time.sleep(0.1)
+            self.cam.Width = width
             self.cam.Height = height
+            self.cam.OffsetX = c_p['default_offset_x'] + offset_x
             self.cam.OffsetY = c_p['default_offset_y'] + offset_y
+            # self.cam.Width.SetValue(width)
+            # self.cam.Height.SetValue(height)
+            # self.cam.OffsetX.SetValue(c_p['default_offset_x'] + offset_x)
+            # self.cam.OffsetY.SetValue(c_p['default_offset_y'] + offset_y)
 
         except Exception as e:
-            print('AOI not accepted', c_p['AOI'])
+            print('AOI not accepted', c_p['AOI'], width, height, offset_x, offset_y)
             print(e)
 
     def update_basler_exposure(self):
@@ -276,13 +315,15 @@ class CameraThread(threading.Thread):
                  with self.cam.RetrieveResult(2000) as result:
                     img.AttachGrabResultBuffer(result)
                     if result.GrabSucceeded():
-                        c_p['image'] = np.uint16(img.GetArray())
+                        c_p['image'] = np.uint8(img.GetArray())
                         img.Release()
                         if c_p['recording']:
                             if not video_created:
+                                #video, experiment_info_name, exp_info_params = self.create_HQ_video_writer()
                                 video, experiment_info_name, exp_info_params = self.create_video_writer()
                                 video_created = True
-                            video.write(np.uint8(c_p['image']))
+                            # video.writeFrame(c_p['image']) # For HQ video with ffmpeg
+                            video.write(c_p['image'])
                             # consider adding text to one corner
                         # Capture an image and update the image count
                         image_count = image_count+1
@@ -304,12 +345,14 @@ class CameraThread(threading.Thread):
                 fps = -1
 
             if video_created:
+                #video.close() # HQ video
                 video.release()
                 del video
                 video_created = False
                 # Save the experiment data in a pickled dict.
                 outfile = open(experiment_info_name, 'wb')
                 exp_info_params['fps'] = fps
+                print(" Measured fps was:", fps, " Indicated by camera", c_p['framerate'])
                 pickle.dump(exp_info_params, outfile)
                 outfile.close()
 
@@ -346,7 +389,7 @@ def set_AOI(c_p, left=None, right=None, up=None, down=None):
     h_max = c_p['camera_width']
     v_max = c_p['camera_height']
     if left is not None and right is not None and up is not None and down is not None:
-        if 0<=left<=h_max-1 and left<=right<=h_max and 0<=up<=v_max and up<=down<=v_max:
+        if 0<=left<=h_max and left<=right<=h_max and 0<=up<=v_max and up<=down<=v_max:
             c_p['AOI'][0] = left
             c_p['AOI'][1] = right
             c_p['AOI'][2] = up
@@ -383,5 +426,6 @@ def zoom_out(c_p):
     # Reset camera to fullscreen view
     set_AOI(c_p, left=0, right=int(c_p['camera_width']), up=0,
             down=int(c_p['camera_height']))
-    print('Zoomed out', c_p['camera_width'], c_p['camera_height'])
+    c_p['AOI'] = [0, int(c_p['camera_width']), 0, int(c_p['camera_height'])]
+    print('Zoomed out', c_p['AOI'])
     c_p['new_settings_camera'] = True
