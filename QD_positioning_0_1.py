@@ -2202,6 +2202,8 @@ def toggle_recording():
     Button function for starting of recording
     '''
     c_p['recording'] = not c_p['recording']
+    if c_p['recording']:
+        c_p['video_name'] = CameraControls.get_video_name()
 
 def snapshot(label=None):
     """
