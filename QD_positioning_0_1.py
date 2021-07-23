@@ -64,6 +64,11 @@ def start_threads(c_p, thread_list):
         camera_thread = CameraControls.CameraThread(1, 'Thread-camera',c_p=c_p)
         camera_thread.start()
         thread_list.append(camera_thread)
+
+        VideoWriterThread = CameraControls.VideoWriterThread(15, 'Writer thread',c_p=c_p)
+        VideoWriterThread.start()
+        thread_list.append(VideoWriterThread)
+
         print('Camera thread started')
 
     # Indicator to if the standard motors are being used ( non stage)
@@ -616,9 +621,7 @@ class UserInterface:
             top, text='Move focus down', command=focus_down)
         focus_up_button.place(x=x_position, y=y_position.__next__())
         focus_down_button.place(x=x_position, y=y_position.__next__())
-        self.move_to_target_button = tkinter.Button(top, \
-            text='Toggle move to target', command=self.toggle_move_piezo_to_target)
-        self.move_to_target_button.place(x=x_position, y=y_position.__next__())
+
 
     def toggle_zoom(self):
         if self.zoomed_in:
@@ -698,7 +701,6 @@ class UserInterface:
         Puts sliders used for controlling the AOI on the GUI.
         """
         L = 150 # length of scale in pixels
-        #c_p['traps_absolute_pos'][0][0]
         self.x_zoom = partial(self.zoom_command, axis=0,#center=c_p['traps_absolute_pos'][0][0],
             max_width=c_p['camera_width'], indices=[0, 1])
         # Center does not get updated when using partial!
@@ -857,35 +859,35 @@ class UserInterface:
         " Set exposure time (microseconds) ")
         self.set_exposure(user_input)
 
-    def max_framerate_dialog(self):
+    def max_fps_dialog(self):
         """
-        Opens a dialog box prompting the user to enter a new framerate for the
+        Opens a dialog box prompting the user to enter a new fps for the
         camera
         """
         if c_p['camera_model'] == 'ThorlabsCam':
             # Not implemented in thorlabs_capture yet :/
             return
-        user_input = simpledialog.askstring("Framerate dialog",
-        " Set framerate (frames per second) ")
+        user_input = simpledialog.askstring("fps dialog",
+        " Set fps (frames per second) ")
         try:
             FPS = float(user_input)
 
         except:
             showinfo("Warning!",
-                "Entered framerate could not be converted to number!")
+                "Entered fps could not be converted to number!")
         if FPS <= 0:
             # Raise exception
             return
-        c_p['max_framerate'] = FPS
+        c_p['max_fps'] = FPS
         c_p['new_settings_camera'] = True
 
 
     def show_camera_info(self):
         """
         Opens a small pop-up window with basic camera info such as model,
-        framerate, image size and exposure time.
+        fps, image size and exposure time.
         """
-        camera_info = f"Model: {c_p['camera_model']} , framerate: {c_p['framerate']} , exposure time: {c_p['exposure_time']}\n"
+        camera_info = f"Model: {c_p['camera_model']} , fps: {c_p['fps']} , exposure time: {c_p['exposure_time']}\n"
         camera_AOI_info = f"Current area of interest: {c_p['AOI']}, maximum width: {c_p['camera_width']} , maximum image height: {c_p['camera_height']}"
         showinfo(title="Camera feeed info", message=camera_info+camera_AOI_info)
 
@@ -912,8 +914,24 @@ class UserInterface:
         self.camera_menu.add_command(label="Toggle bg removal", command=self.toggle_bg_removal)
         self.camera_menu.add_command(label="Exposure time", command=self.set_exposure_dialog)
         self.camera_menu.add_command(label="Show camera info", command=self.show_camera_info)
-        self.camera_menu.add_command(label="Set max framerate", command=self.max_framerate_dialog)
+        self.camera_menu.add_command(label="Set max fps", command=self.max_fps_dialog)
 
+        def set_mp4_format():
+            c_p['video_format'] = "mp4"
+            print(c_p['video_format'])
+        def set_avi_format():
+            c_p['video_format'] = "avi"
+            print(c_p['video_format'])
+        def set_npy_format():
+            c_p['video_format'] = "npy"
+            print(c_p['video_format'])
+
+        self.video_format_menu = Menu(self.window)
+        self.video_format_menu.add_command(label='mp4', command=set_mp4_format)
+        self.video_format_menu.add_command(label='avi', command=set_avi_format)
+        self.video_format_menu.add_command(label='npy', command=set_npy_format)
+        self.camera_menu.add_cascade(label="Recording format",
+            menu=self.video_format_menu)
         self.menubar.add_cascade(label="Camera control", menu=self.camera_menu)
 
     def create_buttons(self, top=None):
@@ -966,8 +984,10 @@ class UserInterface:
 
         # Place all the buttons, starting with first column
         if c_p['standard_motors'] or c_p['stage_piezos']:
-            self.add_move_buttons(top, x_position, y_position)
-
+            #self.add_move_buttons(top, x_position, y_position)
+            self.move_to_target_button = tkinter.Button(top, \
+                text='Toggle move to target', command=self.toggle_move_piezo_to_target)
+            self.move_to_target_button.place(x=x_position, y=y_position.__next__())
         if c_p['temp']:
             self.temperature_entry = tkinter.Entry(top, bd=5)
             self.temperature_entry.place(x=x_position, y=y_position.__next__())
@@ -998,7 +1018,6 @@ class UserInterface:
         self.columnn_separator = ttk.Separator(top, orient='vertical')
         self.columnn_separator.place(x=x_position_2-10,y=0, width=5, height=self.canvas_height-200)
         # Second column
-        # experiment_schedule_button.place(x=x_position_2, y=y_position_2.__next__())
         self.diplay_laser_button.place(x=x_position_2, y=y_position_2.__next__())
 
         # Motor buttons. Attributes of UserInterface class os we can easily change
@@ -1139,6 +1158,9 @@ class UserInterface:
         self.position_label.place(x=x, y=y1)
         self.temperature_label = Label(self.window, text=self.get_temperature_info())
         self.temperature_label.place(x=x, y=y2)
+        self.saving_video_label = Label(self.window, text="No video is being saved")
+        self.saving_video_label.config(fg='green')
+        self.saving_video_label.place(x=x, y=y2+20)
 
     def update_indicators(self):
         '''
@@ -1150,6 +1172,13 @@ class UserInterface:
             self.recording_button.config(text='Turn off recording', bg='green')
         else:
             self.recording_button.config(text='Turn on recording', bg='red')
+
+        if not c_p['saving_video']:
+            self.saving_video_label.config(text="No video is being saved",
+                fg='green')
+        else:
+            txt = f"Video being saved, {c_p['frame_queue'].qsize()} frames left to process"
+            self.saving_video_label.config(text=txt, fg='red')
 
         if c_p['arduino_LED']:
             if c_p['polymerization_LED_status'] == 'ON':
@@ -1166,6 +1195,7 @@ class UserInterface:
             else:
                 self.green_laser_button.config(bg='red')
 
+
         # Update "move to target button", may not exist
         if c_p['stage_piezos']:
             if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
@@ -1177,6 +1207,7 @@ class UserInterface:
             else:
                 self.to_focus_button.config(bg='red')
         if self.zoomed_in:
+            # TODO remove the zoom button
             self.zoom_button.config(text='Zoom out')
         else:
             self.zoom_button.config(text='Zoom in')
@@ -2203,7 +2234,7 @@ def toggle_recording():
     '''
     c_p['recording'] = not c_p['recording']
     if c_p['recording']:
-        c_p['video_name'] = CameraControls.get_video_name()
+        c_p['video_name'] = CameraControls.get_video_name(c_p=c_p)
 
 def snapshot(label=None):
     """
@@ -2288,7 +2319,7 @@ def zoom_in(margin=60, use_traps=False):
         up = int(up // 16 * 16)
         down = min(max(c_p['traps_absolute_pos'][1]) + margin, 512)
         down = int(down // 16 * 16)
-    # Note calculated framerate is automagically saved.
+    # Note calculated fps is automagically saved.
     CameraControls.set_AOI(c_p, left=left, right=right, up=up, down=down)
     update_traps_relative_pos(c_p)
     print(c_p['traps_relative_pos'][0][0], c_p['traps_relative_pos'][1][0])

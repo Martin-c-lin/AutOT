@@ -1,7 +1,8 @@
 import ThorlabsCam as TC
 import numpy as np
 import threading
-import time, sleep
+import time
+from time import sleep
 import pickle
 from copy import copy
 from cv2 import VideoWriter, VideoWriter_fourcc
@@ -22,8 +23,8 @@ def get_camera_c_p():
         'recording_duration': 3000,
         'exposure_time': 30_000,  # ExposureTime in ms for thorlabs,
         # mus for basler
-        'framerate': 15,
-        'max_framerate': 10_000, # maximum framerate allowed.
+        'fps': 15,
+        'max_fps': 10_000, # maximum fps allowed.
         'recording': False,  # True if recording is on
         'AOI': [0, 480, 0, 480],  # Default for
         'zoomed_in': False,  # Keeps track of whether the image is cropped or
@@ -32,6 +33,8 @@ def get_camera_c_p():
         'default_offset_x':0, # Used to center the camera on the sample
         'default_offset_y':0,
         'bitrate': '300000000', # Default value 3e8 default
+        'saving_video': False, # indicator for when a video is being saved
+        'video_format': 'mp4',
         # Needed for not
     }
 # TODO recording with ffmpeg is really slow!
@@ -58,14 +61,17 @@ def get_camera_c_p():
     print(camera_c_p['AOI'])
     return camera_c_p
 
-def get_video_name(base_name=''):
+def get_video_name(c_p, base_name=''):
     """
     Returns an auto-generated name of the video. The name has the time of creation
     in the title to be easy to locate.
     """
     now = datetime.now()
-    name = base_name + 'video-'+ c_p['measurement_name'] + '-' + str(now.hour)
-    name += '-' + str(now.minute) + '-' + str(now.second)
+    # base_name +
+    print(c_p['measurement_name'], base_name)
+    name = 'video-'+ c_p['measurement_name'] + '-' + str(now.hour)
+    name += '-' + str(now.minute) + '-' + str(now.second)+'-fps-'
+    name += str(c_p['fps'])
     return name
 
 def create_HQ_video_writer(c_p, video_name=None, image_width=None,
@@ -75,13 +81,13 @@ def create_HQ_video_writer(c_p, video_name=None, image_width=None,
     """
 
     if video_name is None:
-        video_name = get_video_name()
+        video_name = get_video_name(c_p=c_p)
     if image_width is None:
         image_width = c_p['AOI'][1]-c_p['AOI'][0]
     if image_height is None:
         image_height = c_p['AOI'][3]-c_p['AOI'][2]
 
-    frame_rate = str(min(500, int(c_p['framerate'])))
+    frame_rate = str(min(50, int(c_p['fps']))) # Can in principle reach 500fps
 
     # self.video_width = image_width
     # self.video_height = image_height
@@ -89,24 +95,26 @@ def create_HQ_video_writer(c_p, video_name=None, image_width=None,
 
     experiment_info_name = c_p['recording_path'] + '/data-' + video_name
 
-    print('Image width,height,framerate', image_width, image_height, int(c_p['framerate']))
+    print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
 
     video = skvideo.io.FFmpegWriter(video_name, outputdict={
                                      '-b':c_p['bitrate'],
                                      '-r':frame_rate, # Does not like this
                                      # specifying codec and bitrate, 'vcodec': 'libx264',
                                     })
-    exp_info_params = self.get_important_parameters()
+    exp_info_params = None #self.get_important_parameters()
 
     return video, experiment_info_name, exp_info_params
 
 
-class VideoWriterThread(Thread):
+class VideoWriterThread(threading.Thread):
     """
     A class which simply deques the latest frame and prints it to a video
     """
-    # TODO put this in a spearate branch on github...
-    def __init__(self, c_p):
+    def __init__(self , threadID, name, c_p):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
         self.c_p = c_p
         self.sleep_time = 0.1
         self.frame = None
@@ -129,10 +137,20 @@ class VideoWriterThread(Thread):
 
         while self.c_p['program_running']:
             sleep(self.sleep_time)
+            idx = 0
+            self.c_p['saving_video']  = False
+
             while self.c_p['recording'] or not self.c_p['frame_queue'].empty():
+                self.c_p['saving_video'] = True
+
+                # TODO make it possible to select video format when recording,
+                # AVI, MP4(with bitrate) and directly to a .npy file
+
                 # Check empty twice since we don't want to wait longer than
                 # necessary for the image to be printed to the videowriter
+
                 if not self.c_p['frame_queue'].empty():
+
                     [self.frame, source_video] = self.c_p['frame_queue'].get()
 
                     # Check that name and size are correct, if not create a new
@@ -141,16 +159,22 @@ class VideoWriterThread(Thread):
                         self.video_width = image_shape[0]
                         self.video_height = image_shape[1]
                         self.close_video()
+                        print('Video closed ', image_shape[0], image_shape[1])
                     # Check if name is ok
-                    if self.frame != self.c_p.video_name and self.video_created:
+                    if self.video_name != self.c_p['video_name'] and self.video_created:
                         self.close_video()
+                        self.video_name = self.c_p['video_name']
+                        print('Video closed here ',self.video_name ,self.c_p['video_name'])
 
                     if not self.video_created:
-                        size = str(self.video_width) + 'x' + str(self.video_height)
-                        self.VideoWriter,experiment_info_name, exp_info_params  = create_HQ_video_writer(source_video+size)
+                        size = '_' + str(self.video_width) + 'x' + str(self.video_height)
+                        self.VideoWriter,experiment_info_name, exp_info_params \
+                            = create_HQ_video_writer(c_p=self.c_p, video_name = source_video+size,
+                            image_width=image_shape[0], image_height=image_shape[1])
+                        self.video_created = True
                     self.VideoWriter.writeFrame(self.frame)
-                if self.video_created:
-                    self.close_video()
+            if self.video_created:
+                self.close_video()
             # TODO close writer once a video is done
 
 
@@ -206,7 +230,7 @@ class CameraThread(threading.Thread):
             'zm': c_p['zm'],
             'use_LGO': c_p['use_LGO'],
             'LGO_order': c_p['LGO_order'],
-            'max_framerate': c_p['max_framerate'],
+            'max_fps': c_p['max_fps'],
             'setpoint_temperature': c_p['setpoint_temperature'],
             'target_experiment_z': c_p['target_experiment_z'],
             'temperature_output_on': c_p['temperature_output_on'],
@@ -242,44 +266,13 @@ class CameraThread(threading.Thread):
         experiment_info_name = c_p['recording_path'] + '/data-' + c_p['measurement_name'] + \
             str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
 
-        print('Image width,height,framerate', image_width, image_height, int(c_p['framerate']))
-        video = VideoWriter(video_name, fourcc, min(500, c_p['framerate']),
+        print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
+        video = VideoWriter(video_name, fourcc, min(500, c_p['fps']),
                             (image_width, image_height), isColor=False)
 
         exp_info_params = self.get_important_parameters()
 
         return video, experiment_info_name, exp_info_params
-
-
-    # def create_HQ_video_writer(self):
-    #     """
-    #     Crates a high quality video writer for lossless recording.
-    #     """
-    #     c_p = self.c_p
-    #     now = datetime.now()
-    #     frame_rate = str(min(500, int(c_p['framerate'])))
-    #
-    #     image_width = c_p['AOI'][1]-c_p['AOI'][0]
-    #     image_height = c_p['AOI'][3]-c_p['AOI'][2]
-    #     self.video_width = image_width
-    #     self.video_height = image_height
-    #     video_name = c_p['recording_path'] + '/video-'+ c_p['measurement_name'] + \
-    #         '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)+'.mp4'
-    #
-    #     experiment_info_name = c_p['recording_path'] + '/data-' + c_p['measurement_name'] + \
-    #         str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
-    #
-    #     print('Image width,height,framerate', image_width, image_height, int(c_p['framerate']))
-    #
-    #     video = skvideo.io.FFmpegWriter(video_name, outputdict={
-    #                                      '-b':c_p['bitrate'],
-    #                                      '-r':frame_rate, # Does not like this
-    #                                      # specifying codec and bitrate, 'vcodec': 'libx264',
-    #                                     })
-    #     exp_info_params = self.get_important_parameters()
-    #
-    #     return video, experiment_info_name, exp_info_params
-
 
 # TODO make it possible to terminate a video without changing camera settings
 
@@ -300,7 +293,7 @@ class CameraThread(threading.Thread):
 
             image_count = 0
 
-            # Setting  maximum framerate. Will cap it to make it stable
+            # Setting  maximum fps. Will cap it to make it stable
             # Start livefeed from the camera
             self.cam.start_live_video()
             start = time.time()
@@ -362,10 +355,6 @@ class CameraThread(threading.Thread):
             self.cam.Height = height
             self.cam.OffsetX = c_p['default_offset_x'] + offset_x
             self.cam.OffsetY = c_p['default_offset_y'] + offset_y
-            # self.cam.Width.SetValue(width)
-            # self.cam.Height.SetValue(height)
-            # self.cam.OffsetX.SetValue(c_p['default_offset_x'] + offset_x)
-            # self.cam.OffsetY.SetValue(c_p['default_offset_y'] + offset_y)
 
         except Exception as e:
             print('AOI not accepted', c_p['AOI'], width, height, offset_x, offset_y)
@@ -374,8 +363,8 @@ class CameraThread(threading.Thread):
     def update_basler_exposure(self):
         try:
             self.cam.ExposureTime = self.c_p['exposure_time']
-            self.c_p['framerate'] = self.cam.ResultingFrameRate.GetValue()
-            self.c_p['framerate'] = round(float(self.c_p['framerate']), 1)
+            self.c_p['fps'] = round(float(self.cam.ResultingFrameRate.GetValue()), 1)
+            print('FPS is ', self.c_p['fps'])
         except:
             print('Exposure time not accepted by camera')
 
@@ -434,7 +423,7 @@ class CameraThread(threading.Thread):
                     w = c_p['AOI'][1] - c_p['AOI'][0]
                     h = c_p['AOI'][3] - c_p['AOI'][2]
                     self.cam.AcquisitionFrameRateEnable.SetValue(True);
-                    self.cam.AcquisitionFrameRate.SetValue(c_p['max_framerate'])
+                    self.cam.AcquisitionFrameRate.SetValue(c_p['max_fps'])
                     if w == self.video_width and h == self.video_height:
                         self.update_basler_exposure()
                         c_p['new_settings_camera'] = False
@@ -446,7 +435,7 @@ class CameraThread(threading.Thread):
                 fps = image_count/(end-start)
             except:
                 fps = -1
-            print(" Measured fps was:", fps, " Indicated by camera", c_p['framerate'])
+            print(" Measured fps was:", fps, " Indicated by camera", c_p['fps'])
             # if video_created:
             #     #video.close() # HQ video
             #     video.release()
@@ -455,7 +444,7 @@ class CameraThread(threading.Thread):
             #     # Save the experiment data in a pickled dict.
             #     outfile = open(experiment_info_name, 'wb')
             #     exp_info_params['fps'] = fps
-            #     print(" Measured fps was:", fps, " Indicated by camera", c_p['framerate'])
+            #     print(" Measured fps was:", fps, " Indicated by camera", c_p['fps'])
             #     pickle.dump(exp_info_params, outfile)
             #     outfile.close()
 
