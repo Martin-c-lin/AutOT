@@ -211,6 +211,8 @@ def get_default_c_p(recording_path=None):
         # activate and fill traps one by one.
         'cell_width': 32,  # Width of cells when dividing the frame into a grid
         # for the path-search
+
+        'downsample_rate': 4,
     }
     c_p['slm_to_pixel'] = 5_000_000
     # Initialize traps and set traps positions

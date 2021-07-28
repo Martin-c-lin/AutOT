@@ -2,9 +2,10 @@ import ThorlabsCam as TC
 import numpy as np
 import threading
 import time
+import os
 from time import sleep
 import pickle
-from copy import copy
+from copy import copy, deepcopy
 from cv2 import VideoWriter, VideoWriter_fourcc
 from pypylon import pylon
 from datetime import datetime
@@ -28,7 +29,7 @@ def get_camera_c_p():
         'recording': False,  # True if recording is on
         'AOI': [0, 480, 0, 480],  # Default for
         'zoomed_in': False,  # Keeps track of whether the image is cropped or
-        'camera_model': 'basler_fast',  # basler_fast, thorlabs are options
+        'camera_model': 'basler_large',  #basler_large, basler_fast, thorlabs are the options
         'camera_orientatation': 'down',  # direction camera is mounted in.
         'default_offset_x':0, # Used to center the camera on the sample
         'default_offset_y':0,
@@ -37,7 +38,8 @@ def get_camera_c_p():
         'video_format': 'mp4',
         # Needed for not
     }
-# TODO recording with ffmpeg is really slow!
+    # TODO Fix so that the software recoginze the camera and use it to
+    # Determine camera width etc. May still need to calibrate for pixel-size
     # Add custom parameters for different cameras.
     if camera_c_p['camera_model'] == 'basler_large':
         camera_c_p['mmToPixel'] = 37_700 # Made a control measurement and found it to be 37.7
@@ -74,7 +76,37 @@ def get_video_name(c_p, base_name=''):
     name += str(c_p['fps'])
     return name
 
-def create_HQ_video_writer(c_p, video_name=None, image_width=None,
+def create_avi_video_writer(c_p, video_name):
+    '''
+    Funciton for creating a VideoWriter.
+    Will also save the relevant parameters of the experiments.
+    Returns
+    -------
+    video : VideoWriter
+        A video writer for creating a video.
+    experiment_info_name : String
+        Name of experiment being run.
+    exp_info_params : Dictionary
+        Dictionary with controlparameters describing the experiment.
+    '''
+    now = datetime.now()
+    fourcc = VideoWriter_fourcc(*'MJPG')
+    image_width = c_p['AOI'][1]-c_p['AOI'][0]
+    image_height = c_p['AOI'][3]-c_p['AOI'][2]
+    video_name = c_p['recording_path'] + '/' + video_name + '.avi'
+
+    experiment_info_name = c_p['recording_path'] + '/data-' + c_p['measurement_name'] + \
+        str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
+
+    #print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
+    video = VideoWriter(video_name, fourcc, min(500, c_p['fps']),
+                        (image_width, image_height), isColor=False)
+
+    #exp_info_params = self.get_important_parameters()
+
+    return video#, experiment_info_name, exp_info_params
+
+def create_mp4_video_writer(c_p, video_name=None, image_width=None,
         image_height=None):
     """
     Crates a high quality video writer for lossless recording.
@@ -87,24 +119,21 @@ def create_HQ_video_writer(c_p, video_name=None, image_width=None,
     if image_height is None:
         image_height = c_p['AOI'][3]-c_p['AOI'][2]
 
-    frame_rate = str(min(50, int(c_p['fps']))) # Can in principle reach 500fps
+    frame_rate = str(5) #str(min(50, int(c_p['fps']))) # Can in principle reach 500fps
 
-    # self.video_width = image_width
-    # self.video_height = image_height
     video_name = c_p['recording_path'] + '/' + video_name + '.mp4'
 
-    experiment_info_name = c_p['recording_path'] + '/data-' + video_name
+#    experiment_info_name = c_p['recording_path'] + '/data-' + video_name
 
-    print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
+#    print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
 
     video = skvideo.io.FFmpegWriter(video_name, outputdict={
                                      '-b':c_p['bitrate'],
                                      '-r':frame_rate, # Does not like this
                                      # specifying codec and bitrate, 'vcodec': 'libx264',
                                     })
-    exp_info_params = None #self.get_important_parameters()
 
-    return video, experiment_info_name, exp_info_params
+    return video#, experiment_info_name, exp_info_params
 
 
 class VideoWriterThread(threading.Thread):
@@ -122,6 +151,12 @@ class VideoWriterThread(threading.Thread):
         self.video_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
         self.video_created = False
         self.video_name = None
+        self.frame_buffer = []
+        self.frame_buffer_size = 100
+        self.frame_count = 0
+        self.VideoWriter = None
+        self.video_format = 'avi' # Format of current video being recorded
+        self.np_save_path = None
 
     def close_video(self):
         """
@@ -129,10 +164,110 @@ class VideoWriterThread(threading.Thread):
         """
         self.video_created = False
         try:
-            self.VideoWriter.close()
-            del self.VideoWriter
+            if self.video_format == 'mp4':
+                self.VideoWriter.close()
+                del self.VideoWriter
+            elif self.video_format == 'avi':
+                self.VideoWriter.release()
+                del self.VideoWriter
+            else:
+                # is npy, save what remains of buffer then clear it
+                self.np_save_frames()
+
         except:
+            # TODO the program tries to close a video without any video having
+            # been created
             pass
+
+    def np_save_frames(self):
+        """
+        Saves all the frames in the buffer to a .npy file.
+        """
+        nbr_frames = self.frame_count % self.frame_buffer_size
+        if nbr_frames == 0:
+            nbr_frames = self.frame_buffer_size
+        lower_lim = str(max(self.frame_count-nbr_frames, 0))
+        upper_lim = str(self.frame_count)
+
+        filename = lower_lim + '-' + upper_lim + '.npy'
+        with open(self.np_save_path+filename, 'wb') as f:
+            np.save(f, self.frame_buffer[:nbr_frames])
+        self.frame_buffer *= 0
+
+    def create_NP_writer(self, video_name):
+        """
+        Creates a folder and saves path to it for saving the numpy images
+        """
+        if video_name is None:
+                video_name = get_video_name(c_p=self.c_p)
+        self.np_save_path = self.c_p['recording_path'] + '/' + video_name + '/'
+        try:
+            os.mkdir(self.np_save_path)
+        except:
+            print('Directory already exist')
+
+    def write_to_NPY(self):
+        res = self.frame_count % (self.frame_buffer_size)
+
+        if res == 0 and self.frame_count != 0:
+            # Save the frames into target folder and with suitable name
+            self.np_save_frames()
+            # create a new fresh buffer
+        self.frame_buffer[res,:,:] = deepcopy(self.frame)
+        self.frame_count += 1
+        print(res, np.mean(self.frame_buffer[res]))
+
+    def write_frame(self):
+        """
+        Writes a frame to the current video_writer.
+        If the format is "npy" we instead put it in our np-array of iamges.
+            If the np-array of images reaches a special threshold then it is
+            automatically saved.
+            # Reasonable threshold perhaps 100_000 frames?
+        """
+        if self.video_format == 'mp4':
+            self.VideoWriter.writeFrame(self.frame)
+            print("wrote mp4 frame")
+        elif self.video_format == 'avi':
+            self.VideoWriter.write(self.frame)
+        else:
+            self.write_to_NPY()
+
+        # Let the caller know that a frame was successfully added to the output
+        return True
+
+    def create_video_writer(self, video_name):
+        """
+
+        """
+
+        size = '_' + str(self.video_width) + 'x' + str(self.video_height)
+        if self.c_p['video_format'] == 'mp4':
+            self.VideoWriter = create_mp4_video_writer(c_p=self.c_p,
+                video_name=video_name)
+            self.video_format = 'mp4'
+
+        elif self.c_p['video_format'] == 'avi':
+            self.VideoWriter = create_avi_video_writer(c_p=self.c_p,
+                video_name=video_name)
+            self.video_format = 'avi'
+
+        elif self.c_p['video_format'] == 'npy':
+            self.video_format = 'npy'
+            image_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
+            image_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
+            # TODO make buffer_size dependent on the image size
+            self.frame_buffer_size = int(501760000/(image_width*image_height))
+            print('Buffer_size: ',self.frame_buffer_size)
+            self.frame_buffer = np.uint8(np.zeros([self.frame_buffer_size, image_height, image_width]))
+            self.frame_count = 0
+
+            self.create_NP_writer(video_name)
+        else:
+            raise VideoFormatError(f"Video format{c_p['video_format']} not recognized!")
+
+        self.video_created = True
+
     def run(self):
 
         while self.c_p['program_running']:
@@ -159,20 +294,19 @@ class VideoWriterThread(threading.Thread):
                         self.video_width = image_shape[0]
                         self.video_height = image_shape[1]
                         self.close_video()
-                        print('Video closed ', image_shape[0], image_shape[1])
                     # Check if name is ok
                     if self.video_name != self.c_p['video_name'] and self.video_created:
                         self.close_video()
                         self.video_name = self.c_p['video_name']
-                        print('Video closed here ',self.video_name ,self.c_p['video_name'])
 
                     if not self.video_created:
                         size = '_' + str(self.video_width) + 'x' + str(self.video_height)
-                        self.VideoWriter,experiment_info_name, exp_info_params \
-                            = create_HQ_video_writer(c_p=self.c_p, video_name = source_video+size,
-                            image_width=image_shape[0], image_height=image_shape[1])
-                        self.video_created = True
-                    self.VideoWriter.writeFrame(self.frame)
+                        video_name = source_video + size
+                        self.create_video_writer(video_name)
+                    self.write_frame()
+                else:
+                    # Queue empty
+                    sleep(0.001)
             if self.video_created:
                 self.close_video()
             # TODO close writer once a video is done
@@ -240,39 +374,39 @@ class CameraThread(threading.Thread):
         }
         return parameter_dict
 
-    def create_video_writer(self):
-        '''
-        Funciton for creating a VideoWriter.
-        Will also save the relevant parameters of the experiments.
-        Returns
-        -------
-        video : VideoWriter
-            A video writer for creating a video.
-        experiment_info_name : String
-            Name of experiment being run.
-        exp_info_params : Dictionary
-            Dictionary with controlparameters describing the experiment.
-        '''
-        c_p = self.c_p
-        now = datetime.now()
-        fourcc = VideoWriter_fourcc(*'MJPG')
-        image_width = c_p['AOI'][1]-c_p['AOI'][0]
-        image_height = c_p['AOI'][3]-c_p['AOI'][2]
-        self.video_width = image_width
-        self.video_height = image_height
-        video_name = c_p['recording_path'] + '/video-'+ c_p['measurement_name'] + \
-            '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)+'.avi'
-
-        experiment_info_name = c_p['recording_path'] + '/data-' + c_p['measurement_name'] + \
-            str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
-
-        print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
-        video = VideoWriter(video_name, fourcc, min(500, c_p['fps']),
-                            (image_width, image_height), isColor=False)
-
-        exp_info_params = self.get_important_parameters()
-
-        return video, experiment_info_name, exp_info_params
+    # def create_video_writer(self):
+    #     '''
+    #     Funciton for creating a VideoWriter.
+    #     Will also save the relevant parameters of the experiments.
+    #     Returns
+    #     -------
+    #     video : VideoWriter
+    #         A video writer for creating a video.
+    #     experiment_info_name : String
+    #         Name of experiment being run.
+    #     exp_info_params : Dictionary
+    #         Dictionary with controlparameters describing the experiment.
+    #     '''
+    #     c_p = self.c_p
+    #     now = datetime.now()
+    #     fourcc = VideoWriter_fourcc(*'MJPG')
+    #     image_width = c_p['AOI'][1]-c_p['AOI'][0]
+    #     image_height = c_p['AOI'][3]-c_p['AOI'][2]
+    #     self.video_width = image_width
+    #     self.video_height = image_height
+    #     video_name = c_p['recording_path'] + '/video-'+ c_p['measurement_name'] + \
+    #         '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)+'.avi'
+    #
+    #     experiment_info_name = c_p['recording_path'] + '/data-' + c_p['measurement_name'] + \
+    #         str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
+    #
+    #     print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
+    #     video = VideoWriter(video_name, fourcc, min(500, c_p['fps']),
+    #                         (image_width, image_height), isColor=False)
+    #
+    #     exp_info_params = self.get_important_parameters()
+    #
+    #     return video, experiment_info_name, exp_info_params
 
 # TODO make it possible to terminate a video without changing camera settings
 
@@ -411,7 +545,7 @@ class CameraThread(threading.Thread):
                             copy(c_p['video_name'])])
 
                             # if not video_created:
-                                # video, experiment_info_name, exp_info_params = self.create_HQ_video_writer()
+                                # video, experiment_info_name, exp_info_params = self.create_mp4_video_writer()
                                 # video, experiment_info_name, exp_info_params = self.create_video_writer()
                                 # video_created = True
                             # video.writeFrame(c_p['image']) # For HQ video with ffmpeg

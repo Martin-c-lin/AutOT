@@ -10,6 +10,7 @@ import CameraControls
 from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p, toggle_BG_shutter, toggle_green_laser
 from CameraControls import update_traps_relative_pos # Moved this function
 from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p, get_save_path
+from MiscFunctions import sum_downsample
 
 from instrumental import u
 import numpy as np
@@ -288,7 +289,7 @@ class UserInterface:
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
         self.image_scale = 1 # scale of image being displayed
-        self.delay = 25 #50 standard how often to update view in ms intervals
+        self.delay = 10 #50 standard how often to update view in ms intervals
         self.zoomed_in = False
         if c_p['slm']:
             self.create_SLM_window(SLM_window)
@@ -733,7 +734,7 @@ class UserInterface:
         if c_p['camera_model'] == 'basler_large' or 'basler_fast':
             try:
                 exposure_time = int(entry)
-                if 59 < exposure_time < 2e6:
+                if 59 < exposure_time < 5e6:
                     c_p['exposure_time'] = exposure_time
                     print("Exposure time set to ", exposure_time)
                     c_p['new_settings_camera'] = True
@@ -780,8 +781,7 @@ class UserInterface:
             print('Cannot convert entry to integer')
         threshold_entry.delete(0, last=5000)
 
-    def add_arduino_buttons(self, top, generator_y, generator_y_2, x_position,
-                            x_position_2):
+    def add_arduino_buttons(self, top, generator_y, generator_y_2, x_position, x_position_2):
         '''
         Creates the buttons needed for the arduino.
         '''
@@ -888,7 +888,8 @@ class UserInterface:
         fps, image size and exposure time.
         """
         camera_info = f"Model: {c_p['camera_model']} , fps: {c_p['fps']} , exposure time: {c_p['exposure_time']}\n"
-        camera_AOI_info = f"Current area of interest: {c_p['AOI']}, maximum width: {c_p['camera_width']} , maximum image height: {c_p['camera_height']}"
+        camera_AOI_info = f"Current area of interest: {c_p['AOI']}, maximum image width: {c_p['camera_width']} , maximum image height: {c_p['camera_height']}"
+        camera_AOI_info += f"\n recording format: .{c_p['video_format']}"
         showinfo(title="Camera feeed info", message=camera_info+camera_AOI_info)
 
     def create_control_menus(self):
@@ -918,13 +919,10 @@ class UserInterface:
 
         def set_mp4_format():
             c_p['video_format'] = "mp4"
-            print(c_p['video_format'])
         def set_avi_format():
             c_p['video_format'] = "avi"
-            print(c_p['video_format'])
         def set_npy_format():
             c_p['video_format'] = "npy"
-            print(c_p['video_format'])
 
         self.video_format_menu = Menu(self.window)
         self.video_format_menu.add_command(label='mp4', command=set_mp4_format)
@@ -1007,6 +1005,12 @@ class UserInterface:
 
         self.toggle_tracking_button.place(x=x_position, y=y_position.__next__())
         self.zoom_button.place(x=x_position, y=y_position.__next__())
+
+        # Downsample button and variable
+        self.downsample = tkinter.BooleanVar()
+        self.downsample_button = tkinter.Checkbutton(top, text='Downsample livefeed',\
+        variable=self.downsample, onvalue=True, offvalue=False)
+        self.downsample_button.place(x=x_position, y=y_position.__next__())
 
         # Laser position checkbutton. Cannot be used at same time as click move
         self.set_laser_position = tkinter.BooleanVar()
@@ -1243,6 +1247,10 @@ class UserInterface:
             dim = ( int(self.canvas_height), int(self.canvas_height/img_size[0]*img_size[1]))
         self.image_scale = max(img_size[1]/self.canvas_width, img_size[0]/self.canvas_height)
 
+        # Compensate for downsampling in image_scale
+        if self.downsample.get():
+            self.image_scale /= c_p['downsample_rate']
+
         return cv2.resize(img, (dim[1],dim[0]), interpolation = cv2.INTER_AREA)
 
     def get_mouse_position(self):
@@ -1435,13 +1443,15 @@ class UserInterface:
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
 
+         if self.downsample.get():
+            image = sum_downsample(image, c_p['downsample_rate'])
+
          image = self.resize_display_image(image)
 
          # Now do the background removal on the significantly smaller image.
          if c_p['bg_removal'] and np.shape(c_p['background']) == np.shape(image)\
             and c_p['background_illumination']:
             image = subtract_bg(image, c_p['background'])
-
 
          # TODO make it possible to use 16 bit color(ie 12)
          self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(image))
@@ -2446,7 +2456,7 @@ def move_particles_slowly(last_d=30e-6):
 
 ############### Main script starts here ####################################
 c_p = get_default_c_p()
-c_p['camera_model'] = 'basler_fast'#'basler_large'#'ThorlabsCam'
+#c_p['camera_model'] = 'basler_fast'#'basler_large'#'ThorlabsCam'
 
 
 # Create a empty list to put the threads in
