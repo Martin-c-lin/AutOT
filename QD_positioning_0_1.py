@@ -57,8 +57,6 @@ def start_threads(c_p, thread_list):
     Function for starting all the threads, should only be called once.
 
     """
-    # TODO Consider moving some import statements here so we do not import more
-    # than we actually need
 
     if c_p['cam']:
         append_c_p(c_p, CameraControls.get_camera_c_p())
@@ -274,7 +272,6 @@ class UserInterface:
         self.mini_canvas_width = 240
         self.mini_canvas_height = 200
         self.c_p = c_p
-        self.save_background()
         self.c_p['bg_removal'] = False
         self.canvas = tkinter.Canvas(
             window, width=self.canvas_width, height=self.canvas_height)
@@ -285,6 +282,7 @@ class UserInterface:
         self.mini_canvas.place(x=self.canvas_width, y=self.canvas_height-200)
         self.mini_image = np.zeros((200,240,3))
         self.create_buttons(self.window)
+        self.save_background()
         self.window.geometry(str(self.canvas_width+500)+'x'+str(self.canvas_height))#('1700x1000')
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
@@ -388,7 +386,9 @@ class UserInterface:
             mini_image[l:r,u,1:2] = 255  # Upper edge
             mini_image[r,u:d,1:2] = 255  # Right edge
             mini_image[l:r,d,1:2] = 255  # Bottom edge
-        except:
+        except IndexError:
+            #print()
+        #else:
             mini_image[0,0:-1,1:2] = 255  # Left edge
             mini_image[0:-1,0,1:2] = 255  # Upper edge
             mini_image[-1,0:-1,1:2] = 255  # Right edge
@@ -661,7 +661,7 @@ class UserInterface:
         """
         try:
             width = int(value)
-        except:
+        except ValueError:
             print('Massive error! Cannot convert x-zoom value')
             return
         # Calcualte where the right and left position of the AOI is.
@@ -676,6 +676,7 @@ class UserInterface:
         if center > max_width:
             print(center)
             center = int(max_width)/2
+        # TODO fix so that we can zoom out properly also when the trap is not in the center!
         tmp = int(center  + width/2)
         right = int(min(tmp - (tmp%16), max_width ))
 
@@ -697,6 +698,9 @@ class UserInterface:
         self.polymerization_label.place(x=x-0, y=y-15)
         self.polymerization_scale.place(x=x, y=y)
 
+    def set_downsample_level(self, value):
+        c_p['downsample_rate'] = int(value)
+
     def place_manual_zoom_sliders(self, top, x, y, x1, y1):
         """
         Puts sliders used for controlling the AOI on the GUI.
@@ -717,7 +721,7 @@ class UserInterface:
             max_width=c_p['camera_height'], indices=[2, 3])
         self.y_zoom_slider = tkinter.Scale(top,
             command=self.y_zoom, from_=32,
-            to=c_p['camera_height'], resolution=16, orient=HORIZONTAL, length=L)
+            to=c_p['camera_height'], resolution=1, orient=HORIZONTAL, length=L)
         self.y_zoom_slider.set(c_p['camera_height'])
         self.y_slider_label = Label(self.window, text='y-zoom')
         self.y_slider_label.place(x=x1, y=y1-15)
@@ -734,51 +738,55 @@ class UserInterface:
         if c_p['camera_model'] == 'basler_large' or 'basler_fast':
             try:
                 exposure_time = int(entry)
+            except ValueError:
+                print('Cannot convert entry to integer')
+            else:
                 if 59 < exposure_time < 5e6:
                     c_p['exposure_time'] = exposure_time
                     print("Exposure time set to ", exposure_time)
                     c_p['new_settings_camera'] = True
                 else:
                     print('Exposure time out of bounds!')
-            except:
-                print('Cannot convert entry to integer')
         elif c_p['camera_model'] == 'ThorlabsCam':
             try:
                 exposure_time = float(entry)
+            except ValueError:
+                print('Cannot convert entry to integer')
+            else:
                 if 0.01 < exposure_time < 120: # If you need more than that you are
                     c_p['exposure_time'] = exposure_time
                     print("Exposure time set to ", exposure_time)
                     c_p['new_settings_camera'] = True
                 else:
                     print('Exposure time out of bounds!')
-            except:
-                print('Cannot convert entry to integer')
 
     def set_temperature(self):
         entry = self.temperature_entry.get()
         try:
             temperature = float(entry)
+        except ValueError:
+            print('Cannot convert entry to integer')
+        else:
             if 20 < temperature < 40:
                 c_p['setpoint_temperature'] = temperature
                 print("Temperature set to ", temperature)
             else:
                 print('Temperature out of bounds, it is no good to cook or \
                       freeze your samples')
-        except:
-            print('Cannot convert entry to integer')
         self.temperature_entry.delete(0, last=5000)
 
     def set_tracking_threshold(self):
         entry = threshold_entry.get()
         try:
             threshold = int(entry)
+        except ValueError:
+            print('Cannot convert entry to integer')
+        else:
             if 0 < threshold < 255:
                 c_p['particle_threshold'] = threshold
                 print("Threshold set to ", threshold)
             else:
                 print('Threshold out of bounds')
-        except:
-            print('Cannot convert entry to integer')
         threshold_entry.delete(0, last=5000)
 
     def add_arduino_buttons(self, top, generator_y, generator_y_2, x_position, x_position_2):
@@ -849,6 +857,7 @@ class UserInterface:
 
         self.c_p['raw_background'] = np.copy(c_p['image'])
         self.c_p['background'] = self.resize_display_image(np.int16(np.copy(c_p['image'])))
+        print('BG saved')
 
     def toggle_bg_removal(self):
         # TODO have all these toggle functions as lambda functions
@@ -872,12 +881,12 @@ class UserInterface:
         try:
             FPS = float(user_input)
 
-        except:
+        except ValueError:
             showinfo("Warning!",
                 "Entered fps could not be converted to number!")
         if FPS <= 0:
             # Raise exception
-            return
+            raise ValueError("Trying to set invalid FPS!")
         c_p['max_fps'] = FPS
         c_p['new_settings_camera'] = True
 
@@ -896,10 +905,7 @@ class UserInterface:
         """
         Creates the Basic controls and Camera menus on top of the GUI.
         """
-        # TODO Toggle laser indicators
-        # can also be in a menu. Add tilt compensation control to motor menu.
-        # Z stepping distance.
-        # Save settings?
+        # TODO Save settings? Use pickle for this?
 
         self.control_menu.add_command(label="Save position", command=self.save_starting_position)
         self.control_menu.add_command(label="Exit program", command=self.window.quit)
@@ -960,7 +966,6 @@ class UserInterface:
             top, text='Toggle particle brightness',
             command=toggle_bright_particle)
 
-        #TODO Replace with a c_p parameter only
         self.tracking_toggled = tkinter.BooleanVar()
         self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
                 variable=self.tracking_toggled, onvalue=True, offvalue=False)
@@ -1011,6 +1016,15 @@ class UserInterface:
         self.downsample_button = tkinter.Checkbutton(top, text='Downsample livefeed',\
         variable=self.downsample, onvalue=True, offvalue=False)
         self.downsample_button.place(x=x_position, y=y_position.__next__())
+
+        self.downsample_label = tkinter.Label(top, text='Downsample factor')
+        y = y_position.__next__()
+        self.downsample_label.place(x=x_position, y=y)
+        self.downsample_slider = tkinter.Scale(top, command=self.set_downsample_level,
+            orient=HORIZONTAL, from_=1, to=10, resolution=1, length=150)
+        self.downsample_slider.place(x=x_position, y=y+20)
+        self.downsample_slider.set(c_p['downsample_rate'])
+        y_position.__next__()
 
         # Laser position checkbutton. Cannot be used at same time as click move
         self.set_laser_position = tkinter.BooleanVar()
@@ -1211,7 +1225,7 @@ class UserInterface:
             else:
                 self.to_focus_button.config(bg='red')
         if self.zoomed_in:
-            # TODO remove the zoom button
+            # TODO integrate zoom button with the zoom scrollers
             self.zoom_button.config(text='Zoom out')
         else:
             self.zoom_button.config(text='Zoom in')
@@ -1249,7 +1263,7 @@ class UserInterface:
 
         # Compensate for downsampling in image_scale
         if self.downsample.get():
-            self.image_scale /= c_p['downsample_rate']
+            self.image_scale *= c_p['downsample_rate']
 
         return cv2.resize(img, (dim[1],dim[0]), interpolation = cv2.INTER_AREA)
 
@@ -1312,10 +1326,16 @@ class UserInterface:
          try:
              y = int(c_p['traps_relative_pos'][0][0])
              x = int(c_p['traps_relative_pos'][1][0])
-             image[x-10:x+10, y] = 0
-             image[x, y-10:y+10] = 0
-         except:
-             pass
+
+         except ValueError:
+             print("Could not convert trap positions to integers")
+             return
+         else:
+             try:
+                 image[x-10:x+10, y] = 0
+                 image[x, y-10:y+10] = 0
+             except IndexError as e:
+                 print('Could not display laser position ', e)
              #print('Warning could not display laser position',x,y,np.size(image))
 
     def update_qd_on_screen_targets(self, image=None):
@@ -1381,7 +1401,7 @@ class UserInterface:
                 try:
                     image[y-4:y+4, x] = 0
                     image[y, x-4:x+4] = 0
-                except:
+                except IndexError:
                     # Locations outside the image, nothihg to worry about
                     pass
 
@@ -1408,7 +1428,7 @@ class UserInterface:
                 image[x-10:x+10, y] = 0
                 image[x, y-10:y+10] = 0
                 image[x-3:x+3, y-3:y+3] = 0
-            except:
+            except (ValueError, IndexError):
                 print(' Warning could not display particle at position: ', x, y)
 
     def update(self):
@@ -1447,13 +1467,12 @@ class UserInterface:
             image = sum_downsample(image, c_p['downsample_rate'])
 
          image = self.resize_display_image(image)
-
+         # TODO implement convolution alternative to the downsampling
          # Now do the background removal on the significantly smaller image.
-         if c_p['bg_removal'] and np.shape(c_p['background']) == np.shape(image)\
-            and c_p['background_illumination']:
+         if c_p['bg_removal'] and np.shape(c_p['background']) == np.shape(image):
             image = subtract_bg(image, c_p['background'])
 
-         # TODO make it possible to use 16 bit color(ie 12)
+         # TODO make it possible to use 16 bit color(ie 12 from camera)
          self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(image))
          # need to use a compatible image type
          self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW)
@@ -1497,7 +1516,6 @@ def compensate_focus_xy_move(c_p):
     Function for compensating the change in focus caused by x-y movement.
     Returns the positon in ticks which z  should take to compensate for the focus
     '''
-    # TODO this function handles the piezo and stepper oddly.
     dx = (c_p['stepper_current_position'][0] - c_p['stepper_starting_position'][0])
     dy = (c_p['stepper_current_position'][1] - c_p['stepper_starting_position'][1])
     dz = (c_p['tilt'][0] * dx) + (c_p['tilt'][1] * dy)
@@ -2139,7 +2157,7 @@ def trap_occupied(distances, trap_index):
     try:
         c_p['traps_occupied'][trap_index] = False
         return None
-    except:
+    except IndexError:
         print(" Indexing error for trap index", str(trap_index),\
         " length is ",len(c_p['traps_occupied']))
         return None

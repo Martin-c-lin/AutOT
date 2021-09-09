@@ -45,7 +45,7 @@ def get_camera_c_p():
         camera_c_p['mmToPixel'] = 37_700 # Made a control measurement and found it to be 37.7
         camera_c_p['camera_width'] = 4096
         camera_c_p['camera_height'] = 3040
-        camera_c_p['default_offset_x'] = 1000
+        camera_c_p['default_offset_x'] = 0#1000
 
     elif camera_c_p['camera_model'] == 'thorlabs':
         camera_c_p['mmToPixel'] = 17736/0.7
@@ -118,8 +118,11 @@ def create_mp4_video_writer(c_p, video_name=None, image_width=None,
         image_width = c_p['AOI'][1]-c_p['AOI'][0]
     if image_height is None:
         image_height = c_p['AOI'][3]-c_p['AOI'][2]
-
-    frame_rate = str(5) #str(min(50, int(c_p['fps']))) # Can in principle reach 500fps
+    tmp = min(500, int(c_p['fps']))
+    frame_rate = str(max(25, tmp)) # Can in principle reach 500fps
+    if tmp < 25:
+        print('Warning, skvideo cannot handle framerates below 25 fps so\
+        reverting to 25.')
 
     video_name = c_p['recording_path'] + '/' + video_name + '.mp4'
 
@@ -175,10 +178,12 @@ class VideoWriterThread(threading.Thread):
                 self.np_save_frames()
 
         except:
-            # TODO the program tries to close a video without any video having
+            # The program tries to close a video without any video having
             # been created
+            print('No video to close')
             pass
-
+    # TODO add so that background is removed from videos and photos as well when
+    # saving!
     def np_save_frames(self):
         """
         Saves all the frames in the buffer to a .npy file.
@@ -213,9 +218,14 @@ class VideoWriterThread(threading.Thread):
             # Save the frames into target folder and with suitable name
             self.np_save_frames()
             # create a new fresh buffer
-        self.frame_buffer[res,:,:] = deepcopy(self.frame)
-        self.frame_count += 1
-        print(res, np.mean(self.frame_buffer[res]))
+        # TODO fix bug here with saving when changing zoom level
+        try:
+            self.frame_buffer[res,:,:] = deepcopy(self.frame)
+            self.frame_count += 1
+        except:
+            self.close_video
+            self.frame_count = 0
+
 
     def write_frame(self):
         """
@@ -227,7 +237,7 @@ class VideoWriterThread(threading.Thread):
         """
         if self.video_format == 'mp4':
             self.VideoWriter.writeFrame(self.frame)
-            print("wrote mp4 frame")
+            #print("wrote mp4 frame")
         elif self.video_format == 'avi':
             self.VideoWriter.write(self.frame)
         else:
@@ -256,7 +266,7 @@ class VideoWriterThread(threading.Thread):
             self.video_format = 'npy'
             image_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
             image_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
-            # TODO make buffer_size dependent on the image size
+
             self.frame_buffer_size = int(501760000/(image_width*image_height))
             print('Buffer_size: ',self.frame_buffer_size)
             self.frame_buffer = np.uint8(np.zeros([self.frame_buffer_size, image_height, image_width]))
@@ -309,7 +319,6 @@ class VideoWriterThread(threading.Thread):
                     sleep(0.001)
             if self.video_created:
                 self.close_video()
-            # TODO close writer once a video is done
 
 
 class CameraThread(threading.Thread):
@@ -320,18 +329,38 @@ class CameraThread(threading.Thread):
         self.name = name
         self.c_p = c_p
         # Initalize camera and global image
-        if c_p['camera_model'] == 'ThorlabsCam':
-            # Get a thorlabs camera
-            self.cam = TC.get_camera()
-            self.cam.set_defaults(left=c_p['AOI'][0], right=c_p['AOI'][1],
-                                  top=c_p['AOI'][2], bot=c_p['AOI'][3],
-                                  n_frames=1)
-            c_p['exposure_time'] = 20
-        else:
-            # Get a basler camera
+        try:
             tlf = pylon.TlFactory.GetInstance()
             self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
             self.cam.Open()
+            #print(self.cam.Width.GetMax(), self.cam.Height.GetMax())
+            sleep(0.2)
+            self.c_p['camera_width'] = int(self.cam.Width.GetMax())
+            self.c_p['camera_height'] = int(self.cam.Height.GetMax())
+            if self.c_p['camera_width'] < 1000:
+                self.c_p['camera_model'] = 'basler_fast'
+            else:
+                self.c_p['camera_model'] = 'basler_large'
+        except:
+            self.cam = None
+        if self.cam is None:
+        #if c_p['camera_model'] == 'ThorlabsCam':
+            try:
+                # Get a thorlabs camera
+                self.cam = TC.get_camera()
+                self.cam.set_defaults(left=c_p['AOI'][0], right=c_p['AOI'][1],
+                                      top=c_p['AOI'][2], bot=c_p['AOI'][3],
+                                      n_frames=1)
+                c_p['exposure_time'] = 20
+
+            except:
+                print('Could not connect to camera')
+                self.__del__()
+        # else:
+        #     # Get a basler camera
+        #     tlf = pylon.TlFactory.GetInstance()
+        #     self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
+        #     self.cam.Open()
         self.setDaemon(True)
         self.video_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
         self.video_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
@@ -345,7 +374,10 @@ class CameraThread(threading.Thread):
         if self.c_p['camera_model'] == 'ThorlabsCam':
             self.cam.close()
         else:
-            self.cam.Close()
+            try:
+                self.cam.Close()
+            except:
+                pass
 
     def get_important_parameters(self):
         '''
@@ -374,42 +406,7 @@ class CameraThread(threading.Thread):
         }
         return parameter_dict
 
-    # def create_video_writer(self):
-    #     '''
-    #     Funciton for creating a VideoWriter.
-    #     Will also save the relevant parameters of the experiments.
-    #     Returns
-    #     -------
-    #     video : VideoWriter
-    #         A video writer for creating a video.
-    #     experiment_info_name : String
-    #         Name of experiment being run.
-    #     exp_info_params : Dictionary
-    #         Dictionary with controlparameters describing the experiment.
-    #     '''
-    #     c_p = self.c_p
-    #     now = datetime.now()
-    #     fourcc = VideoWriter_fourcc(*'MJPG')
-    #     image_width = c_p['AOI'][1]-c_p['AOI'][0]
-    #     image_height = c_p['AOI'][3]-c_p['AOI'][2]
-    #     self.video_width = image_width
-    #     self.video_height = image_height
-    #     video_name = c_p['recording_path'] + '/video-'+ c_p['measurement_name'] + \
-    #         '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)+'.avi'
-    #
-    #     experiment_info_name = c_p['recording_path'] + '/data-' + c_p['measurement_name'] + \
-    #         str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
-    #
-    #     print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
-    #     video = VideoWriter(video_name, fourcc, min(500, c_p['fps']),
-    #                         (image_width, image_height), isColor=False)
-    #
-    #     exp_info_params = self.get_important_parameters()
-    #
-    #     return video, experiment_info_name, exp_info_params
-
-# TODO make it possible to terminate a video without changing camera settings
-
+    # TODO integrate thorlabs-capture with the new videowriter thread.
     def thorlabs_capture(self):
         number_images_saved = 0
         video_created = False
@@ -533,24 +530,15 @@ class CameraThread(threading.Thread):
             # Start continously capturing images
             while c_p['program_running']\
                  and not c_p['new_settings_camera']:
-                 with self.cam.RetrieveResult(2000) as result:
+                 with self.cam.RetrieveResult(3000) as result:
                     img.AttachGrabResultBuffer(result)
                     if result.GrabSucceeded():
-                        # TODO
-                        # May be able to avoid some of this copyig back and forth
                         c_p['image'] = np.uint8(img.GetArray())
                         img.Release()
                         if c_p['recording']:
                             c_p['frame_queue'].put([copy(c_p['image']),
                             copy(c_p['video_name'])])
 
-                            # if not video_created:
-                                # video, experiment_info_name, exp_info_params = self.create_mp4_video_writer()
-                                # video, experiment_info_name, exp_info_params = self.create_video_writer()
-                                # video_created = True
-                            # video.writeFrame(c_p['image']) # For HQ video with ffmpeg
-                            # video.write(c_p['image'])
-                            # consider adding text to one corner
                         # Capture an image and update the image count
                         image_count = image_count+1
                  if c_p['new_settings_camera']:
@@ -567,20 +555,9 @@ class CameraThread(threading.Thread):
             end = time.time()
             try:
                 fps = image_count/(end-start)
-            except:
+            except ZeroDivisionError:
                 fps = -1
             print(" Measured fps was:", fps, " Indicated by camera", c_p['fps'])
-            # if video_created:
-            #     #video.close() # HQ video
-            #     video.release()
-            #     del video
-            #     video_created = False
-            #     # Save the experiment data in a pickled dict.
-            #     outfile = open(experiment_info_name, 'wb')
-            #     exp_info_params['fps'] = fps
-            #     print(" Measured fps was:", fps, " Indicated by camera", c_p['fps'])
-            #     pickle.dump(exp_info_params, outfile)
-            #     outfile.close()
 
     def run(self):
         if self.c_p['camera_model'] == 'ThorlabsCam':
