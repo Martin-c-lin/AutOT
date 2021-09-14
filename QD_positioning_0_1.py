@@ -10,7 +10,7 @@ import CameraControls
 from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p, toggle_BG_shutter, toggle_green_laser
 from CameraControls import update_traps_relative_pos # Moved this function
 from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p, get_save_path
-from MiscFunctions import sum_downsample
+from MiscFunctions import sum_downsample, subtract_bg
 
 from instrumental import u
 import numpy as np
@@ -25,12 +25,6 @@ from tkinter.messagebox import showinfo
 import PIL.Image, PIL.ImageTk
 from pypylon import pylon
 
-from numba import jit
-@jit(nopython=True)
-def subtract_bg(I1, I2):
-    image = I1 - I2
-    image += 120 #-= np.min(image)
-    return image
 
 def terminate_threads(thread_list, c_p):
     '''
@@ -172,7 +166,7 @@ def start_threads(c_p, thread_list):
 
     # If there is any stepper motor to connect, then add necessary c_p and
     # connect benchtop controller.
-    # TODO: Don't really need the stage_stepper... parameters any more
+    # TODO: Don't really need the stage_stepper... parameters anymore
     if c_p['stage_stepper_x'] or c_p['stage_stepper_y'] or c_p['stage_stepper_z']:
         c_p['using_stepper_motors'] = True
         append_c_p(c_p, TM.get_default_stepper_c_p())
@@ -272,7 +266,6 @@ class UserInterface:
         self.mini_canvas_width = 240
         self.mini_canvas_height = 200
         self.c_p = c_p
-        self.c_p['bg_removal'] = False
         self.canvas = tkinter.Canvas(
             window, width=self.canvas_width, height=self.canvas_height)
         self.canvas.place(x=0, y=0)
@@ -820,9 +813,9 @@ class UserInterface:
         self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
         variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
         self.piezo_checkbutton.place(x=x_position, y=y_position.__next__())
-        self.training_data_button = tkinter.Checkbutton(top, text='Generate training data',\
-        variable=c_p['generate_training_data'], onvalue=True, offvalue=False)
-        self.training_data_button.place(x=x_position, y=y_position.__next__())
+        # self.training_data_button = tkinter.Checkbutton(top, text='Generate training data',\
+        # variable=c_p['generate_training_data'], onvalue=True, offvalue=False)
+        # self.training_data_button.place(x=x_position, y=y_position.__next__())
 
     def add_qd_tracking_buttons(self, top,x_position, x_position_2, y_position,
                         y_position_2):
@@ -1013,6 +1006,7 @@ class UserInterface:
 
         # Downsample button and variable
         self.downsample = tkinter.BooleanVar()
+        c_p['downsampling'] = self.downsample
         self.downsample_button = tkinter.Checkbutton(top, text='Downsample livefeed',\
         variable=self.downsample, onvalue=True, offvalue=False)
         self.downsample_button.place(x=x_position, y=y_position.__next__())
@@ -1114,7 +1108,7 @@ class UserInterface:
         return temperature_info
 
     def get_position_info(self):
-
+        # TODO: this does not need to be updated all the time...
         global c_p
         # Add position info
         target_key_motor = None
@@ -1142,6 +1136,10 @@ class UserInterface:
             position_text += ' Focus (z) motor is ' + z_connected + '\n'
 
         if c_p['stage_piezos']:
+            if c_p['stage_piezo_connected'][0]:
+                position_text += 'Piezos are connected:'
+            else:
+                position_text += 'Piezos are NOT connected.'
             position_text += 'Piezo x: ' + str(c_p['piezo_current_position'][0]) + '\n'
             position_text += 'Piezo y: ' + str(c_p['piezo_current_position'][1]) + '\n'
             position_text += 'Piezo z: ' + str(c_p['piezo_current_position'][2]) + '\n'
@@ -1469,8 +1467,13 @@ class UserInterface:
          image = self.resize_display_image(image)
          # TODO implement convolution alternative to the downsampling
          # Now do the background removal on the significantly smaller image.
-         if c_p['bg_removal'] and np.shape(c_p['background']) == np.shape(image):
-            image = subtract_bg(image, c_p['background'])
+         if c_p['bg_removal']:
+             try:
+                 image = subtract_bg(image, c_p['background'])
+             except AssertionError:
+                 # Image is not the same size as background
+                 c_p['bg_removal'] = False
+                 print('Saved background does not match shape of current image!')
 
          # TODO make it possible to use 16 bit color(ie 12 from camera)
          self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(image))
@@ -2498,7 +2501,7 @@ c_p['stage_stepper_z'] = True
 c_p['stage_piezo_x'] = True
 c_p['stage_piezo_y'] = True
 c_p['stage_piezo_z'] = True
-c_p['QD_tracking'] = True
+c_p['QD_tracking'] = False
 c_p['arduino_LED'] = True
 
 

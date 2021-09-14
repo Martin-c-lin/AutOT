@@ -11,6 +11,8 @@ from pypylon import pylon
 from datetime import datetime
 from queue import Queue
 import skvideo.io
+from MiscFunctions import subtract_bg
+
 
 def get_camera_c_p():
     '''
@@ -36,6 +38,7 @@ def get_camera_c_p():
         'bitrate': '300000000', # Default value 3e8 default
         'saving_video': False, # indicator for when a video is being saved
         'video_format': 'mp4',
+        'bg_removal': False,
         # Needed for not
     }
     # TODO Fix so that the software recoginze the camera and use it to
@@ -176,6 +179,7 @@ class VideoWriterThread(threading.Thread):
             else:
                 # is npy, save what remains of buffer then clear it
                 self.np_save_frames()
+                self.frame_count = 0
 
         except:
             # The program tries to close a video without any video having
@@ -212,18 +216,16 @@ class VideoWriterThread(threading.Thread):
             print('Directory already exist')
 
     def write_to_NPY(self):
-        res = self.frame_count % (self.frame_buffer_size)
-
-        if res == 0 and self.frame_count != 0:
+        nbr_frames = self.frame_count % self.frame_buffer_size
+        if nbr_frames == 0 and self.frame_count > 0: # had trouble with saving frames 0-1 in separte file
             # Save the frames into target folder and with suitable name
             self.np_save_frames()
-            # create a new fresh buffer
-        # TODO fix bug here with saving when changing zoom level
         try:
-            self.frame_buffer[res,:,:] = deepcopy(self.frame)
+            self.frame_buffer[nbr_frames,:,:] = deepcopy(self.frame)
             self.frame_count += 1
         except:
-            self.close_video
+            print('Could not save frame! Closing video!')
+            self.close_video()
             self.frame_count = 0
 
 
@@ -237,7 +239,6 @@ class VideoWriterThread(threading.Thread):
         """
         if self.video_format == 'mp4':
             self.VideoWriter.writeFrame(self.frame)
-            #print("wrote mp4 frame")
         elif self.video_format == 'avi':
             self.VideoWriter.write(self.frame)
         else:
@@ -250,8 +251,10 @@ class VideoWriterThread(threading.Thread):
         """
 
         """
-
-        size = '_' + str(self.video_width) + 'x' + str(self.video_height)
+        # Adjust the video shape to match the images
+        image_shape = np.shape(self.frame)
+        self.video_width = image_shape[0]
+        self.video_height = image_shape[1]
         if self.c_p['video_format'] == 'mp4':
             self.VideoWriter = create_mp4_video_writer(c_p=self.c_p,
                 video_name=video_name)
@@ -268,7 +271,7 @@ class VideoWriterThread(threading.Thread):
             image_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
 
             self.frame_buffer_size = int(501760000/(image_width*image_height))
-            print('Buffer_size: ',self.frame_buffer_size)
+            print('Buffer_size: ', self.frame_buffer_size)
             self.frame_buffer = np.uint8(np.zeros([self.frame_buffer_size, image_height, image_width]))
             self.frame_count = 0
 
@@ -285,11 +288,8 @@ class VideoWriterThread(threading.Thread):
             idx = 0
             self.c_p['saving_video']  = False
 
-            while self.c_p['recording'] or not self.c_p['frame_queue'].empty():
+            while self.c_p['recording'] or not self.c_p['frame_queue'].empty() and self.c_p['program_running']:
                 self.c_p['saving_video'] = True
-
-                # TODO make it possible to select video format when recording,
-                # AVI, MP4(with bitrate) and directly to a .npy file
 
                 # Check empty twice since we don't want to wait longer than
                 # necessary for the image to be printed to the videowriter
@@ -312,6 +312,7 @@ class VideoWriterThread(threading.Thread):
                     if not self.video_created:
                         size = '_' + str(self.video_width) + 'x' + str(self.video_height)
                         video_name = source_video + size
+                        self.video_name = self.c_p['video_name']
                         self.create_video_writer(video_name)
                     self.write_frame()
                 else:
@@ -328,6 +329,8 @@ class CameraThread(threading.Thread):
         self.threadID = threadID
         self.name = name
         self.c_p = c_p
+        self.setDaemon(True)
+
         # Initalize camera and global image
         try:
             tlf = pylon.TlFactory.GetInstance()
@@ -356,12 +359,6 @@ class CameraThread(threading.Thread):
             except:
                 print('Could not connect to camera')
                 self.__del__()
-        # else:
-        #     # Get a basler camera
-        #     tlf = pylon.TlFactory.GetInstance()
-        #     self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
-        #     self.cam.Open()
-        self.setDaemon(True)
         self.video_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
         self.video_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
         # Could change here to get color
@@ -499,6 +496,21 @@ class CameraThread(threading.Thread):
         except:
             print('Exposure time not accepted by camera')
 
+
+    def add_image_to_queue(self):
+        """
+        Adds a copy of the current image from the control parameters to the
+        recording queue.
+        """
+        img = copy(self.c_p['image'])
+        if self.c_p['bg_removal']:
+            try:
+                img = subtract_bg(self.c_p['image'],
+                    self.c_p['background'])
+            except AssertionError:
+                pass
+        self.c_p['frame_queue'].put([img, copy(self.c_p['video_name'])])
+
     def basler_capture(self):
         '''
         Function for live capture using the basler camera. Also allows for
@@ -535,10 +547,11 @@ class CameraThread(threading.Thread):
                     if result.GrabSucceeded():
                         c_p['image'] = np.uint8(img.GetArray())
                         img.Release()
-                        if c_p['recording']:
-                            c_p['frame_queue'].put([copy(c_p['image']),
-                            copy(c_p['video_name'])])
+                        # I do these checks here to make the program a tiny bit
+                        # faster
 
+                        if c_p['recording']:
+                            self.add_image_to_queue()
                         # Capture an image and update the image count
                         image_count = image_count+1
                  if c_p['new_settings_camera']:

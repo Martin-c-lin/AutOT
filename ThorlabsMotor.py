@@ -569,7 +569,7 @@ class MotorThread(Thread):
         print('Running motor thread')
         # global c_p
         c_p = self.c_p
-        while c_p['motor_running']:
+        while c_p['motor_running'] and c_p['program_running']:
             # If motor connected and it should be connected, check for next move
             if c_p['motors_connected'][self.axis] and \
                 c_p['connect_motor'][self.axis] and c_p['motors_connected'][self.axis]:
