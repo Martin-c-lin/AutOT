@@ -665,9 +665,9 @@ class UserInterface:
         elif axis == 1:
             center = c_p['traps_absolute_pos'][1][0]
         else:
+            print('Choice of axis is incorrect')
             return
         if center > max_width:
-            print(center)
             center = int(max_width)/2
         # TODO fix so that we can zoom out properly also when the trap is not in the center!
         tmp = int(center  + width/2)
@@ -675,6 +675,12 @@ class UserInterface:
 
         tmp = int(center - width/2)
         left = int(max(tmp - (tmp%16), 0))
+
+        # Check if we are at the edge on one side
+        if left == 0:
+            right = width
+        if right == max_width:
+            left = max_width - width
         c_p['AOI'][indices[0]] = left
         c_p['AOI'][indices[1]] = right
         c_p['new_settings_camera'] = True
