@@ -273,7 +273,7 @@ class UserInterface:
         self.mini_canvas = tkinter.Canvas(
             window, width=self.mini_canvas_width, height=self.mini_canvas_height)
         self.mini_canvas.place(x=self.canvas_width, y=self.canvas_height-200)
-        self.mini_image = np.zeros((200,240,3))
+        self.mini_image = np.zeros((180,240,3))
         self.create_buttons(self.window)
         self.save_background()
         self.window.geometry(str(self.canvas_width+500)+'x'+str(self.canvas_height))#('1700x1000')
@@ -705,7 +705,7 @@ class UserInterface:
         Puts sliders used for controlling the AOI on the GUI.
         """
         L = 150 # length of scale in pixels
-        self.x_zoom = partial(self.zoom_command, axis=0,#center=c_p['traps_absolute_pos'][0][0],
+        self.x_zoom = partial(self.zoom_command, axis=0,
             max_width=c_p['camera_width'], indices=[0, 1])
         # Center does not get updated when using partial!
         self.x_zoom_slider = tkinter.Scale(top,
@@ -752,7 +752,7 @@ class UserInterface:
             except ValueError:
                 print('Cannot convert entry to integer')
             else:
-                if 0.01 < exposure_time < 120: # If you need more than that you are
+                if 0.01 < exposure_time < 120:
                     c_p['exposure_time'] = exposure_time
                     print("Exposure time set to ", exposure_time)
                     c_p['new_settings_camera'] = True
@@ -760,6 +760,9 @@ class UserInterface:
                     print('Exposure time out of bounds!')
 
     def set_temperature(self):
+        """
+        Sets the fixpoint temperature of the temperature controller.
+        """
         entry = self.temperature_entry.get()
         try:
             temperature = float(entry)
@@ -895,7 +898,7 @@ class UserInterface:
         Opens a small pop-up window with basic camera info such as model,
         fps, image size and exposure time.
         """
-        camera_info = f"Model: {c_p['camera_model']} , fps: {c_p['fps']} , exposure time: {c_p['exposure_time']}\n"
+        camera_info = f"Model: {c_p['camera_model']} , fps: {c_p['fps']} ,exposure time: {c_p['exposure_time']}\n"
         camera_AOI_info = f"Current area of interest: {c_p['AOI']}, maximum image width: {c_p['camera_width']} , maximum image height: {c_p['camera_height']}"
         camera_AOI_info += f"\n recording format: .{c_p['video_format']}"
         showinfo(title="Camera feeed info", message=camera_info+camera_AOI_info)
@@ -1440,7 +1443,6 @@ class UserInterface:
          Updates the live video feed and all monitors(motor positions, temperature etc).
          This function calls itself recursively.
          """
-
          image = np.asarray(c_p['image'])
          image = image.astype('uint16')
          self.update_qd_on_screen_targets()
@@ -1473,7 +1475,7 @@ class UserInterface:
          image = self.resize_display_image(image)
          # TODO implement convolution alternative to the downsampling
          # Now do the background removal on the significantly smaller image.
-         if c_p['bg_removal']:
+         if c_p['bg_removal'] and c_p['background_illumination']:
              try:
                  image = subtract_bg(image, c_p['background'])
              except AssertionError:
@@ -1487,10 +1489,11 @@ class UserInterface:
          self.canvas.create_image(0, 0, image = self.photo, anchor = tkinter.NW)
 
          # Update mini-window
-         self.create_trap_image()
-         self.mini_photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.mini_image, mode='RGB'))
+         # TODO THIS MINI WINDOW WAS EATING UP VERY MUCH RESOURCES
+         #self.create_trap_image()
+         #self.mini_photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.mini_image, mode='RGB'))
          # need to use a compatible image type
-         self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW)
+         #self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW)
          self.window.after(self.delay, self.update)
 
 
@@ -1508,7 +1511,7 @@ class SLM_window(Frame):
         self.img = Label(self, image=render)
         self.img.place(x=420, y=0)
         self.img.image = image
-        self.delay = 500 # Delay in ms
+        self.delay = 10 # Delay in ms
         self.c_p = c_p
         self.update()
 

@@ -129,17 +129,13 @@ def create_mp4_video_writer(c_p, video_name=None, image_width=None,
 
     video_name = c_p['recording_path'] + '/' + video_name + '.mp4'
 
-#    experiment_info_name = c_p['recording_path'] + '/data-' + video_name
-
-#    print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
-
     video = skvideo.io.FFmpegWriter(video_name, outputdict={
                                      '-b':c_p['bitrate'],
                                      '-r':frame_rate, # Does not like this
                                      # specifying codec and bitrate, 'vcodec': 'libx264',
                                     })
 
-    return video#, experiment_info_name, exp_info_params
+    return video
 
 
 class VideoWriterThread(threading.Thread):
