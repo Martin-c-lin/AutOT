@@ -15,7 +15,6 @@ def subtract_bg(I1, I2):
     image[image<0] = 0
     return image
 
-
 def sum_downsample(image, filter_size=4, lim=255, contrast=1):
     """
     Downsamples an array with the factor given by filter size

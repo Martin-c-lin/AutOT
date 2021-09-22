@@ -275,7 +275,7 @@ class UserInterface:
         self.mini_canvas.place(x=self.canvas_width, y=self.canvas_height-200)
         self.mini_image = np.zeros((180,240,3))
         self.create_buttons(self.window)
-        self.save_background()
+        self.save_bg()
         self.window.geometry(str(self.canvas_width+500)+'x'+str(self.canvas_height))#('1700x1000')
         # After it is called once, the update method will be automatically
         # called every delay milliseconds
@@ -854,7 +854,7 @@ class UserInterface:
             variable=c_p['test_move_down'], onvalue=True, offvalue=False)
         self.move_down_button.place(x=x_position, y=y_position.__next__())
 
-    def save_background(self):
+    def save_bg(self):
         # Saves an image to be used as background when subtracting bg
 
         self.c_p['raw_background'] = np.copy(c_p['image'])
@@ -919,7 +919,7 @@ class UserInterface:
 
         self.camera_menu = Menu(self.menubar)
         self.camera_menu.add_command(label="Snapshot", command=snapshot)
-        self.camera_menu.add_command(label="Save bg", command=self.save_background)
+        self.camera_menu.add_command(label="Save bg", command=self.save_bg)
         self.camera_menu.add_command(label="Toggle bg removal", command=self.toggle_bg_removal)
         self.camera_menu.add_command(label="Exposure time", command=self.set_exposure_dialog)
         self.camera_menu.add_command(label="Show camera info", command=self.show_camera_info)
@@ -1477,7 +1477,14 @@ class UserInterface:
          # Now do the background removal on the significantly smaller image.
          if c_p['bg_removal'] and c_p['background_illumination']:
              try:
-                 image = subtract_bg(image, c_p['background'])
+                if np.shape(image) == np.shape(c_p['background']):
+                    image = subtract_bg(image, c_p['background'])
+                elif np.shape(c_p['raw_background']) == (c_p['camera_height'], c_p['camera_width']):
+                    tmp = np.copy(c_p['raw_background'][c_p['AOI'][2]:c_p['AOI'][3], c_p['AOI'][0]:c_p['AOI'][1]])
+                    c_p['background'] = self.resize_display_image(tmp)
+                    # TODO There is a problem here with the resizing sometimes
+                    # Suspect it has to do with the fact that the target AOI is not always accepted
+
              except AssertionError:
                  # Image is not the same size as background
                  c_p['bg_removal'] = False
