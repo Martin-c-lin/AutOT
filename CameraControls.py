@@ -228,11 +228,12 @@ class VideoWriterThread(threading.Thread):
     def write_frame(self):
         """
         Writes a frame to the current video_writer.
-        If the format is "npy" we instead put it in our np-array of iamges.
+        If the format is "npy" we instead put it in our np-array of images.
             If the np-array of images reaches a special threshold then it is
             automatically saved.
             # Reasonable threshold perhaps 100_000 frames?
         """
+        # TODO add bg removal as parameter for each saved frame
         if self.video_format == 'mp4':
             self.VideoWriter.writeFrame(self.frame)
         elif self.video_format == 'avi':
@@ -498,14 +499,17 @@ class CameraThread(threading.Thread):
         Adds a copy of the current image from the control parameters to the
         recording queue.
         """
-        img = copy(self.c_p['image'])
-        if self.c_p['bg_removal']:
+        c_p = self.c_p
+        img = copy(c_p['image'])
+        # TODO: Here could be a good place to use # no wait 
+        if c_p['bg_removal']:
             try:
-                img = subtract_bg(self.c_p['image'],
-                    self.c_p['background'])
+                img = subtract_bg(c_p['image'],
+                    c_p['raw_background'][c_p['AOI'][2]:c_p['AOI'][3], c_p['AOI'][0]:c_p['AOI'][1]]) # This could be a quite expensive operation
             except AssertionError:
+                print('Could not subtract bg from image queue')
                 pass
-        self.c_p['frame_queue'].put([img, copy(self.c_p['video_name'])])
+        c_p['frame_queue'].put([img, copy(c_p['video_name'])])
 
     def basler_capture(self):
         '''
