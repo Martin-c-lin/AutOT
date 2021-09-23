@@ -258,6 +258,7 @@ class UserInterface:
     def __init__(self, window, c_p, thread_list, use_SLM=False):
         self.window = window
         start_threads(c_p, thread_list)
+        self.thread_list = thread_list
         # Create a canvas that can fit the above video source size
         # TODO: Add simpler way to label outputs(videos, images etc) from the program
         self.canvas_width = 1300
@@ -298,13 +299,13 @@ class UserInterface:
 
     def __del__(self):
         # Closes the program
-        c_p['program_running'] = False
-        c_p['motor_running'] = False
-        c_p['tracking_on'] = False
-        terminate_threads(thread_list, c_p)
+        self.c_p['program_running'] = False
+        self.c_p['motor_running'] = False
+        self.c_p['tracking_on'] = False
+        terminate_threads(self.thread_list, c_p)
 
     def read_experiment_dictionary(self):
-        global c_p
+        c_p = self.c_p
         filepath = fd.askopenfilename()
         # TODO make it so that we can handle exceptions from the file better here.
         # Bring up a confirmation menu for the schedule perhaps?
@@ -336,7 +337,7 @@ class UserInterface:
         of traps and particles(estimated from tracking thread)
         """
 
-        global c_p
+        c_p = self.c_p
         trap_x = c_p['traps_absolute_pos'][0]
         trap_y = c_p['traps_absolute_pos'][1]
         particle_x = c_p['particle_centers'][0]
@@ -410,6 +411,7 @@ class UserInterface:
                                      command=partial(stage_piezo_manual_move, axis=0, distance=-0.2))
 
     def screen_click(self, event):
+        c_p = self.c_p
         self.get_mouse_position()
         if c_p['mouse_move_allowed']:
             self.mouse_command_move()
@@ -424,10 +426,11 @@ class UserInterface:
                 c_p['new_settings_camera'] = True
 
     def reset_printing_parameters(self):
-        c_p['Anchor_placed'] = False
-        c_p['QDs_placed'] = 0
+        self.c_p['Anchor_placed'] = False
+        self.c_p['QDs_placed'] = 0
 
     def mouse_set_laser_position(self):
+        c_p = self.c_p
         c_p['traps_absolute_pos'][0][0] = int(self.image_scale * c_p['mouse_position'][0] + c_p['AOI'][0])
         c_p['traps_absolute_pos'][1][0] = int(self.image_scale * c_p['mouse_position'][1] + c_p['AOI'][2])
         print('Setting laser position (x,y) to (',
@@ -437,9 +440,10 @@ class UserInterface:
         self.update_qd_on_screen_targets()
 
     def toggle_move_by_clicking(self):
-        c_p['mouse_move_allowed'] = not c_p['mouse_move_allowed']
+        self.c_p['mouse_move_allowed'] = not self.c_p['mouse_move_allowed']
 
     def increment_QD_count(self):
+        c_p = self.c_p
         if len(c_p['QD_target_loc_x']) > (c_p['QDs_placed'] + 1):
             c_p['QDs_placed'] += 1
         else:
@@ -447,14 +451,14 @@ class UserInterface:
         self.update_qd_on_screen_targets()
 
     def decrement_QD_count(self):
-        if c_p['QDs_placed'] > 0:
-            c_p['QDs_placed'] -= 1
+        if self.c_p['QDs_placed'] > 0:
+            self.c_p['QDs_placed'] -= 1
         else:
             print('Already at first location')
-        self.update_qd_on_screen_targets(c_p['image'])
+        self.update_qd_on_screen_targets(self.c_p['image'])
 
     def save_starting_position(self):
-        global c_p
+        c_p = self.c_p
         print('Positions saved.')
 
         if c_p['stage_piezos']:
@@ -473,7 +477,7 @@ class UserInterface:
             c_p['stepper_elevation'] = 0
 
     def to_focus(self):
-        global c_p
+        c_p = self.c_p
         if c_p['stage_piezos']:
             c_p['piezo_move_to_target'][2] = not c_p['piezo_move_to_target'][2]
 
@@ -482,12 +486,14 @@ class UserInterface:
             #c_p['stepper_target_position'][2] = c_p['stepper_starting_position'][2]
 
     def toggle_move_piezo_to_target(self):
+        c_p = self.c_p
         if c_p['piezo_move_to_target'][0] or c_p['piezo_move_to_target'][1]:
             c_p['piezo_move_to_target'] = [False, False, False]
         else:
             c_p['piezo_move_to_target'] = [True, True, False]
 
     def toggle_polymerization_LED(self):
+        c_p = self.c_p
         if c_p['polymerization_LED_status'] == 'OFF':
             c_p['polymerization_LED'] = 'Q'
             c_p['polymerization_LED_status'] = 'ON'
@@ -496,19 +502,19 @@ class UserInterface:
             c_p['polymerization_LED_status'] = 'OFF'
 
     def connect_disconnect_motorX(self):
-        global c_p
+        c_p = self.c_p
         c_p['connect_motor'][0] = not c_p['connect_motor'][0]
 
     def connect_disconnect_motorY(self):
-        global c_p
+        c_p = self.c_p
         c_p['connect_motor'][1] = not c_p['connect_motor'][1]
 
     def connect_disconnect_piezo(self):
-        global c_p
+        c_p = self.c_p
         c_p['connect_motor'][2] = not c_p['connect_motor'][2]
 
     def open_shutter(self):
-        global c_p
+        c_p = self.c_p
         c_p['should_shutter_open'] = True
 
     def get_y_separation(self, start=5, distance=38):
@@ -525,14 +531,16 @@ class UserInterface:
         """
         files = [('Pickle object', '*.pkl')]
         file = fd.asksavefile(filetypes=files, defaultextension=files, mode='wb')
-        pickle.dump(c_p, file, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(self.c_p, file, pickle.HIGHEST_PROTOCOL)
         file.close()
 
     def timed_polymerization(self):
-        global c_p
+        c_p = self.c_p
         c_p['polymerization_LED'] = 'E'
 
     def add_stepper_buttons(self, top, generator_y, position_x):
+
+        c_p = self.c_p
         c_p['stepper_activated'] = tkinter.BooleanVar()
         self.stepper_checkbutton = tkinter.Checkbutton(top, text='Use stepper',\
         variable=c_p['stepper_activated'], onvalue=True, offvalue=False)
@@ -544,6 +552,7 @@ class UserInterface:
         """
         Function for connecting/disconnecting stepper motors.
         """
+        c_p = self.c_p
         c_p['connect_steppers'] = not c_p['connect_steppers']
 
         if not c_p['connect_steppers']:
@@ -565,6 +574,7 @@ class UserInterface:
         """
         Function for connecting/disconnecing piezos
         """
+        c_p = self.c_p
         c_p['connect_piezos'] = not c_p['connect_piezos']
 
         if not c_p['connect_piezos']:
@@ -600,6 +610,8 @@ class UserInterface:
         self.move_by_clicking_button.place(x=x_position, y=y_position.__next__())
 
     def add_move_buttons(self, top, x_position, y_position):
+
+        c_p = self.c_p
         if c_p['standard_motors']:
             self.get_standard_move_buttons(top)
         elif c_p['stage_piezos']:
@@ -619,15 +631,15 @@ class UserInterface:
 
     def toggle_zoom(self):
         if self.zoomed_in:
-            CameraControls.zoom_out(c_p)
+            CameraControls.zoom_out(self.c_p)
             self.zoomed_in = False
         else:
-            zoom_in()
+            zoom_in(self.c_p)
             self.zoomed_in = True
-        self.update_qd_on_screen_targets(c_p['image'])
+        self.update_qd_on_screen_targets(self.c_p['image'])
 
     def motor_scale_command(self, value):
-        global c_p
+        c_p = self.c_p
         value = float(value)/ 1000
         c_p['stepper_max_speed'] = [value, value, value]
         c_p['stepper_acc']:[value*2, value*2, value*2]
@@ -644,7 +656,7 @@ class UserInterface:
     def polymerization_time_command(self, value):
         # Sends the slider value to the arduino to update the polymerization
         # time.
-        global c_p
+        c_p = self.c_p
         c_p['polymerization_LED'] = 'S ' + str(value)
 
     def zoom_command(self, value, axis, max_width, indices):
@@ -652,6 +664,7 @@ class UserInterface:
         Changes the AOI of the camera so that it is of width value centerd at
         the target position.
         """
+        c_p = self.c_p
         try:
             width = int(value)
         except ValueError:
@@ -698,12 +711,13 @@ class UserInterface:
         self.polymerization_scale.place(x=x, y=y)
 
     def set_downsample_level(self, value):
-        c_p['downsample_rate'] = int(value)
+        self.c_p['downsample_rate'] = int(value)
 
     def place_manual_zoom_sliders(self, top, x, y, x1, y1):
         """
         Puts sliders used for controlling the AOI on the GUI.
         """
+        c_p = self.c_p
         L = 150 # length of scale in pixels
         self.x_zoom = partial(self.zoom_command, axis=0,
             max_width=c_p['camera_width'], indices=[0, 1])
@@ -730,6 +744,7 @@ class UserInterface:
         """
         Sets the exposure time of the camera to the value specified in entry
         """
+        c_p = self.c_p
         if entry is None:
             print('No exposure time supplied')
             return
@@ -763,6 +778,7 @@ class UserInterface:
         """
         Sets the fixpoint temperature of the temperature controller.
         """
+        c_p = self.c_p
         entry = self.temperature_entry.get()
         try:
             temperature = float(entry)
@@ -804,10 +820,10 @@ class UserInterface:
         self.arduino_LED_pulse_button.place(x=x_position_2, y=generator_y_2.__next__())
         # TODO fix the button color
         self.bg_illumination_button = tkinter.Button(
-            top, text='Toggle on BG illumination', command= partial(toggle_BG_shutter, c_p))
+            top, text='Toggle on BG illumination', command= partial(toggle_BG_shutter, self.c_p))
         self.bg_illumination_button.place(x=x_position, y=generator_y.__next__())
         self.green_laser_button = tkinter.Button(
-            top, text='Toggle green laser', command= partial(toggle_green_laser, c_p))
+            top, text='Toggle green laser', command= partial(toggle_green_laser, self.c_p))
         self.green_laser_button.place(x=x_position, y=generator_y.__next__())
         self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
         generator_y.__next__()
@@ -818,6 +834,8 @@ class UserInterface:
             x1=x_position, y1=y1)
 
     def add_piezo_activation_buttons(self, top, x_position, y_position):
+
+        c_p = self.c_p
         c_p['piezos_activated'] = tkinter.BooleanVar()
         self.piezo_checkbutton = tkinter.Checkbutton(top, text='Use piezos',\
         variable=c_p['piezos_activated'], onvalue=True, offvalue=False)
@@ -856,10 +874,26 @@ class UserInterface:
 
     def save_bg(self):
         # Saves an image to be used as background when subtracting bg
-
-        self.c_p['raw_background'] = np.copy(c_p['image'])
-        self.c_p['background'] = self.resize_display_image(np.int16(np.copy(c_p['image'])))
+        c_p = self.c_p
+        c_p['raw_background'] = np.copy(c_p['image'])
+        c_p['background'] = self.resize_display_image(np.int16(np.copy(c_p['image'])))
         print('BG saved')
+    def snapshot(self, label=None):
+        """
+        Saves the latest frame captured by the camera into a jpg image.
+        Will label it with date and time if no label is provided. Image is
+        put into same folder as videos recorded.
+        """
+        c_p = self.c_p
+        if label == None:
+            image_name = c_p['recording_path'] + "/frame-" +\
+                        time.strftime("%d-%m-%Y-%H-%M-%S") +\
+                        ".jpg"
+        else:
+            image_name = c_p['recording_path'] + '/' + label + '.jpg'
+        cv2.imwrite(image_name, cv2.cvtColor(c_p['image'], cv2.COLOR_RGB2BGR))
+        np.save(image_name[:-4], c_p['image'])
+        print('Took a snapshot of the experiment.')
 
     def toggle_bg_removal(self):
         # TODO have all these toggle functions as lambda functions
@@ -918,17 +952,21 @@ class UserInterface:
         self.menubar.add_cascade(label="Basic controls", menu=self.control_menu)
 
         self.camera_menu = Menu(self.menubar)
-        self.camera_menu.add_command(label="Snapshot", command=snapshot)
+        self.camera_menu.add_command(label="Snapshot", command=self.snapshot)
         self.camera_menu.add_command(label="Save bg", command=self.save_bg)
         self.camera_menu.add_command(label="Toggle bg removal", command=self.toggle_bg_removal)
         self.camera_menu.add_command(label="Exposure time", command=self.set_exposure_dialog)
         self.camera_menu.add_command(label="Show camera info", command=self.show_camera_info)
         self.camera_menu.add_command(label="Set max fps", command=self.max_fps_dialog)
 
+        c_p = self.c_p
+
         def set_mp4_format():
             c_p['video_format'] = "mp4"
+
         def set_avi_format():
             c_p['video_format'] = "avi"
+
         def set_npy_format():
             c_p['video_format'] = "npy"
 
@@ -939,6 +977,14 @@ class UserInterface:
         self.camera_menu.add_cascade(label="Recording format",
             menu=self.video_format_menu)
         self.menubar.add_cascade(label="Camera control", menu=self.camera_menu)
+    def toggle_recording(self):
+        '''
+        Button function for starting of recording
+        '''
+        c_p = self.c_p
+        c_p['recording'] = not c_p['recording']
+        if c_p['recording']:
+            c_p['video_name'] = CameraControls.get_video_name(c_p=c_p)
 
     def create_buttons(self, top=None):
         '''
@@ -948,7 +994,7 @@ class UserInterface:
         # TODO make c_p non global, and change so that only the buttons actually
         # usable are displayed. Split this function into several smaller ones
 
-        global c_p
+        c_p = self.c_p
         self.canvas.bind("<Button-1>", self.screen_click)
         if top is None:
             top = self.window
@@ -961,7 +1007,7 @@ class UserInterface:
             c_p['return_z_home'] = not c_p['return_z_home']
 
         self.recording_button = tkinter.Button(top, text='Start recording',
-                                             command=toggle_recording)
+                                             command=self.toggle_recording)
         self.home_z_button = tkinter.Button(top, text='Toggle home z',
                                             command=home_z_command)
         toggle_bright_particle_button = tkinter.Button(
@@ -1097,7 +1143,7 @@ class UserInterface:
         controller. Specifically current, temperature, target temperature,
         connection status and if the temperature is stable or not.
         """
-        global c_p
+        c_p = self.c_p
         if c_p['temperature_controller_connected']:
             temperature_info = 'Current objective temperature is: '
             temperature_info += str(c_p['current_temperature'])+' C'
@@ -1118,7 +1164,7 @@ class UserInterface:
 
     def get_position_info(self):
         # TODO: this does not need to be updated all the time...
-        global c_p
+        c_p = self.c_p
         # Add position info
         target_key_motor = None
         target_key_connection = None
@@ -1163,6 +1209,7 @@ class UserInterface:
 
     def update_motor_buttons(self):
         # Motor connection buttons
+        c_p = self.c_p
         x_connect = 'Disconnect' if c_p['connect_motor'][0] else 'Connect'
         self.toggle_motorX_button.config(text=x_connect + ' motor x')
         y_connect = 'Disconnect' if c_p['connect_motor'][1] else 'Connect'
@@ -1171,13 +1218,15 @@ class UserInterface:
         self.toggle_piezo_button.config(text=piezo_connected + ' piezo motor')
 
     def update_home_button(self):
+
+        c_p = self.c_p
         if c_p['return_z_home']:
             self.home_z_button.config(text='Z is homing. Press to stop')
         else:
             self.home_z_button.config(text='Press to home z')
 
     def create_indicators(self, x=1420, y1=760, y2=900):
-        global c_p
+        c_p = self.c_p
 
         self.position_label = Label(self.window, text=self.get_position_info())
         self.position_label.place(x=x, y=y1)
@@ -1191,7 +1240,7 @@ class UserInterface:
         '''
         Helper function for updating on-screen indicators
         '''
-        global c_p
+        c_p = self.c_p
         # Update if recording is turned on or not
         if c_p['recording']:
             self.recording_button.config(text='Turn off recording', bg='green')
@@ -1258,6 +1307,7 @@ class UserInterface:
     def resize_display_image(self, img):
         # Reshapes the image img to fit perfectly into the tkninter window.
 
+        c_p = self.c_p
         img_size = np.shape(img)
         if img_size[1]==self.canvas_width or img_size[0] == self.canvas_height:
             return img
@@ -1276,8 +1326,8 @@ class UserInterface:
 
     def get_mouse_position(self):
 
-        c_p['mouse_position'][0] = self.window.winfo_pointerx() - self.window.winfo_rootx()
-        c_p['mouse_position'][1] = self.window.winfo_pointery() - self.window.winfo_rooty()
+        self.c_p['mouse_position'][0] = self.window.winfo_pointerx() - self.window.winfo_rootx()
+        self.c_p['mouse_position'][1] = self.window.winfo_pointery() - self.window.winfo_rooty()
 
     def mouse_command_move(self):
         # Function to convert a mouse click to a movement.
@@ -1287,6 +1337,7 @@ class UserInterface:
         # Camera orientation will affect signs in the following expressions
 
         # Account for camera rotation
+        c_p = self.c_p
         x_rot = 1
         y_rot = 1
         if c_p['camera_orientatation'] == 'up':
@@ -1330,20 +1381,21 @@ class UserInterface:
             c_p['stepper_target_position'][1] = c_p['stepper_current_position'][1] - dy
 
     def add_laser_cross(self, image):
-         try:
-             y = int(c_p['traps_relative_pos'][0][0])
-             x = int(c_p['traps_relative_pos'][1][0])
 
-         except ValueError:
-             print("Could not convert trap positions to integers")
-             return
-         else:
-             try:
-                 image[x-10:x+10, y] = 0
-                 image[x, y-10:y+10] = 0
-             except IndexError as e:
-                 print('Could not display laser position ', e)
-             #print('Warning could not display laser position',x,y,np.size(image))
+        c_p = self.c_p
+        try:
+            y = int(c_p['traps_relative_pos'][0][0])
+            x = int(c_p['traps_relative_pos'][1][0])
+
+        except ValueError:
+            print("Could not convert trap positions to integers")
+            return
+        else:
+            try:
+                image[x-10:x+10, y] = 0
+                image[x, y-10:y+10] = 0
+            except IndexError as e:
+                print('Could not display laser position ', e)
 
     def update_qd_on_screen_targets(self, image=None):
         '''
@@ -1351,6 +1403,7 @@ class UserInterface:
         relative to the laser.
         TODO: Make the markers a different color
         '''
+        c_p = self.c_p
         if image is None:
             s = np.shape(c_p['image'])
         else:
@@ -1380,6 +1433,7 @@ class UserInterface:
         relative to the laser.
         TODO: Make the markers a different color
         '''
+        c_p = self.c_p
         s = np.shape(image)
         cross = np.int16(np.linspace(-5,5,11))
         for xc, yc in zip(c_p['QD_position_screen_x'], c_p['QD_position_screen_y']):
@@ -1401,6 +1455,7 @@ class UserInterface:
         Marks the polynerized areas in an image if the positions of these are
         known.
         """
+        c_p = self.c_p
         if self.tracking_toggled.get():
             for x, y in zip(c_p['polymerized_x'], c_p['polymerized_y']):
                 x = int(x)
@@ -1416,6 +1471,7 @@ class UserInterface:
         """
         Crops in on an area around the laser for easier viewing.
         """
+        c_p = self.c_p
         # Check if we can do crop
         top = int(max(c_p['traps_absolute_pos'][0][0]-edge, 0))
         bottom = int(min(c_p['traps_absolute_pos'][0][0]+edge, np.shape(image)[0]))
@@ -1428,6 +1484,7 @@ class UserInterface:
         return image[left:right, top:bottom]
 
     def add_particle_positions_to_image(self, image):
+        c_p = self.c_p
         for x,y in zip(c_p['particle_centers'][0], c_p['particle_centers'][1]):
             try:
                 x = int(x)
@@ -1443,6 +1500,7 @@ class UserInterface:
          Updates the live video feed and all monitors(motor positions, temperature etc).
          This function calls itself recursively.
          """
+         c_p = self.c_p
          image = np.asarray(c_p['image'])
          image = image.astype('uint16')
          self.update_qd_on_screen_targets()
@@ -1505,7 +1563,6 @@ class UserInterface:
 
 
 class SLM_window(Frame):
-    global c_p
 
     def __init__(self,c_p, master=None):
         Frame.__init__(self, master)
@@ -1560,22 +1617,23 @@ def compensate_focus():
     Function for compensating the change in focus caused by x-y movement.
     Returns the positon in ticks which z  should take to compensate for the focus
     '''
-    global c_p
+    c_p = self.c_p
     new_z_pos = (c_p['z_starting_position']
         +c_p['z_x_diff']*(c_p['motor_starting_pos'][0] - c_p['motor_current_pos'][0])
         +c_p['z_y_diff']*(c_p['motor_starting_pos'][1] - c_p['motor_current_pos'][1]) )
     new_z_pos += c_p['temperature_z_diff']*(c_p['current_temperature']-c_p['starting_temperature'])
     return int(new_z_pos)
 
-
+# Not used anymore
 class ExperimentControlThread(threading.Thread):
    '''
    Thread which does the tracking.
    '''
-   def __init__(self, threadID, name):
+   def __init__(self, threadID, name, c_p):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = name
+        self.c_p = c_p
         self.setDaemon(True)
 
    def __del__(self):
@@ -1586,7 +1644,7 @@ class ExperimentControlThread(threading.Thread):
         Function for determimning where and how to move when min_index_particle
         has been found
         '''
-        global c_p
+        c_p = self.c_p
         if min_index_particle is not None:
           c_p['target_trap_pos'] = [c_p['traps_relative_pos'][0][min_index_trap],
                                     c_p['traps_relative_pos'][1][min_index_trap]]
@@ -1682,8 +1740,8 @@ class ExperimentControlThread(threading.Thread):
         # Taking snapshot before zooming in so user can see if there are
         # particles in the background which may interfere with measurement.
 
-        snapshot(c_p['measurement_name']+'_pre'+time_stamp)
-        zoom_in()
+        #snapshot(c_p['measurement_name']+'_pre'+time_stamp)
+        zoom_in(self.c_p)
         c_p['recording'] = True
         patiance = 50
         patiance_counter = 0
@@ -1700,7 +1758,7 @@ class ExperimentControlThread(threading.Thread):
                 break
         c_p['recording'] = False
         zoom_out()
-        snapshot(c_p['measurement_name']+'_after'+time_stamp)
+        #snapshot(c_p['measurement_name']+'_after'+time_stamp)
         if time.time() >= start + duration:
             return 0
         return start + duration - time.time()
@@ -1753,7 +1811,7 @@ class ExperimentControlThread(threading.Thread):
         # TODO make the program understand when two particles have been trapped
         # in the same trap. - Possible solution: Train an AI to detect this.
         global image
-        global c_p
+        c_p = self.c_p
         c_p['nbr_experiments'] = len(c_p['experiment_schedule'])
         c_p['experiment_progress'] = 0
 
@@ -1858,7 +1916,7 @@ def get_adjacency_matrix(nx, ny):
 
 
 def path_search(filled_traps_locs, target_particle_location,
-                target_trap_location):
+                target_trap_location, c_p):
     '''
     Function for finding paths to move the stage so as to trap more particles
     without accidentally trapping extra particles.
@@ -1884,8 +1942,6 @@ def path_search(filled_traps_locs, target_particle_location,
         was found. False otherwise.
 
     '''
-
-    global c_p
 
     nx = int( (c_p['AOI'][1]-c_p['AOI'][0]) / c_p['cell_width'])
     ny = int( (c_p['AOI'][3]-c_p['AOI'][2]) / c_p['cell_width'])
@@ -2070,7 +2126,7 @@ def count_interior_particles(margin=30):
     Function for counting the number of particles in the interior of the frame.
     margin
     '''
-    global c_p
+    c_p = self.c_p
     interior_particles = 0
     for position in c_p['particle_centers']:
         interior_particles += 1
@@ -2088,7 +2144,7 @@ def in_focus(margin=40):
     '''
 
     global image
-    global c_p
+    c_p = self.c_p
     median_intesity = np.median(image)
 
 
@@ -2112,7 +2168,7 @@ def in_focus(margin=40):
     return False
 
 
-def predict_particle_position_network(network,half_image_width=50,
+def predict_particle_position_network(network,c_p, half_image_width=50,
     network_image_width=101,
     print_position=False):
     '''
@@ -2126,7 +2182,6 @@ def predict_particle_position_network(network,half_image_width=50,
         Updates the center position of the particle
     '''
     global image
-    global c_p
     resized = cv2.resize(copy.copy(image), (network_image_width,network_image_width), interpolation = cv2.INTER_AREA)
     pred = network.predict(np.reshape(resized/255,[1,network_image_width,network_image_width,1]))
 
@@ -2137,13 +2192,12 @@ def predict_particle_position_network(network,half_image_width=50,
         print('Predicted posiiton is ',c_p['particle_centers'])
 
 
-def get_particle_trap_distances():
+def get_particle_trap_distances(c_p):
     '''
     Calcualtes the distance between all particles and traps and returns a
     distance matrix, ordered as distances(traps,particles),
     To clarify the distance between trap n and particle m is distances[n][m].
     '''
-    global c_p
     update_traps_relative_pos(c_p) # just in case
     nbr_traps = len(c_p['traps_relative_pos'][0])
     nbr_particles = len(c_p['particle_centers'][0])
@@ -2157,12 +2211,11 @@ def get_particle_trap_distances():
     return distances
 
 
-def trap_occupied(distances, trap_index):
+def trap_occupied(distances, trap_index, c_p):
     '''
     Checks if a specific trap is occupied by a particle. If so set that trap to occupied.
     Updates if the trap is occupied or not and returns the index of the particle in the trap
     '''
-    global c_p
 
     # Check that trap index is ok
     if trap_index > len(c_p['traps_occupied']) or trap_index < 0:
@@ -2182,7 +2235,7 @@ def trap_occupied(distances, trap_index):
         return None
 
 
-def check_all_traps(distances=None):
+def check_all_traps(c_p, distances=None):
     '''
     Updates all traps to see if they are occupied.
     Returns the indices of the particles which are trapped. Indices refers to their
@@ -2207,7 +2260,7 @@ def check_all_traps(distances=None):
     return trapped_particle_indices
 
 
-def find_closest_unoccupied():
+def find_closest_unoccupied(c_p):
     '''
     Function for finding the paricle and (unoccupied) trap which are the closest
     Returns : min_index_trap,min_index_particle.
@@ -2240,7 +2293,7 @@ def find_closest_unoccupied():
     return min_index_trap, min_index_particle
 
 
-def move_button(move_direction):
+def move_button(move_direction, c_p):
     '''
     Button function for manually moving the motors a bit
     The direction refers to the direction a particle in the fiel of view will move on the screen
@@ -2249,7 +2302,6 @@ def move_button(move_direction):
     move_direction = 2 => move right
     move_direction = 3 => move left
     '''
-    global c_p
     move_distance = 200
     if move_direction==0:
         # Move up (Particles in image move up on the screen)
@@ -2267,42 +2319,14 @@ def move_button(move_direction):
         print('Invalid move direction')
 
 
-def stage_piezo_manual_move(axis, distance):
+def stage_piezo_manual_move(axis, distance, c_p):
     # Manually move the piezos a given distance(in microns)
     c_p['piezo_target_position'][axis] += distance
     # Check if intended move is out of bounds
     c_p['piezo_target_position'][axis] = max(0.0, c_p['piezo_target_position'][axis])
     c_p['piezo_target_position'][axis] = min(20.0, c_p['piezo_target_position'][axis])
 
-
-def toggle_recording():
-    '''
-    Button function for starting of recording
-    '''
-    c_p['recording'] = not c_p['recording']
-    if c_p['recording']:
-        c_p['video_name'] = CameraControls.get_video_name(c_p=c_p)
-
-def snapshot(label=None):
-    """
-    Saves the latest frame captured by the camera into a jpg image.
-    Will label it with date and time if no label is provided. Image is
-    put into same folder as videos recorded.
-    """
-    global image
-    global c_p
-    if label == None:
-        image_name = c_p['recording_path'] + "/frame-" +\
-                    time.strftime("%d-%m-%Y-%H-%M-%S") +\
-                    ".jpg"
-    else:
-        image_name = c_p['recording_path'] + '/' + label + '.jpg'
-    cv2.imwrite(image_name, cv2.cvtColor(c_p['image'], cv2.COLOR_RGB2BGR))
-    np.save(image_name[:-4], c_p['image'])
-    print('Took a snapshot of the experiment.')
-
-
-def toggle_temperature_output():
+def toggle_temperature_output(c_p):
     '''
     Function for toggling temperature output on/off.
     '''
@@ -2310,7 +2334,7 @@ def toggle_temperature_output():
     print("c_p['temperature_output_on'] set to",c_p['temperature_output_on'])
 
 
-def toggle_bright_particle():
+def toggle_bright_particle(c_p):
     '''
     Function for switching between bright and other particle
     '''
@@ -2318,20 +2342,20 @@ def toggle_bright_particle():
     print("c_p['bright_particle'] set to",c_p['bright_particle'])
 
 
-def focus_up():
+def focus_up(c_p):
     '''
     Used for focus button to shift focus slightly up
     '''
     c_p['piezo_target_position'][2] += 0.1
 
 
-def focus_down():
+def focus_down(c_p):
     '''
     Used for focus button to shift focus slightly up
     '''
     c_p['piezo_target_position'][2] -= 0.1
 
-def zoom_in(margin=60, use_traps=False):
+def zoom_in(c_p, margin=60, use_traps=False):
     '''
     Helper function for zoom button and zoom function.
     Zooms in on an area around the traps
@@ -2371,16 +2395,16 @@ def zoom_in(margin=60, use_traps=False):
     update_traps_relative_pos(c_p)
     print(c_p['traps_relative_pos'][0][0], c_p['traps_relative_pos'][1][0])
 
-def stepper_button_move_down(distance=0.002):
+def stepper_button_move_down(c_p, distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
     c_p['stepper_target_position'][2] = c_p['stepper_current_position'][2] - distance
 
 
-def stepper_button_move_upp(distance=0.002):
+def stepper_button_move_upp(c_p, distance=0.002):
     # Moves the z-motor of the stepper up a tiny bit
     c_p['stepper_target_position'][2] = c_p['stepper_current_position'][2] + distance
 
-def search_for_particles():
+def search_for_particles(c_p):
     '''
     Function for searching after particles. Threats the sample as a grid and
     systmatically searches it
@@ -2421,11 +2445,10 @@ def search_for_particles():
         print('changing search direction to right')
 
 
-def pixels_to_SLM_locs(locs, axis):
+def pixels_to_SLM_locs(c_p, locs, axis):
     '''
     Function for converting from PIXELS to SLM locations.
     '''
-    global c_p
     if axis != 0 and axis != 1:
         print('cannot perform conversion, incorrect choice of axis')
         return locs
@@ -2434,12 +2457,11 @@ def pixels_to_SLM_locs(locs, axis):
     return new_locs
 
 
-def SLM_loc_to_trap_loc(xm, ym):
+def SLM_loc_to_trap_loc(c_p, xm, ym):
     '''
     Fucntion for updating the traps position based on their locaitons
     on the SLM.
     '''
-    global c_p
     tmp_x = [x * c_p['slm_to_pixel'] + c_p['slm_x_center'] for x in xm]
     tmp_y = [y * c_p['slm_to_pixel'] + c_p['slm_y_center'] for y in ym]
     tmp = np.asarray([tmp_x, tmp_y])
@@ -2448,10 +2470,9 @@ def SLM_loc_to_trap_loc(xm, ym):
     update_traps_relative_pos(c_p)
 
 
-def save_phasemask():
+def save_phasemask(c_p):
     # Helperfunction for saving the SLM.
     # Should probably save parameters of this at same time as well.
-    global c_p
 
     now = datetime.now()
     phasemask_name = c_p['recording_path'] + '/phasemask-'+\
@@ -2459,10 +2480,9 @@ def save_phasemask():
         '-' + str(now.second) + '.npy'
     np.save(phasemask_name, c_p['phasemask'], allow_pickle=True)
 
-def move_particles_slowly(last_d=30e-6):
+def move_particles_slowly(c_p, last_d=30e-6):
     # Function for moving the particles between the center and the edges
     # without dropping then
-    global c_p
     if last_d>40e-6 or last_d<0:
         print('Too large distance.')
         return
@@ -2489,39 +2509,3 @@ def move_particles_slowly(last_d=30e-6):
                 time.sleep(0.5)
             time.sleep(1)
     return
-
-
-############### Main script starts here ####################################
-c_p = get_default_c_p()
-#c_p['camera_model'] = 'basler_fast'#'basler_large'#'ThorlabsCam'
-
-
-# Create a empty list to put the threads in
-thread_list = []
-d0x = -80e-6
-d0y = -80e-6
-
-# Define experiment to be run. Can also be read from a file nowadays.
-xm1, ym1 = SLM.get_xm_ym_rect(nbr_rows=2, nbr_columns=1, d0x=d0x, d0y=d0y, dx=20e-6, dy=20e-6,)
-experiment_schedule = [
-{'xm':xm1, 'ym':ym1, 'use_LGO':[False],'target_experiment_z':1000,
-'LGO_order':4,  'recording_duration':1000,' SLM_iterations':30,'activate_traps_one_by_one':False},
-]
-
-c_p['experiment_schedule'] = experiment_schedule
-append_c_p(c_p, get_thread_activation_parameters())
-
-c_p['stage_stepper_x'] = True
-c_p['stage_stepper_y'] = True
-c_p['stage_stepper_z'] = True
-c_p['stage_piezo_x'] = True
-c_p['stage_piezo_y'] = True
-c_p['stage_piezo_z'] = True
-c_p['QD_tracking'] = False
-c_p['arduino_LED'] = True
-
-
-
-T_D = UserInterface(tkinter.Tk(), c_p, thread_list)
-print('Typical number of parameters: ', len(c_p))
-sys.exit()
