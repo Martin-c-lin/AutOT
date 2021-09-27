@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import ceil,pi
 from random import random
-from time import time
+from time import time, sleep
 from math import atan2
 from threading import Thread
 # TODO: investigate if we can change to smaller
@@ -258,6 +258,8 @@ def get_delta(image_width = 1080, xm=[], ym=[], zm=None, use_LGO=[False], order=
     the SLM to the trap position for a specific set of points
     Default parameters copied from Allessandros script
     """
+    # TODO seems a bit tricky to change the size to non-square :/  could maybe have a
+    # bigger screen and cut out a piece of it
     x = np.linspace(1,image_width,image_width)
     y = np.reshape(np.transpose(np.linspace(1,image_width,image_width)),(image_width,1))
 
@@ -325,6 +327,17 @@ def setup_fullscreen_plt_image():
     figManager.window.showMaximized()
     figManager.window.setFocus()
 
+def SLM_loc_to_trap_loc(c_p, xm, ym):
+    '''
+    Fucntion for updating the traps position based on their locaitons
+    on the SLM.
+    '''
+    # TODO this should not be both here and in QD positioning
+    tmp_x = [x * c_p['slm_to_pixel'] + c_p['slm_x_center'] for x in xm]
+    tmp_y = [y * c_p['slm_to_pixel'] + c_p['slm_y_center'] for y in ym]
+    tmp = np.asarray([tmp_x, tmp_y])
+    c_p['traps_absolute_pos'] = tmp
+    print('Traps are at: ', c_p['traps_absolute_pos'] )
 
 class CreatePhasemaskThread(Thread):
     def __init__(self, threadID, name, c_p):
@@ -350,25 +363,25 @@ class CreatePhasemaskThread(Thread):
         self.c_p = c_p
 
     def run(self):
+        # TODO use cupy if available
         '''
         Thread calculates the new phasemask when the parameter 'new phasemask'
         is set to true. It does this using the control parameters (xm, ym) for
         particle positions. use_LGO to determine if to use LGO or not.
 
         '''
-        #global c_p
         c_p = self.c_p
-        c_p['xm'], c_p['ym'] = SLM.get_default_xm_ym()
+        c_p['xm'], c_p['ym'] = get_default_xm_ym()
         c_p['zm'] = np.zeros(len(c_p['xm']))
-        Delta, N, M = SLM.get_delta(xm=c_p['xm'], ym=c_p['ym'], zm=c_p['zm'],
+        Delta, N, M = get_delta(xm=c_p['xm'], ym=c_p['ym'], zm=c_p['zm'],
             use_LGO=c_p['use_LGO'],
             order=c_p['LGO_order'])
 
-        c_p['phasemask'] = SLM.GSW(
+        c_p['phasemask'] = GSW(
             N, M, Delta, nbr_iterations=c_p['SLM_iterations'])
 
         c_p['phasemask_updated'] = True
-        SLM_loc_to_trap_loc(xm=c_p['xm'], ym=c_p['ym'])
+        SLM_loc_to_trap_loc(c_p, xm=c_p['xm'], ym=c_p['ym'])
 
         c_p['traps_occupied'] =\
             [False for i in range(len(c_p['traps_absolute_pos'][0]))]
@@ -376,17 +389,17 @@ class CreatePhasemaskThread(Thread):
         while c_p['program_running']:
             if c_p['new_phasemask']:
                 # Calcualte new delta and phasemask
-                Delta, N, M = SLM.get_delta(xm=c_p['xm'], ym=c_p['ym'],
+                Delta, N, M = get_delta(xm=c_p['xm'], ym=c_p['ym'],
                     zm=c_p['zm'],
                     use_LGO=c_p['use_LGO'],
                     order=c_p['LGO_order'])
                 if M==2:
                     print('Using normal Grechbgerg-Saxton since there are 2 traps')
-                    c_p['phasemask'] = SLM.GS(
+                    c_p['phasemask'] = GS(
                         N, M, Delta,
                         nbr_iterations=c_p['SLM_iterations'])
                 else:
-                    c_p['phasemask'] = SLM.GSW(
+                    c_p['phasemask'] = GSW(
                         N, M, Delta,
                         nbr_iterations=c_p['SLM_iterations'])
                 # if c_p['save_phasemask']:
@@ -395,8 +408,8 @@ class CreatePhasemaskThread(Thread):
                 c_p['new_phasemask'] = False
 
                 # Update the number of traps and their position
-                SLM_loc_to_trap_loc(xm=c_p['xm'], ym=c_p['ym'])
+                SLM_loc_to_trap_loc(c_p, xm=c_p['xm'], ym=c_p['ym'])
                 print(c_p['traps_absolute_pos'])
                 c_p['traps_occupied'] =\
                     [False for i in range(len(c_p['traps_absolute_pos'][0]))]
-            time.sleep(0.5)
+            sleep(0.5)

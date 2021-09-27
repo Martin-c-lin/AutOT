@@ -1,8 +1,10 @@
 # Control of the temperature controller
 
 import pyvisa
+import numpy as np
 from time import sleep
 from threading import Thread
+
 
 def get_resource_list():
     '''
@@ -225,5 +227,5 @@ class TemperatureThread(Thread):
                     elif self.temperature_controller.query_output()==1 and not\
                         c_p['temperature_output_on']:
                         self.temperature_controller.turn_off_output()
-                    time.sleep(1) # We do not need to update the temperature very often
+                    sleep(1) # We do not need to update the temperature very often
                 self.temperature_controller.turn_off_output()

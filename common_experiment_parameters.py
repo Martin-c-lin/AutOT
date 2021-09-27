@@ -100,8 +100,8 @@ def set_defualt_trap_position(c_p):
     c_p['ym'] = [200]
 
     # Laser position
-    c_p['traps_absolute_pos'][0][0] = 3407
-    c_p['traps_absolute_pos'][1][0] = 1840
+    c_p['traps_absolute_pos'][0][0] = 300#3407
+    c_p['traps_absolute_pos'][1][0] = 300 #1840
     c_p['traps_relative_pos'][0][0] = c_p['traps_absolute_pos'][0][0]
     c_p['traps_relative_pos'][1][0] = c_p['traps_absolute_pos'][1][0]
 
@@ -126,7 +126,7 @@ def get_default_c_p(recording_path=None):
         recording_path = get_save_path()
     c_p = {
         'serial_nums_motors': ['27502438','27502419','97100532'],# x,y,z
-        'channel': 1,
+        'channel': 2,
         'network_path': 'G:/',
         'recording_path': recording_path,
         'polling_rate': 100,
@@ -135,6 +135,7 @@ def get_default_c_p(recording_path=None):
         'image': np.zeros((1080, 1080, 1)),
         'new_settings_camera': False,
         'new_AOI_display': False,
+        #'phasemask': None,
         'new_phasemask': False,
         'phasemask_updated': False,  # True if the phasemask is to be udpated
         'movement_threshold': 30,

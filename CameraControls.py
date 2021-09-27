@@ -45,7 +45,12 @@ def get_camera_c_p():
     # Determine camera width etc. May still need to calibrate for pixel-size
     # Add custom parameters for different cameras.
     if camera_c_p['camera_model'] == 'basler_large':
+        # Correct value for QD setup
         camera_c_p['mmToPixel'] = 37_700 # Made a control measurement and found it to be 37.7
+
+        # Correct value for HOT setup
+        camera_c_p['mmToPixel'] = 30_700 # Made a control measurement and found it to be 37.7
+
         camera_c_p['camera_width'] = 4096
         camera_c_p['camera_height'] = 3040
         camera_c_p['default_offset_x'] = 0#1000
@@ -501,7 +506,7 @@ class CameraThread(threading.Thread):
         """
         c_p = self.c_p
         img = copy(c_p['image'])
-        # TODO: Here could be a good place to use # no wait 
+        # TODO: Here could be a good place to use # no wait
         if c_p['bg_removal']:
             try:
                 img = subtract_bg(c_p['image'],

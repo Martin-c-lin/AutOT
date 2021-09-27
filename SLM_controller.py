@@ -8,13 +8,16 @@ from functools import partial
 import PIL.Image, PIL.ImageTk
 from tkinter.ttk import *
 import SLM
+# TODO
+import SLM_cupy
+import cupy as cp
 from read_dict_from_file import ReadFileToExperimentList
 from tkinter.filedialog import askopenfilename
 # TODO: Put some of the experiment parameters, such as slm_y_center, in a separate
 # file which both this module and automagic experiments have access to.
 def get_default_c_p(
     SLM_iterations = 2,
-    phasemask_width = 1080,
+    phasemask_width = 1070,#1080,
     phasemask_height = 1080,
     ):
     '''
@@ -98,6 +101,8 @@ def update_trap_locs():
         c_p['ym'] = pixels_to_SLM_locs(c_p['ym'], 1)
     SLM_loc_to_trap_loc(c_p['xm'], c_p['ym'])
 
+# TODO: update this script to use GPU when available and test if we can use a bigger image and crop it
+# to get fullscreen phasemask
 
 class CreateSLMThread(threading.Thread):
     '''
@@ -115,7 +120,7 @@ class CreateSLMThread(threading.Thread):
         update_xm_ym()
         c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z']
 
-        Delta, N, M = SLM.get_delta(xm=c_p['xm'],
+        Delta, N, M = SLM_cupy.get_delta(xm=c_p['xm'],
             ym=c_p['ym'],
             zm=c_p['zm'],
             use_LGO=c_p['use_LGO'],
@@ -127,7 +132,7 @@ class CreateSLMThread(threading.Thread):
             if c_p['new_phasemask']:
                 # Calcualte new delta and phasemask
                 c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z']
-                Delta,N,M = SLM.get_delta(xm=c_p['xm'],
+                Delta, N, M = SLM_cupy.get_delta(xm=c_p['xm'],
                     ym=c_p['ym'],
                     zm=c_p['zm'],
                     use_LGO=c_p['use_LGO'],
@@ -140,14 +145,15 @@ class CreateSLMThread(threading.Thread):
                 c_p['phasemask_updated'] = True
                 c_p['new_phasemask'] = False
             time.sleep(1)
-    def generate_phasemask(self,Delta,N,M):
+
+    def generate_phasemask(self, Delta, N, M):
         global c_p
         if c_p['SLM_algorithm'] == 'GSW':
-            c_p['phasemask'] = SLM.GSW(N, M, Delta,
-                nbr_iterations=c_p['SLM_iterations'])
+            c_p['phasemask'] = cp.asnumpy(SLM_cupy.GSW(N, M, Delta,
+                nbr_iterations = c_p['SLM_iterations']))
         elif c_p['SLM_algorithm'] == 'GS':
-            c_p['phasemask'] = SLM.GS(N, M, Delta,
-                nbr_iterations=c_p['SLM_iterations'])
+            c_p['phasemask'] = cp.asnumpy(SLM_cupy.GS(N, M, Delta,
+                nbr_iterations=c_p['SLM_iterations']))
 
 
     def calculate_trap_position():
@@ -165,7 +171,7 @@ class TkinterDisplay:
          self.window.title(window_title)
 
          # Create a canvas that can fit the above video source size
-         self.window.geometry('700x500')
+         self.window.geometry('700x600')
 
          self.canvas_width = 240
          self.canvas_height = 200
@@ -183,6 +189,7 @@ class TkinterDisplay:
          start_threads()
          self.window.mainloop()
          self.mini_image = np.zeros((120,100,3))
+
     def create_SLM_window(self, _class):
         try:
             if self.new.state() == "normal":
@@ -190,6 +197,7 @@ class TkinterDisplay:
         except:
             self.new = tkinter.Toplevel(self.window)
             self.SLM_Window = _class(self.new)
+
     def create_trap_image(self, trap_x=[], trap_y=[], particle_x=[], particle_y=[], AOI=[0,1200,0,1000]):
 
         # Define new mini-image
@@ -393,7 +401,7 @@ class TkinterDisplay:
             # written in console instead
             setup_text += '\n yms are : ' + str(c_p['ym'])
             self.info_label = Label(self.window,text=setup_text)
-            self.info_label.place(x=10,y=410)
+            self.info_label.place(x=10,y=480)
 
     def update_indicators(self):
         '''

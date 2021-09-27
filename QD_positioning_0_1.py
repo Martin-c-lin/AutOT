@@ -2,7 +2,7 @@
 import ThorlabsCam as TC
 import SLM#, QD_tracking
 import ThorlabsMotor as TM
-import TemperatureControllerTED4015
+import TemperatureControllerTED4015 as TC4015
 import find_particle_threshold as fpt
 import read_dict_from_file as rdff
 import ThorlabsShutter as TS
@@ -14,7 +14,7 @@ from MiscFunctions import sum_downsample, subtract_bg
 
 from instrumental import u
 import numpy as np
-import threading, time, cv2, queue, copy, sys, tkinter, os, pickle
+import threading, time, cv2, queue, copy, tkinter, os, pickle
 from tkinter import filedialog as fd
 from functools import partial
 from datetime import datetime
@@ -69,7 +69,7 @@ def start_threads(c_p, thread_list):
     if c_p['motor_x']:
         c_p['standard_motors'] = True
         try:
-            motor_X_thread = TM.MotorThread(2,'Thread-motorX',0,c_p)
+            motor_X_thread = TM.MotorThread(2, 'Thread-motorX', 0, c_p)
             motor_X_thread.start()
             thread_list.append(motor_X_thread)
             print('Motor x thread started')
@@ -95,8 +95,8 @@ def start_threads(c_p, thread_list):
         except:
             print('Could not start motor z thread')
 
-    if c_p['slm']:
-        slm_thread =CreatePhasemaskThread(5,'Thread-SLM')
+    if c_p['SLM']:
+        slm_thread = SLM.CreatePhasemaskThread(5,'Thread-SLM', c_p=c_p)
         slm_thread.start()
         thread_list.append(slm_thread)
         print('SLM thread started')
@@ -107,14 +107,14 @@ def start_threads(c_p, thread_list):
         thread_list.append(tracking_thread)
         print('Tracking thread started')
 
-    if c_p['temp']:
+    if c_p['temperature_controlls']:
 
         try:
-            temperature_controller = TemperatureControllerTED4015.TED4015()
+            temperature_controller = TC4015.TED4015()
         except:
             temperature_controller = None
             print('problem connecting to temperature controller')
-        temperature_thread = TemperatureThread(7,'Temperature_thread',temperature_controller=temperature_controller)
+        temperature_thread = TC4015.TemperatureThread(7, 'Temperature_thread', c_p, temperature_controller=temperature_controller)
         temperature_thread.start()
         thread_list.append(temperature_thread)
         print('Temperature thread started')
@@ -255,12 +255,13 @@ class UserInterface:
     """
 
     """
-    def __init__(self, window, c_p, thread_list, use_SLM=False):
+    def __init__(self, window, c_p, thread_list):
         self.window = window
         start_threads(c_p, thread_list)
         self.thread_list = thread_list
         # Create a canvas that can fit the above video source size
         # TODO: Add simpler way to label outputs(videos, images etc) from the program
+        # TODO make display window able to change size
         self.canvas_width = 1300
         self.canvas_height = 1120
 
@@ -283,7 +284,7 @@ class UserInterface:
         self.image_scale = 1 # scale of image being displayed
         self.delay = 10 #50 standard how often to update view in ms intervals
         self.zoomed_in = False
-        if c_p['slm']:
+        if c_p['SLM']:
             self.create_SLM_window(SLM_window)
 
         self.update_qd_on_screen_targets(c_p['image'])
@@ -302,7 +303,7 @@ class UserInterface:
         self.c_p['program_running'] = False
         self.c_p['motor_running'] = False
         self.c_p['tracking_on'] = False
-        terminate_threads(self.thread_list, c_p)
+        terminate_threads(self.thread_list, self.c_p)
 
     def read_experiment_dictionary(self):
         c_p = self.c_p
@@ -591,7 +592,7 @@ class UserInterface:
                 pass
             c_p['connect_piezos'] = c_p['piezo_controller'].IsConnected
 
-    def z_control_buttons(self, top, y_position, x_position):
+    def motor_control_buttons(self, top, y_position, x_position):
 
         y_pos = y_position.__next__()
 
@@ -826,12 +827,12 @@ class UserInterface:
             top, text='Toggle green laser', command= partial(toggle_green_laser, self.c_p))
         self.green_laser_button.place(x=x_position, y=generator_y.__next__())
         self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
-        generator_y.__next__()
-        y0 = generator_y.__next__()
-        generator_y.__next__()
-        y1 = generator_y.__next__()
-        self.place_manual_zoom_sliders(top, x=x_position, y=y0,
-            x1=x_position, y1=y1)
+        # generator_y.__next__()
+        # y0 = generator_y.__next__()
+        # generator_y.__next__()
+        # y1 = generator_y.__next__()
+        # self.place_manual_zoom_sliders(top, x=x_position, y=y0,
+        #     x1=x_position, y1=y1)
 
     def add_piezo_activation_buttons(self, top, x_position, y_position):
 
@@ -878,6 +879,7 @@ class UserInterface:
         c_p['raw_background'] = np.copy(c_p['image'])
         c_p['background'] = self.resize_display_image(np.int16(np.copy(c_p['image'])))
         print('BG saved')
+
     def snapshot(self, label=None):
         """
         Saves the latest frame captured by the camera into a jpg image.
@@ -891,7 +893,20 @@ class UserInterface:
                         ".jpg"
         else:
             image_name = c_p['recording_path'] + '/' + label + '.jpg'
-        cv2.imwrite(image_name, cv2.cvtColor(c_p['image'], cv2.COLOR_RGB2BGR))
+
+        if not c_p['bg_removal']:
+            tmp = c_p['image']
+        else:
+            try:
+                tmp = subtract_bg(np.copy(c_p['image']),
+                c_p['raw_background'][c_p['AOI'][2]:c_p['AOI'][3], c_p['AOI'][0]:c_p['AOI'][1]])
+            except:
+                pass
+    #    if c_p['downsample']:
+            # TODO implement so that we save downsampled frame as well
+    #        pass
+
+        cv2.imwrite(image_name, cv2.cvtColor(tmp, cv2.COLOR_RGB2BGR))
         np.save(image_name[:-4], c_p['image'])
         print('Took a snapshot of the experiment.')
 
@@ -1039,7 +1054,7 @@ class UserInterface:
             self.move_to_target_button = tkinter.Button(top, \
                 text='Toggle move to target', command=self.toggle_move_piezo_to_target)
             self.move_to_target_button.place(x=x_position, y=y_position.__next__())
-        if c_p['temp']:
+        if c_p['temperature_controlls']:
             self.temperature_entry = tkinter.Entry(top, bd=5)
             self.temperature_entry.place(x=x_position, y=y_position.__next__())
             temperature_button = tkinter.Button(
@@ -1118,16 +1133,23 @@ class UserInterface:
 
         if c_p['using_stepper_motors']:
             self.add_stepper_buttons(top, y_position_2, x_position_2 )
+        y_position.__next__()
+        y0 = y_position.__next__()
+        y_position.__next__()
+        y1 = y_position.__next__()
+        self.place_manual_zoom_sliders(top, x=x_position, y=y0,
+            x1=x_position, y1=y1)
         y1 = y_position_2.__next__()
         y_position_2.__next__()
         y_position_2.__next__()
         y2 = y_position_2.__next__()
+
         self.create_indicators(x=x_position_2, y1=y1, y2=y2)
         y_position_2.__next__()
         self.move_by_clicking = tkinter.BooleanVar()
 
-        if c_p['stage_piezos'] or c_p['using_stepper_motors']:
-            self.z_control_buttons(top, y_position_2, x_position_2)
+        if c_p['stage_piezos'] or c_p['using_stepper_motors'] or c_p['standard_motors']:
+            self.motor_control_buttons(top, y_position_2, x_position_2)
 
     def create_SLM_window(self, _class):
         try:
@@ -1135,7 +1157,7 @@ class UserInterface:
                 self.new.focus()
         except:
             self.new = tkinter.Toplevel(self.window)
-            self.SLM_Window = _class(self.new)
+            self.SLM_Window = _class(self.new, self.c_p)
 
     def get_temperature_info(self):
         """
@@ -1225,7 +1247,7 @@ class UserInterface:
         else:
             self.home_z_button.config(text='Press to home z')
 
-    def create_indicators(self, x=1420, y1=760, y2=900):
+    def create_indicators(self, x=1420, y1=760, y2=1100):
         c_p = self.c_p
 
         self.position_label = Label(self.window, text=self.get_position_info())
@@ -1234,7 +1256,7 @@ class UserInterface:
         self.temperature_label.place(x=x, y=y2)
         self.saving_video_label = Label(self.window, text="No video is being saved")
         self.saving_video_label.config(fg='green')
-        self.saving_video_label.place(x=x, y=y2+20)
+        self.saving_video_label.place(x=x, y=y2+100)
 
     def update_indicators(self):
         '''
@@ -1301,8 +1323,8 @@ class UserInterface:
             self.update_motor_buttons()
             self.update_home_button()
 
-        if c_p['using_stepper_motors'] or c_p['stage_piezos']:
-            c_p['mouse_move_allowed'] = self.move_by_clicking.get()
+        #if c_p['using_stepper_motors'] or c_p['stage_piezos']:
+        c_p['mouse_move_allowed'] = self.move_by_clicking.get()
 
     def resize_display_image(self, img):
         # Reshapes the image img to fit perfectly into the tkninter window.
@@ -1353,9 +1375,11 @@ class UserInterface:
             # Not implemented yet
             pass
         # Calculate travel distance
-        dx = float(c_p['traps_relative_pos'][0,0] - self.image_scale * c_p['mouse_position'][0]) / c_p['mmToPixel']
-        dy = float(c_p['traps_relative_pos'][1,0] - self.image_scale * c_p['mouse_position'][1]) / c_p['mmToPixel']
-
+        dx0 = float(c_p['traps_relative_pos'][0,0] - self.image_scale * c_p['mouse_position'][0])
+        dx = dx0 / c_p['mmToPixel']
+        dy0 = float(c_p['traps_relative_pos'][1,0] - self.image_scale * c_p['mouse_position'][1])
+        dy = dy0 / c_p['mmToPixel']
+        print(f"Moving {dx0}, {dy0}")
         # Checks which motors are connected and activated, acts accordingly.
         if c_p['stage_piezos'] and c_p['using_stepper_motors'] and \
         c_p['piezos_activated'].get() and c_p['stepper_activated'].get():
@@ -1379,6 +1403,12 @@ class UserInterface:
         elif c_p['using_stepper_motors'] and c_p['stepper_activated'].get():
             c_p['stepper_target_position'][0] = c_p['stepper_current_position'][0] - dx
             c_p['stepper_target_position'][1] = c_p['stepper_current_position'][1] - dy
+
+        # TODO add case for the old motors as well
+        if c_p['standard_motors']:
+            print('Moving standard motors')
+            c_p['motor_movements'][0] = - dx0
+            c_p['motor_movements'][1] = dy0
 
     def add_laser_cross(self, image):
 
@@ -1563,18 +1593,19 @@ class UserInterface:
 
 
 class SLM_window(Frame):
-
-    def __init__(self,c_p, master=None):
+    # TODO should use this in a similar way to how I use it in the SLM controller app
+    def __init__(self, master=None, c_p=None):
         Frame.__init__(self, master)
         self.master = master
         # TODO make it possible to adjust this in the program or at least in c_p
         self.master.geometry("1920x1080+1920+0")
         self.pack(fill=BOTH, expand=1)
-
+        if c_p['phasemask'] is None:
+            c_p['phasemask'] = np.zeros((c_p['phasemask_width'], c_p['phasemask_height']))
         render = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(c_p['phasemask']))
         self.img = Label(self, image=render)
         self.img.place(x=420, y=0)
-        self.img.image = image
+        self.img.image = render # Was "image" before, should maybe be c_p[image]
         self.delay = 10 # Delay in ms
         self.c_p = c_p
         self.update()
@@ -2149,9 +2180,9 @@ def in_focus(margin=40):
 
 
     if c_p['camera_model'] == 'basler_fast':
-        image_limits = [672,512]
+        image_limits = [672, 512]
     else:
-        image_limits = [1200,1000]
+        image_limits = [1200, 1000]
 
     left = int(max(min(c_p['traps_absolute_pos'][0]) - margin, 0))
     right = int(min(max(c_p['traps_absolute_pos'][0]) + margin, image_limits[0]))

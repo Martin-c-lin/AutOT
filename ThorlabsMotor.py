@@ -542,6 +542,8 @@ class MotorThread(Thread):
     Thread in which a motor is controlled. The motor object is available globally.
     '''
     # TODO: Try replacing some of the c_p with events.
+    # TODO: Make this run in the same way as the newer versions which allow for
+    # Click to move
     def __init__(self, threadID, name, axis, c_p):
 
       Thread.__init__(self)
@@ -558,12 +560,17 @@ class MotorThread(Thread):
 
       # Read motor starting position
       if self.motor is not None:
-          c_p['motor_starting_pos'][self.axis] = float(str(self.motor.Position))
+          c_p['motor_starting_pos'][self.axis] = self.get_current_position()
           print('Motor is at ', c_p['motor_starting_pos'][self.axis])
           c_p['motors_connected'][self.axis] = True
       else:
           c_p['motors_connected'][self.axis] = False
       self.setDaemon(True)
+
+    def get_current_position(self):
+      tmp = str(self.motor.Position)
+      tmp = tmp.replace(",", ".")
+      return float(tmp)
 
     def run(self):
         print('Running motor thread')
@@ -580,15 +587,13 @@ class MotorThread(Thread):
                     c_p['xy_movement_limit'] = np.abs(c_p['xy_movement_limit'])
 
                     # Check how much the motor is allowed to move
-                    if np.abs(c_p['motor_movements'][self.axis])<=c_p['xy_movement_limit']:
+                    if np.abs(c_p['motor_movements'][self.axis]) <= c_p['xy_movement_limit']:
                         MoveMotorPixels(self.motor,
                             c_p['motor_movements'][self.axis],
                             mmToPixel=c_p['mmToPixel'])
                     else:
-                        if c_p['motor_movements'][self.axis]>0:
+                        if c_p['motor_movements'][self.axis] > 0:
                             MoveMotorPixels(self.motor,
-
-
                                 c_p['xy_movement_limit'],
                                 mmToPixel=c_p['mmToPixel'])
                         else:
@@ -597,7 +602,7 @@ class MotorThread(Thread):
                                 mmToPixel=c_p['mmToPixel'])
 
                     c_p['motor_movements'][self.axis] = 0
-                c_p['motor_current_pos'][self.axis] = float(str(self.motor.Position))
+                c_p['motor_current_pos'][self.axis] = self.get_current_position()
             # Motor is connected but should be disconnected
             elif c_p['motors_connected'][self.axis] and not c_p['connect_motor'][self.axis]:
                 DisconnectMotor(self.motor)
@@ -610,7 +615,7 @@ class MotorThread(Thread):
                 # Check if motor was successfully connected.
                 if self.motor is not None:
                     c_p['motors_connected'][self.axis] = True
-                    c_p['motor_current_pos'][self.axis] = float(str(self.motor.Position))
+                    c_p['motor_current_pos'][self.axis] = self.get_current_position()
                     c_p['motor_starting_pos'][self.axis] = c_p['motor_current_pos'][self.axis]
                 else:
                     motor_ = 'x' if self.axis == 0 else 'y'
@@ -619,6 +624,16 @@ class MotorThread(Thread):
         if c_p['motors_connected'][self.axis]:
             DisconnectMotor(self.motor)
 
+def compensate_focus(c_p):
+    '''
+    Function for compensating the change in focus caused by x-y movement.
+    Returns the positon in ticks which z  should take to compensate for the focus
+    '''
+    new_z_pos = (c_p['z_starting_position']
+        +c_p['z_x_diff']*(c_p['motor_starting_pos'][0] - c_p['motor_current_pos'][0])
+        +c_p['z_y_diff']*(c_p['motor_starting_pos'][1] - c_p['motor_current_pos'][1]) )
+    new_z_pos += c_p['temperature_z_diff']*(c_p['current_temperature']-c_p['starting_temperature'])
+    return int(new_z_pos)
 
 class z_movement_thread(Thread):
     '''
@@ -640,6 +655,8 @@ class z_movement_thread(Thread):
         self.setDaemon(True)
         self.c_p = c_p
 
+
+
     def run(self):
         # global c_p
         c_p = self.c_p
@@ -651,7 +668,7 @@ class z_movement_thread(Thread):
             if self.piezo.is_connected and c_p['connect_motor'][2]:
 
                 # Check if the objective should be moved
-                self.piezo.move_to_position(compensate_focus()+lifting_distance)
+                self.piezo.move_to_position(compensate_focus(c_p)+lifting_distance)
 
                 if c_p['z_movement'] != 0:
                     c_p['z_movement'] = int(c_p['z_movement'])
@@ -660,11 +677,11 @@ class z_movement_thread(Thread):
                         lifting_distance += c_p['z_movement']
                     c_p['z_movement'] = 0
 
-                elif c_p['return_z_home'] and c_p['motor_current_pos'][2] > compensate_focus():
-                    lifting_distance -= min(20,c_p['motor_current_pos'][2]-compensate_focus())
+                elif c_p['return_z_home'] and c_p['motor_current_pos'][2] > compensate_focus(c_p):
+                    lifting_distance -= min(20,c_p['motor_current_pos'][2]-compensate_focus(c_p))
                     # Compensating for hysteresis effect in movement
                     print('homing z')
-                if c_p['motor_current_pos'][2] <= compensate_focus() or c_p['z_movement'] != 0:
+                if c_p['motor_current_pos'][2] <= compensate_focus(c_p) or c_p['z_movement'] != 0:
                     c_p['return_z_home'] = False
                 if self.piezo.is_connected:
                     c_p['motor_current_pos'][2] = self.piezo.get_position()
