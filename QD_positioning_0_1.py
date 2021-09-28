@@ -240,13 +240,14 @@ def start_threads(c_p, thread_list):
         except:
             print('Could not start arduino thread')
 
-    if c_p['stage_piezos'] or c_p['using_stepper_motors']:
+    if c_p['stage_piezos'] or c_p['using_stepper_motors'] or c_p['standard_motors']:
         # Start thread for controlling z-position using the mouse scroll-wheel.
         try:
             from MouseInputThread import mouseInputThread
             mouseInputTrd = mouseInputThread(17,'mouse thread', c_p)
             mouseInputTrd.start()
             thread_list.append(mouseInputTrd)
+            print('Mouse-thread started')
         except:
             print('Could not start mouse input thread')
 
@@ -1549,9 +1550,9 @@ class UserInterface:
               print('New phasemask')
               self.SLM_Window.update()
               c_p['phasemask_updated'] = False
-
+         c_p['scroll_for_z'] = self.z_scrolling.get()
          if c_p['stage_piezos'] or c_p['using_stepper_motors']:
-             c_p['scroll_for_z'] = self.z_scrolling.get()
+             # TODO this case statement occurs in several places. Make it better
              compensate_focus_xy_move(c_p)
 
          self.update_indicators()
@@ -1563,7 +1564,7 @@ class UserInterface:
          image = self.resize_display_image(image)
          # TODO implement convolution alternative to the downsampling
          # Now do the background removal on the significantly smaller image.
-         if c_p['bg_removal'] and c_p['background_illumination']:
+         if c_p['bg_removal']:# and c_p['background_illumination']:
              try:
                 if np.shape(image) == np.shape(c_p['background']):
                     image = subtract_bg(image, c_p['background'])

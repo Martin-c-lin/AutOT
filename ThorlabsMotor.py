@@ -124,7 +124,8 @@ class PiezoMotor():
             True if move was successfull otherwise false.
 
         '''
-        target_position = self.get_position()+distance
+        print(f"Moving relative {distance}")
+        target_position = self.get_position() + distance
         return self.move_to_position(target_position)
 
     def get_position(self):
@@ -668,9 +669,10 @@ class z_movement_thread(Thread):
             if self.piezo.is_connected and c_p['connect_motor'][2]:
 
                 # Check if the objective should be moved
-                self.piezo.move_to_position(compensate_focus(c_p)+lifting_distance)
+                #self.piezo.move_to_position(compensate_focus(c_p)+lifting_distance)
 
                 if c_p['z_movement'] != 0:
+                    print('Trying to move in z')
                     c_p['z_movement'] = int(c_p['z_movement'])
                     # Move up if we are not already up
                     if self.piezo.move_relative(c_p['z_movement']):

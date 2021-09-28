@@ -85,7 +85,7 @@ def get_delta(image_width = 1080, xm=[], ym=[], zm=None, use_LGO=[False], order=
     I = cp.ones((1,image_width))
     N = image_width**2
     p = 9e-6 # pixel size
-    f = cp.sqrt(1e-4) #cp.sqrt(2e-4*0.4) # Focal length of imaging system. Empirically found value
+    f = cp.sqrt(8e-5) #cp.sqrt(2e-4*0.4) # Focal length of imaging system. Empirically found value
     z = 0
     lambda_ = 532e-9 # Laser wavelength
 

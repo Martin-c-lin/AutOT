@@ -458,7 +458,9 @@ class SLM_window(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.master = master
-        # Todo, make it possible to set this wherever
+        # Todo, make it possible to set this wherever, make the c_p non-global
+        # and use the fullscreen mode from test_fullscreen
+        #
         self.master.geometry("1920x1080+1920+0")#("1080x1080+2340+0")#("1920x1080+2340+0")
         self.pack(fill=BOTH, expand=1)
         self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(c_p['phasemask']))
