@@ -286,7 +286,7 @@ class UserInterface:
         self.delay = 10 #50 standard how often to update view in ms intervals
         self.zoomed_in = False
         if c_p['SLM']:
-            self.create_SLM_window(SLM_window)
+            self.create_SLM_window(SLM.SLM_window)
 
         self.update_qd_on_screen_targets(c_p['image'])
         CameraControls.zoom_out(c_p)
@@ -1592,32 +1592,6 @@ class UserInterface:
          #self.mini_canvas.create_image(0, 0, image = self.mini_photo, anchor = tkinter.NW)
          self.window.after(self.delay, self.update)
 
-
-class SLM_window(Frame):
-    # TODO should use this in a similar way to how I use it in the SLM controller app
-    def __init__(self, master=None, c_p=None):
-        Frame.__init__(self, master)
-        self.master = master
-        # TODO make it possible to adjust this in the program or at least in c_p
-        self.master.geometry("1920x1080+1920+0")
-        self.pack(fill=BOTH, expand=1)
-        if c_p['phasemask'] is None:
-            c_p['phasemask'] = np.zeros((c_p['phasemask_width'], c_p['phasemask_height']))
-        render = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(c_p['phasemask']))
-        self.img = Label(self, image=render)
-        self.img.place(x=420, y=0)
-        self.img.image = render # Was "image" before, should maybe be c_p[image]
-        self.delay = 10 # Delay in ms
-        self.c_p = c_p
-        self.update()
-
-    def update(self):
-        # This implementation does work but is perhaps a tiny bit janky
-        self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(self.c_p['phasemask']))
-        del self.img.image
-        self.img = Label(self, image=self.photo)
-        self.img.image = self.photo
-        self.img.place(x=420, y=0)
 
 def compensate_focus_xy_move(c_p):
     '''

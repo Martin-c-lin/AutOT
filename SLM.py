@@ -5,6 +5,9 @@ from random import random
 from time import time, sleep
 from math import atan2
 from threading import Thread
+import PIL.Image, PIL.ImageTk
+from tkinter import *
+
 # TODO: investigate if we can change to smaller
 # datatypes to improve performance
 # See if smaller datatypes and upscaling can be used to improve performance
@@ -413,3 +416,32 @@ class CreatePhasemaskThread(Thread):
                 c_p['traps_occupied'] =\
                     [False for i in range(len(c_p['traps_absolute_pos'][0]))]
             sleep(0.5)
+
+class SLM_window(Frame):
+    #global c_p
+    def __init__(self, master, c_p):
+        Frame.__init__(self, master)
+        self.master = master
+        self.c_p = c_p
+        # Todo, make it possible to set this wherever, make the c_p non-global
+        # and use the fullscreen mode from test_fullscreen
+        #
+        self.master.geometry("1920x1080+1920+0")#("1080x1080+2340+0")#("1920x1080+2340+0")
+        self.pack(fill=BOTH, expand=1)
+        if c_p['phasemask'] is None:
+            c_p['phasemask'] = np.zeros((c_p['phasemask_width'], c_p['phasemask_height']))
+        self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.c_p['phasemask']))
+
+        self.img = Label(self, image=self.photo )
+        self.img.place(x=420, y=0)
+        self.img.image = self.photo
+        ####
+        self.delay = 500
+        self.update()
+    def update(self):
+        # This implementation does work but is perhaps a tiny bit janky
+        self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(self.c_p['phasemask']))
+        del self.img.image
+        self.img = Label(self,image=self.photo)
+        self.img.image = self.photo
+        self.img.place(x=420, y=0) # Do not think this is needed

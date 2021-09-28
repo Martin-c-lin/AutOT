@@ -166,7 +166,7 @@ class CreateSLMThread(threading.Thread):
 
 class TkinterDisplay:
 
-    def __init__(self, window, window_title,):
+    def __init__(self, window, window_title):
          self.window = window
          self.window.title(window_title)
 
@@ -183,7 +183,7 @@ class TkinterDisplay:
          # After it is called once, the update method will be automatically called every delay milliseconds
          self.delay = 200
 
-         self.create_SLM_window(SLM_window)
+         self.create_SLM_window(SLM.SLM_window)
          self.create_indicators()
          self.update()
          start_threads()
@@ -196,7 +196,7 @@ class TkinterDisplay:
                 self.new.focus()
         except:
             self.new = tkinter.Toplevel(self.window)
-            self.SLM_Window = _class(self.new)
+            self.SLM_Window = _class(self.new, c_p)
 
     def create_trap_image(self, trap_x=[], trap_y=[], particle_x=[], particle_y=[], AOI=[0,1200,0,1000]):
 
@@ -451,33 +451,6 @@ class TkinterDisplay:
     #
     def __del__(self):
          c_p['experiment_running'] = False
-
-
-class SLM_window(Frame):
-    global c_p
-    def __init__(self, master=None):
-        Frame.__init__(self, master)
-        self.master = master
-        # Todo, make it possible to set this wherever, make the c_p non-global
-        # and use the fullscreen mode from test_fullscreen
-        #
-        self.master.geometry("1920x1080+1920+0")#("1080x1080+2340+0")#("1920x1080+2340+0")
-        self.pack(fill=BOTH, expand=1)
-        self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(c_p['phasemask']))
-
-        self.img = Label(self, image=self.photo )
-        self.img.place(x=420, y=0)
-        self.img.image = self.photo
-        ####
-        self.delay = 500
-        self.update()
-    def update(self):
-        # This implementation does work but is perhaps a tiny bit janky
-        self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(c_p['phasemask']))
-        del self.img.image
-        self.img = Label(self,image=self.photo)
-        self.img.image = self.photo
-        self.img.place(x=420, y=0) # Do not think this is needed
 
 
 def recalculate_mask():
