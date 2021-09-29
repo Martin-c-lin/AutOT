@@ -108,19 +108,22 @@ class CreateSLMThread(threading.Thread):
     '''
     Thread for calculating the new phasemasks in the background.
     '''
-    def __init__(self,threadID,name):
+    def __init__(self, threadID, name, image_width=1920):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = name
+        self.image_width = image_width
         self.setDaemon(True)
         update_xm_ym()
 
     def run(self):
         global c_p
+
+
         update_xm_ym()
         c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z']
 
-        Delta, N, M = SLM_cupy.get_delta(xm=c_p['xm'],
+        Delta, N, M = SLM_cupy.get_delta(image_width=self.image_width, xm=c_p['xm'],
             ym=c_p['ym'],
             zm=c_p['zm'],
             use_LGO=c_p['use_LGO'],
@@ -132,7 +135,7 @@ class CreateSLMThread(threading.Thread):
             if c_p['new_phasemask']:
                 # Calcualte new delta and phasemask
                 c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z']
-                Delta, N, M = SLM_cupy.get_delta(xm=c_p['xm'],
+                Delta, N, M = SLM_cupy.get_delta(image_width=self.image_width, xm=c_p['xm'],
                     ym=c_p['ym'],
                     zm=c_p['zm'],
                     use_LGO=c_p['use_LGO'],
@@ -149,11 +152,13 @@ class CreateSLMThread(threading.Thread):
     def generate_phasemask(self, Delta, N, M):
         global c_p
         if c_p['SLM_algorithm'] == 'GSW':
-            c_p['phasemask'] = cp.asnumpy(SLM_cupy.GSW(N, M, Delta,
+            # TODO make it possible to dynamically change image_width
+            tmp = cp.asnumpy(SLM_cupy.GSW(N, M, Delta,image_width=self.image_width,
                 nbr_iterations = c_p['SLM_iterations']))
+            c_p['phasemask'] = tmp[420:1500, :]
         elif c_p['SLM_algorithm'] == 'GS':
-            c_p['phasemask'] = cp.asnumpy(SLM_cupy.GS(N, M, Delta,
-                nbr_iterations=c_p['SLM_iterations']))
+            c_p['phasemask'] = cp.asnumpy(SLM_cupy.GS(N, M, Delta,image_width=self.image_width,
+                nbr_iterations=c_p['SLM_iterations']))[420:1500, :]
 
 
     def calculate_trap_position():
@@ -311,16 +316,19 @@ class TkinterDisplay:
             except:
                 print('Cannot perform conversion')
                 return None
-        def update_from_entry(tkinter_entry,key,type='int',bounds=[-np.inf,np.inf], new_mask=False,scale=1):
+        def update_from_entry(tkinter_entry,key,type='int',bounds=[-np.inf,np.inf],
+         new_mask=False, scale=1, update_positions=True):
             entry = get_entry(tkinter_entry,type)
             if entry is not None and entry>bounds[0] and entry<bounds[1]:
                 c_p[key] = entry*scale
-                update_xm_ym()
+                if update_positions:
+                    update_xm_ym()
                 c_p['new_phasemask'] = new_mask
             else:
                 print('Value out of bounds')
 
-        set_iterations = lambda : update_from_entry(iterations_entry, type='int', key='SLM_iterations', bounds=[0,1000])
+        set_iterations = lambda : update_from_entry(iterations_entry, type='int',
+            key='SLM_iterations', bounds=[0,1000],update_positions=False)
         set_dx = lambda : update_from_entry(dx_entry, type='float', key='dx', bounds=[0,1200],scale=1)
         set_dy = lambda : update_from_entry(dy_entry, type='float', key='dy', bounds=[0,1200],scale=1)
 

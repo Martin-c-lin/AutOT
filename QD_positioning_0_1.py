@@ -1380,7 +1380,6 @@ class UserInterface:
         dx = dx0 / c_p['mmToPixel']
         dy0 = float(c_p['traps_relative_pos'][1,0] - self.image_scale * c_p['mouse_position'][1])
         dy = dy0 / c_p['mmToPixel']
-        print(f"Moving {dx0}, {dy0}")
         # Checks which motors are connected and activated, acts accordingly.
         if c_p['stage_piezos'] and c_p['using_stepper_motors'] and \
         c_p['piezos_activated'].get() and c_p['stepper_activated'].get():

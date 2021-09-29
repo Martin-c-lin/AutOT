@@ -38,7 +38,7 @@ c_p['stage_piezo_y'] = False
 c_p['stage_piezo_z'] = False
 
 # Temperature controller
-c_p['temperature_controlls'] = True
+c_p['temperature_controlls'] = False
 
 # Automatic tracking?
 c_p['QD_tracking'] = False
@@ -47,7 +47,7 @@ c_p['QD_tracking'] = False
 c_p['arduino_LED'] = False
 
 # SLM connected?
-c_p['SLM'] = True
+c_p['SLM'] = False
 
 # Create a window into which to put the interface
 T_D = QD.UserInterface(tkinter.Tk(), c_p, thread_list)

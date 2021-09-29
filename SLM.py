@@ -418,30 +418,39 @@ class CreatePhasemaskThread(Thread):
             sleep(0.5)
 
 class SLM_window(Frame):
-    #global c_p
-    def __init__(self, master, c_p):
+    def __init__(self, master, c_p, SLM_width=1920, SLM_height=1080):
         Frame.__init__(self, master)
         self.master = master
         self.c_p = c_p
-        # Todo, make it possible to set this wherever, make the c_p non-global
-        # and use the fullscreen mode from test_fullscreen
-        #
-        self.master.geometry("1920x1080+1920+0")#("1080x1080+2340+0")#("1920x1080+2340+0")
-        self.pack(fill=BOTH, expand=1)
-        if c_p['phasemask'] is None:
-            c_p['phasemask'] = np.zeros((c_p['phasemask_width'], c_p['phasemask_height']))
-        self.photo = PIL.ImageTk.PhotoImage(image = PIL.Image.fromarray(self.c_p['phasemask']))
-
-        self.img = Label(self, image=self.photo )
-        self.img.place(x=420, y=0)
-        self.img.image = self.photo
-        ####
-        self.delay = 500
+        self.SLM_width, self.SLM_height = SLM_width, SLM_height
+        self.master.overrideredirect(1)
+        # TODO, have SLM position as parameters
+        self.master.geometry("%dx%d+1920+0" % (SLM_width, SLM_height))
+        self.master.focus_set()
+        self.canvas = Canvas(self.master, width=self.SLM_width, height=self.SLM_height)
+        self.canvas.pack()
+        self.canvas.configure(background='black')
+        self.image=None
         self.update()
+
+    def resize_pilImage(self, pilImage):
+        """
+
+        """
+        imgWidth, imgHeight = pilImage.size
+        if imgWidth > self.SLM_width or imgHeight > self.SLM_height:
+            ratio = min(self.SLM_width/imgWidth, self.SLM_height/imgHeight)
+            imgWidth = int(imgWidth*ratio)
+            imgHeight = int(imgHeight*ratio)
+            pilImage = pilImage.resize((imgWidth,imgHeight), Image.ANTIALIAS)
+        return pilImage
+
     def update(self):
-        # This implementation does work but is perhaps a tiny bit janky
-        self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(self.c_p['phasemask']))
-        del self.img.image
-        self.img = Label(self,image=self.photo)
-        self.img.image = self.photo
-        self.img.place(x=420, y=0) # Do not think this is needed
+        """
+        Updates the image on display to the latest phasemask
+        """
+        del self.image
+        pilImage = PIL.Image.fromarray(self.c_p['phasemask'])
+        pilImage = self.resize_pilImage(pilImage)
+        self.image = PIL.ImageTk.PhotoImage(pilImage)
+        imagesprite = self.canvas.create_image(self.SLM_width/2,self.SLM_height/2,image=self.image)

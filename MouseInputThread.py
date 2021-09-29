@@ -43,7 +43,6 @@ class mouseInputThread(Thread):
                     self.c_p['stepper_elevation'] += self.stepper_step_distance
 
             elif self.c_p['motor_z']:
-                print('Moving z')
                 if dy < 0:
                     self.c_p['z_movement'] -= 50
                 else:
