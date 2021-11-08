@@ -44,9 +44,9 @@ class mouseInputThread(Thread):
 
             elif self.c_p['motor_z']:
                 if dy < 0:
-                    self.c_p['z_movement'] -= 50
+                    self.c_p['z_movement'] -= 10
                 else:
-                    self.c_p['z_movement'] += 50
+                    self.c_p['z_movement'] += 10
 
         return self.c_p['program_running']
 

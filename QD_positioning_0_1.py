@@ -254,7 +254,7 @@ def start_threads(c_p, thread_list):
 
 class UserInterface:
     """
-
+    Class which creates the GUI.
     """
     def __init__(self, window, c_p, thread_list):
         self.window = window
@@ -736,7 +736,7 @@ class UserInterface:
             max_width=c_p['camera_height'], indices=[2, 3])
         self.y_zoom_slider = tkinter.Scale(top,
             command=self.y_zoom, from_=32,
-            to=c_p['camera_height'], resolution=1, orient=HORIZONTAL, length=L)
+            to=c_p['camera_height'], resolution=16, orient=HORIZONTAL, length=L)
         self.y_zoom_slider.set(c_p['camera_height'])
         self.y_slider_label = Label(self.window, text='y-zoom')
         self.y_slider_label.place(x=x1, y=y1-15)
@@ -895,9 +895,8 @@ class UserInterface:
         else:
             image_name = c_p['recording_path'] + '/' + label + '.jpg'
 
-        if not c_p['bg_removal']:
-            tmp = c_p['image']
-        else:
+        tmp = np.copy(c_p['image'])
+        if c_p['bg_removal']:
             try:
                 tmp = subtract_bg(np.copy(c_p['image']),
                 c_p['raw_background'][c_p['AOI'][2]:c_p['AOI'][3], c_p['AOI'][0]:c_p['AOI'][1]])
@@ -1081,6 +1080,7 @@ class UserInterface:
         self.downsample_button = tkinter.Checkbutton(top, text='Downsample livefeed',\
         variable=self.downsample, onvalue=True, offvalue=False)
         self.downsample_button.place(x=x_position, y=y_position.__next__())
+        self.downsample.set(False)
 
         self.downsample_label = tkinter.Label(top, text='Downsample factor')
         y = y_position.__next__()

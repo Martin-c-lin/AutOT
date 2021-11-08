@@ -544,7 +544,7 @@ class MotorThread(Thread):
     '''
     # TODO: Try replacing some of the c_p with events.
     # TODO: Make this run in the same way as the newer versions which allow for
-    # Click to move
+    # better click_move
     def __init__(self, threadID, name, axis, c_p):
 
       Thread.__init__(self)
@@ -672,7 +672,6 @@ class z_movement_thread(Thread):
                 #self.piezo.move_to_position(compensate_focus(c_p)+lifting_distance)
 
                 if c_p['z_movement'] != 0:
-                    print('Trying to move in z')
                     c_p['z_movement'] = int(c_p['z_movement'])
                     # Move up if we are not already up
                     if self.piezo.move_relative(c_p['z_movement']):
@@ -1079,3 +1078,158 @@ class XYZ_stepper_stage_motor(Thread):
             self.stepper_channel.Disconnect()
         except:
             print('Could not stop')
+
+
+class MotorThreadV2(Thread):
+        """
+        New class for controlling the old k-cube motors using the same interface
+        as the XYZ_stepper stage
+        """
+        def __init__(self, threadID, name, channel, axis, c_p,
+                     controller_device=None, serialNo='70167314', sleep_time=0.02,
+                     step=0.0002):
+
+            Thread.__init__(self)
+            self.c_p = c_p
+            self.name = name
+            self.threadID = threadID
+            self.setDaemon(True)
+            self.channel = channel
+            self.axis = axis
+            self.sleep_time = sleep_time
+            self.step = step
+            self.is_moving = False
+            self.move_direction = 1
+            # self.stepper_channel = None # Replaced with motor
+            #if self.axis == 0 or self.axis == 1:
+            try:
+                self.stepper_channel = InitiateMotor(c_p['serial_nums_motors'][self.axis],
+                    pollingRate=c_p['polling_rate'])
+            except:
+                self.stepper_channel = None
+                print('Could not connect stepper')
+            # else:
+            #   raise Exception("Invalid choice of axis, no motor available.")
+
+        def connect_channel(self):
+            try:
+                self.stepper_channel = ConnectBenchtopStepperChannel(
+                    self.c_p['stepper_controller'], self.channel)
+            except:
+                pass
+                #print('Error connecting motor')
+
+        def update_current_position(self):
+            decimal_pos = self.stepper_channel.Position
+            self.c_p['stepper_current_position'][self.axis] = float(str(decimal_pos).replace(',','.'))
+            return self.c_p['stepper_current_position'][self.axis]
+
+        def move_absolute(self):
+            target_pos = Decimal(float(self.c_p['stepper_target_position'][self.axis]))
+            self.stepper_channel.MoveTo(target_pos, Int32(100000))
+
+        def move_distance(self, distance):
+            self.stepper_channel.MoveRelative(1, Decimal(distance), Int32(100000))
+            self.update_current_position()
+
+        def move_to_position(self, position):
+            distance = position - self.c_p['stepper_current_position'][self.axis]
+            self.move_distance(float(distance))
+
+        def get_jog_distance(self):
+            jog_distance = self.c_p['stepper_target_position'][self.axis] - self.c_p['stepper_current_position'][self.axis]
+            return jog_distance
+
+        def jog_move(self, jog_distance):
+            # Does not work well at the moment
+
+            if np.abs(jog_distance) > 1e-4:
+                self.stepper_channel.SetJogStepSize(Decimal(float(jog_distance)))
+                self.stepper_channel.MoveJog(1, Int32(10000))
+
+        # TODO z-motor does not like that one changes speed while moving
+        def set_velocity_params(self):
+            tmp = self.stepper_channel.GetVelocityParams()
+            stepper_speed =  float(str(tmp.MaxVelocity).replace(',', '.'))
+            trials = 0
+            while stepper_speed != self.c_p['stepper_max_speed'][self.axis] and trials < 20:
+                try:
+                    self.stepper_channel.SetVelocityParams(
+                        Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
+                        Decimal(float(self.c_p['stepper_acc'][self.axis])))
+                except:
+                    print('Could not set velocity params.')
+                tmp = self.stepper_channel.GetVelocityParams()
+                stepper_speed =  float(str(tmp.MaxVelocity).replace(',', '.'))
+                trials += 1
+                sleep(self.sleep_time)
+            if trials >= 20:
+                print('Falsed to set velocity params for motor no ', self.axis)
+
+        def set_jog_velocity_params(self):
+            try:
+                self.stepper_channel.SetJogVelocityParams(
+                    Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
+                    Decimal(float(self.c_p['stepper_acc'][self.axis])))
+            except:
+                print('Could not set velocity params.')
+
+        def run(self):
+
+            while self.c_p['program_running']:
+                # Disconnect how?
+                if self.stepper_channel is not None and self.stepper_channel.IsConnected:
+                    if self.c_p['new_stepper_velocity_params'][self.axis]:
+                        self.c_p['new_stepper_velocity_params'][self.axis] = False
+                        self.stepper_channel.StopImmediate()
+                        self.is_moving = False
+                        self.set_velocity_params()
+
+                    self.update_current_position()
+                    jog_distance = self.get_jog_distance()
+                    move_dir = 1 if np.sign(jog_distance) > 0 else 2
+
+                    if move_dir != self.move_direction:
+                        self.stepper_channel.StopImmediate()
+                        self.is_moving = False
+                        self.move_direction = move_dir
+
+                    if not self.is_moving and np.abs(jog_distance) >= self.step:
+                        self.stepper_channel.MoveContinuous(self.move_direction)
+                        self.is_moving = True
+
+                    elif np.abs(jog_distance) <= self.step:
+                        self.stepper_channel.StopImmediate()
+                        self.is_moving = False
+
+                elif self.c_p['connect_steppers']:
+                    #self.connect_channel()
+                    self.stepper_channel = InitiateMotor(c_p['serial_nums_motors'][self.axis],
+                        pollingRate=c_p['polling_rate'])
+
+                    if self.stepper_channel is not None and self.stepper_channel.IsConnected:
+                        self.c_p['stepper_starting_position'][self.axis] = self.update_current_position()
+                        self.c_p['stepper_target_position'][self.axis] =  self.c_p['stepper_starting_position'][self.axis]
+                        self.c_p['stage_stepper_connected'][self.axis] = True
+                        self.set_jog_velocity_params()
+                        self.set_velocity_params()
+                        self.move_absolute()
+                sleep(self.sleep_time)
+                if self.stepper_channel is not None:
+                    self.c_p['steppers_connected'][self.axis] = self.stepper_channel.IsConnected
+
+            # Program is terminating. Stop the motor
+            try:
+                self.stepper_channel.StopImmediate()
+            except:
+                pass
+
+            self.__del__()
+
+        def __del__(self):
+            try:
+                self.stepper_channel.StopImmediate()
+                self.stepper_channel.StopPolling()
+                self.stepper_channel.Disconnect()
+            except:
+                print('Could not stop')

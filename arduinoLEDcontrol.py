@@ -39,7 +39,7 @@ def toggle_green_laser(c_p):
 def set_default_exposure(c_p):
     # TODO replace this with a single parameter with 3 different values.
     if c_p['background_illumination']:
-        c_p['exposure_time'] = 10000
+        c_p['exposure_time'] = 50000
         c_p['downsampling'].set(False)
     elif c_p['green_laser'] and not c_p['background_illumination']:
         c_p['exposure_time'] = 27000

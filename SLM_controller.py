@@ -42,7 +42,7 @@ def get_default_c_p(
         'slm_y_center': 576,#605-29,
         'slm_to_pixel':5000000, # Basler
         #4550000.0, #thorlabs
-        'x_comp':3.2e4,
+        'x_comp':12.2e4, # 3.2e4
         'y_comp':9e4,
         'dx':20e-6,
         'dy':20e-6,
@@ -97,7 +97,7 @@ def update_trap_locs():
     if min(c_p['xm']) >= 1:
         print(c_p['xm'])
         c_p['xm'] = pixels_to_SLM_locs(c_p['xm'], 0)
-    if min(c_p['ym']) >= 1:
+    if min(c_p['ym']) >= 1: # TODO should it be abs here?
         c_p['ym'] = pixels_to_SLM_locs(c_p['ym'], 1)
     SLM_loc_to_trap_loc(c_p['xm'], c_p['ym'])
 
@@ -121,7 +121,8 @@ class CreateSLMThread(threading.Thread):
 
 
         update_xm_ym()
-        c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z']
+        # TODO Removed d0Z here and below
+        # c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z']
 
         Delta, N, M = SLM_cupy.get_delta(image_width=self.image_width, xm=c_p['xm'],
             ym=c_p['ym'],
@@ -134,7 +135,12 @@ class CreateSLMThread(threading.Thread):
         while c_p['experiment_running']:
             if c_p['new_phasemask']:
                 # Calcualte new delta and phasemask
-                c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z']
+                # c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z'] # Whats happening here?
+                try:
+                    print(c_p['zm'])
+                    #c_p['zm'] = np.float(c_p['zm'])
+                except:
+                    pass
                 Delta, N, M = SLM_cupy.get_delta(image_width=self.image_width, xm=c_p['xm'],
                     ym=c_p['ym'],
                     zm=c_p['zm'],
@@ -444,7 +450,7 @@ class TkinterDisplay:
          # Get a frame from the video source
          self.update_indicators()
          c_p['SLM_algorithm'] = self.selected_algorithm.get()
-         c_p['use_LGO'] = [self.toggle_LGO.get()]
+         c_p['use_LGO'] = [self.toggle_LGO.get() for x in c_p['xm']]
 
          if c_p['phasemask_updated']:
              self.SLM_Window.update()

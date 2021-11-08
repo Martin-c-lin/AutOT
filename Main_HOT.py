@@ -38,13 +38,13 @@ c_p['stage_piezo_y'] = False
 c_p['stage_piezo_z'] = False
 
 # Temperature controller
-c_p['temperature_controlls'] = False
+c_p['temperature_controlls'] = True
 
 # Automatic tracking?
 c_p['QD_tracking'] = False
 
 # Arduino for control?
-c_p['arduino_LED'] = False
+c_p['arduino_LED'] = True
 
 # SLM connected?
 c_p['SLM'] = False

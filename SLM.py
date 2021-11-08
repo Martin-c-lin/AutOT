@@ -137,6 +137,40 @@ def get_default_xm_ym():
     return xm,ym
 
 
+def get_three_handle_trap(x0=0, y0=0, alpha=0, center=True, d=31e-6):
+    """
+    Functions which generates SLM trap positions for three handle particles.
+    Inputs:
+        x0, yo - Coordinates of center of particle trap
+        alpha - rotation of trap config
+        center - if there should be a trap for the center block of the particle
+        d - length of handles
+    Outputs:
+        x, y - positions of traps
+    """
+
+    # Default position of handles
+    xm = [0, -d, d]
+    ym = [d, 0, 0]
+
+    # Rotate the handles around the center an angle alpha
+    c = np.cos(alpha)
+    s = np.sin(alpha)
+    R = [[c, s], [-s, c]]
+    t = np.dot(R, [xm, ym])
+
+    # Add offset and move to separate vectors
+    x = [i+x0 for i in t[:][0]]
+    y = [j+y0 for j in t[:][1]]
+
+    # Add center trap if it's needed
+    if center:
+        x.append(x0)
+        y.append(y0)
+
+    return x, y
+
+
 def hexagonal(d0x, d0y, d):
     '''
     Function which generates a hexagonal pattern with a particle in the center.

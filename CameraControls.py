@@ -37,8 +37,9 @@ def get_camera_c_p():
         'default_offset_y':0,
         'bitrate': '300000000', # Default value 3e8 default
         'saving_video': False, # indicator for when a video is being saved
-        'video_format': 'mp4',
+        'video_format': 'avi',
         'bg_removal': False,
+        'video_name': 'video'
         # Needed for not
     }
     # TODO Fix so that the software recoginze the camera and use it to
@@ -514,6 +515,7 @@ class CameraThread(threading.Thread):
             except AssertionError:
                 print('Could not subtract bg from image queue')
                 pass
+        # TODO fix bug in saving video with npy format!
         c_p['frame_queue'].put([img, copy(c_p['video_name'])])
 
     def basler_capture(self):

@@ -75,7 +75,15 @@ def compensate_z(xm, ym, zm, x_comp, y_comp):
 
 # TODO: A fair bit of the initalization could be moved out from functions to
 # save run-time
-
+# Exception in thread Thread-SLM:
+# Traceback (most recent call last):
+#   File "C:\Users\Martin\anaconda3\lib\threading.py", line 932, in _bootstrap_inner
+#     self.run()
+#   File "SLM_controller.py", line 144, in run
+#     Delta, N, M = SLM_cupy.get_delta(image_width=self.image_width, xm=c_p['xm'],
+#   File "C:\Users\Martin\OneDrive\PhD\AutOT\SLM_cupy.py", line 112, in get_delta
+#     Delta[m,:] = cp.reshape(prefactor*((cp.transpose(I)*x*xm[m]+(y*I)*ym[m]) \
+# IndexError: list index out of range
 
 def get_delta(image_width = 1080, xm=[], ym=[], zm=None, use_LGO=[False], order=-8,
     x_comp=None, y_comp=None):
