@@ -8,11 +8,13 @@ from functools import partial
 import PIL.Image, PIL.ImageTk
 from tkinter.ttk import *
 import SLM
-# TODO
 import SLM_cupy
 import cupy as cp
 from read_dict_from_file import ReadFileToExperimentList
+from MiscFunctions import get_three_handle_trap
 from tkinter.filedialog import askopenfilename
+
+
 # TODO: Put some of the experiment parameters, such as slm_y_center, in a separate
 # file which both this module and automagic experiments have access to.
 def get_default_c_p(
@@ -90,12 +92,11 @@ def update_xm_ym():
             d0y=c_p['d0y'])
     update_trap_locs()
 
-
 def update_trap_locs():
     global c_p
     # If units are pixels, then translate to "SLM coordinates"
     if min(c_p['xm']) >= 1:
-        print(c_p['xm'])
+        #print(c_p['xm'])
         c_p['xm'] = pixels_to_SLM_locs(c_p['xm'], 0)
     if min(c_p['ym']) >= 1: # TODO should it be abs here?
         c_p['ym'] = pixels_to_SLM_locs(c_p['ym'], 1)
@@ -117,8 +118,8 @@ class CreateSLMThread(threading.Thread):
         update_xm_ym()
 
     def run(self):
+        # TODO make c_p a parameter rather than global thing
         global c_p
-
 
         update_xm_ym()
         # TODO Removed d0Z here and below
@@ -135,12 +136,6 @@ class CreateSLMThread(threading.Thread):
         while c_p['experiment_running']:
             if c_p['new_phasemask']:
                 # Calcualte new delta and phasemask
-                # c_p['zm'] = np.ones(len(c_p['xm'])) * c_p['d0z'] # Whats happening here?
-                try:
-                    print(c_p['zm'])
-                    #c_p['zm'] = np.float(c_p['zm'])
-                except:
-                    pass
                 Delta, N, M = SLM_cupy.get_delta(image_width=self.image_width, xm=c_p['xm'],
                     ym=c_p['ym'],
                     zm=c_p['zm'],
@@ -177,7 +172,7 @@ class CreateSLMThread(threading.Thread):
 
 class TkinterDisplay:
 
-    def __init__(self, window, window_title):
+    def __init__(self, window, window_title, three_handles=False):
          self.window = window
          self.window.title(window_title)
 
@@ -189,6 +184,7 @@ class TkinterDisplay:
          self.canvas = tkinter.Canvas(
              window, width=self.canvas_width, height=self.canvas_height)
          self.canvas.place(x=0, y=0)
+         self.three_handles = three_handles
 
          self.create_buttons()
          # After it is called once, the update method will be automatically called every delay milliseconds
@@ -274,6 +270,39 @@ class TkinterDisplay:
         self.LGO_on_button.place(x=x_pos, y=y_pos)
         self.LGO_off_button.place(x=x_pos+80, y=y_pos)
 
+    def set_alpha(self, value):
+        """
+        Converts the scale value from degrees to radians and saves in alpha
+        variable.
+        """
+        self.alpha = (np.pi / 180.0) * float(value)
+
+    def create_three_handle_controls(self, x_pos, y_pos):
+        """
+        Adds the necessary buttons for creating traps for the 3-handles particles
+
+        """
+        # TODO add another particle so we can have 2
+        self.alpha = 0
+        self.nbr_probes = 1
+
+        # Create button for toggling "probe mode"
+        self.three_handles_toggle = BooleanVar()
+        self.three_handles_toggle.set(False)
+        self.three_handle_button = Checkbutton(self.window,
+            text='3 handle mircroprobes', variable=self.three_handles_toggle)
+        self.three_handle_button.place(x=x_pos, y=y_pos)
+
+        self.use_center = BooleanVar(False)
+        self.three_handle__center_button = Checkbutton(self.window,
+            text='Use probe center', variable=self.use_center)
+        self.three_handle__center_button.place(x=x_pos, y=y_pos+30)
+
+        # Add the scale for the angle, alpha
+        self.alpha_scale = tkinter.Scale(self.window, command=self.set_alpha,
+        orient=HORIZONTAL, from_=0, to=360, resolution=5, length=200)
+        self.alpha_scale.place(x=x_pos, y=y_pos+60)
+
     def read_positions_from_file(self):
         '''
         Reads xm, ym from a .txt file and puts them in ...
@@ -286,7 +315,6 @@ class TkinterDisplay:
         if experiment_list is not None and len(experiment_list) > 0:
             print(experiment_list[0])
             for key in experiment_list[0]:
-                # TODO: Fix some problems here
                 c_p[key] = experiment_list[0][key]
         else:
             print('Invalid or empty file.')
@@ -404,12 +432,14 @@ class TkinterDisplay:
 
         read_positions_button.place(x=x_position_2,y=y_position_2.__next__())
 
+        if self.three_handles:
+             self.create_three_handle_controls(x_position_2,y_position_2.__next__())
+
     def create_indicators(self):
             global c_p
             position_text = 'Current trap separation is: ' + str(c_p['trap_separation'])
             self.position_label = Label(self.window,text=position_text)
             self.position_label.place(x=10,y=240)
-
 
             setup_text = 'xms are : ' + str(c_p['xm']) # TODO change so this is
             # written in console instead
@@ -451,6 +481,13 @@ class TkinterDisplay:
          self.update_indicators()
          c_p['SLM_algorithm'] = self.selected_algorithm.get()
          c_p['use_LGO'] = [self.toggle_LGO.get() for x in c_p['xm']]
+         # TODO add 3 handle probe option
+         if self.three_handles and self.three_handles_toggle.get():
+             c_p['xm'], c_p['ym'] = get_three_handle_trap(c_p['d0x'],
+                c_p['d0y'], alpha=self.alpha, d=163, center=self.use_center.get())
+             update_trap_locs()
+         elif self.three_handles and not self.three_handles_toggle.get():
+             update_xm_ym() # will this run constantly?
 
          if c_p['phasemask_updated']:
              self.SLM_Window.update()
@@ -495,9 +532,8 @@ def SLM_loc_to_trap_loc(xm, ym):
     tmp_y = [y * c_p['slm_to_pixel'] + c_p['slm_y_center'] for y in ym]
     tmp = np.asarray([tmp_x, tmp_y])
     c_p['traps_absolute_pos'] = tmp
-    print(tmp)
 
 
 if __name__ == '__main__':
     c_p = get_default_c_p()
-    T_D = TkinterDisplay(tkinter.Tk(), "SLM controlpanel")
+    T_D = TkinterDisplay(tkinter.Tk(), "SLM controlpanel", True)

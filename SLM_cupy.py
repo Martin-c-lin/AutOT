@@ -1,4 +1,4 @@
-import numpy as cp
+import numpy as np
 import cupy as cp
 from math import pi
 
@@ -87,6 +87,9 @@ def compensate_z(xm, ym, zm, x_comp, y_comp):
 
 def get_delta(image_width = 1080, xm=[], ym=[], zm=None, use_LGO=[False], order=-8,
     x_comp=None, y_comp=None):
+
+    assert np.shape(ym) == np.shape(xm), "xm and ym must have the same shape!"
+
     x = cp.linspace(1, image_width, image_width)
     y = cp.reshape(cp.transpose(cp.linspace(1, image_width, image_width)),(image_width, 1))
 
@@ -102,12 +105,13 @@ def get_delta(image_width = 1080, xm=[], ym=[], zm=None, use_LGO=[False], order=
         use_LGO = [False for i in range(len(xm))]
     # TODO make the order into a list
     if True in use_LGO:
-        LGO = get_LGO(image_width,order=order)
+        LGO = get_LGO(image_width, order=order)
     M = len(xm) # Total number of traps
 
-    # Initiate zm if not provided by user.
-    if zm is None:
+    # Initiate zm if not provided by user or too short.
+    if zm is None or len(zm) < M:
         zm = cp.zeros((M))
+
     # Compensate for shift in x-y plane when changing z
     zm = zm[:M]
     if x_comp is not None:
@@ -122,7 +126,7 @@ def get_delta(image_width = 1080, xm=[], ym=[], zm=None, use_LGO=[False], order=
         if len(use_LGO) > m and use_LGO[m]:
             Delta[m,:] += cp.reshape(LGO,(N))
             Delta[m,:] = cp.mod(Delta[m,:], (2*pi))
-        pass
+
     return Delta, N, M
 
 

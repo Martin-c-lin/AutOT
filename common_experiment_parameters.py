@@ -41,7 +41,8 @@ def append_c_p(c_p, second_dict):
     for data in second_dict:
         if data not in c_p:
             c_p[data] = second_dict[data]
-
+    # TODO: Change to alternative implementation
+    #c_p = [**second_dict, **c_p] # Will have to check order before pushing
 
 def get_thread_activation_parameters():
     # Returns a dictionary with names for thread activation paramters

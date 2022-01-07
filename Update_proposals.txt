@@ -18,3 +18,6 @@ motor_starting_position with motorStartPos.
 
 Move ExperimentControlThread into a spearate file similar to what I did with the
  QD_tracking. stepper_target_position -> stepTargPos
+
+ Rewrite some of the functions which takes tons of c_p as input to use **kwargs
+ instead.

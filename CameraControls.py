@@ -6,13 +6,12 @@ import os
 from time import sleep
 import pickle
 from copy import copy, deepcopy
-from cv2 import VideoWriter, VideoWriter_fourcc
+import cv2
 from pypylon import pylon
 from datetime import datetime
 from queue import Queue
 import skvideo.io
 from MiscFunctions import subtract_bg
-
 
 def get_camera_c_p():
     '''
@@ -85,7 +84,7 @@ def get_video_name(c_p, base_name=''):
     name += str(c_p['fps'])
     return name
 
-def create_avi_video_writer(c_p, video_name):
+def create_avi_video_writer(c_p, video_name, image_width, image_height):
     '''
     Funciton for creating a VideoWriter.
     Will also save the relevant parameters of the experiments.
@@ -98,22 +97,12 @@ def create_avi_video_writer(c_p, video_name):
     exp_info_params : Dictionary
         Dictionary with controlparameters describing the experiment.
     '''
-    now = datetime.now()
-    fourcc = VideoWriter_fourcc(*'MJPG')
-    image_width = c_p['AOI'][1]-c_p['AOI'][0]
-    image_height = c_p['AOI'][3]-c_p['AOI'][2]
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+
     video_name = c_p['recording_path'] + '/' + video_name + '.avi'
-
-    experiment_info_name = c_p['recording_path'] + '/data-' + c_p['measurement_name'] + \
-        str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
-
-    #print('Image width,height,fps', image_width, image_height, int(c_p['fps']))
-    video = VideoWriter(video_name, fourcc, min(500, c_p['fps']),
-                        (image_width, image_height), isColor=False)
-
-    #exp_info_params = self.get_important_parameters()
-
-    return video#, experiment_info_name, exp_info_params
+    video = cv2.VideoWriter(video_name, fourcc, min(500, c_p['fps']),
+                        (image_height, image_width), isColor=False)
+    return video
 
 def create_mp4_video_writer(c_p, video_name=None, image_width=None,
         image_height=None):
@@ -123,10 +112,6 @@ def create_mp4_video_writer(c_p, video_name=None, image_width=None,
 
     if video_name is None:
         video_name = get_video_name(c_p=c_p)
-    if image_width is None:
-        image_width = c_p['AOI'][1]-c_p['AOI'][0]
-    if image_height is None:
-        image_height = c_p['AOI'][3]-c_p['AOI'][2]
     tmp = min(500, int(c_p['fps']))
     frame_rate = str(max(25, tmp)) # Can in principle reach 500fps
     if tmp < 25:
@@ -183,9 +168,10 @@ class VideoWriterThread(threading.Thread):
                 self.np_save_frames()
                 self.frame_count = 0
 
-        except:
+        except Exception as err:
             # The program tries to close a video without any video having
             # been created
+            print(err)
             print('No video to close')
             pass
     # TODO add so that background is removed from videos and photos as well when
@@ -256,26 +242,26 @@ class VideoWriterThread(threading.Thread):
         """
         # Adjust the video shape to match the images
         image_shape = np.shape(self.frame)
-        self.video_width = image_shape[0]
-        self.video_height = image_shape[1]
+        self.video_width = int(image_shape[0])
+        self.video_height = int(image_shape[1])
         if self.c_p['video_format'] == 'mp4':
             self.VideoWriter = create_mp4_video_writer(c_p=self.c_p,
                 video_name=video_name)
             self.video_format = 'mp4'
 
         elif self.c_p['video_format'] == 'avi':
-            self.VideoWriter = create_avi_video_writer(c_p=self.c_p,
-                video_name=video_name)
+            self.VideoWriter = create_avi_video_writer(self.c_p,
+                video_name, self.video_width, self.video_height)
             self.video_format = 'avi'
 
         elif self.c_p['video_format'] == 'npy':
             self.video_format = 'npy'
-            image_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
-            image_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
+            # image_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
+            # image_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
 
-            self.frame_buffer_size = int(501760000/(image_width*image_height))
+            self.frame_buffer_size = int(501760000/( self.video_width*self.video_height))
             print('Buffer_size: ', self.frame_buffer_size)
-            self.frame_buffer = np.uint8(np.zeros([self.frame_buffer_size, image_height, image_width]))
+            self.frame_buffer = np.uint8(np.zeros([self.frame_buffer_size, self.video_height, self.video_width]))
             self.frame_count = 0
 
             self.create_NP_writer(video_name)

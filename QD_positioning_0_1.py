@@ -924,7 +924,7 @@ class UserInterface:
         Opens a dialog box prompting the user to enter a new fps for the
         camera
         """
-        if c_p['camera_model'] == 'ThorlabsCam':
+        if self.c_p['camera_model'] == 'ThorlabsCam':
             # Not implemented in thorlabs_capture yet :/
             return
         user_input = simpledialog.askstring("fps dialog",
@@ -938,8 +938,8 @@ class UserInterface:
         if FPS <= 0:
             # Raise exception
             raise ValueError("Trying to set invalid FPS!")
-        c_p['max_fps'] = FPS
-        c_p['new_settings_camera'] = True
+        self.c_p['max_fps'] = FPS
+        self.c_p['new_settings_camera'] = True
 
 
     def show_camera_info(self):
@@ -1029,9 +1029,7 @@ class UserInterface:
             top, text='Toggle particle brightness',
             command=toggle_bright_particle)
 
-        self.tracking_toggled = tkinter.BooleanVar()
-        self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
-                variable=self.tracking_toggled, onvalue=True, offvalue=False)
+
 
         self.zoom_button = tkinter.Button(top, text='Zoom in', command=self.toggle_zoom)
 
@@ -1063,26 +1061,31 @@ class UserInterface:
 
         self.recording_button.place(x=x_position, y=y_position.__next__())
         toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
+        self.tracking_toggled = tkinter.BooleanVar()
+        self.tracking_toggled.set(False)
 
         if c_p['tracking']:
+            self.toggle_tracking_button = tkinter.Checkbutton(top, text='Enable tracking',\
+                    variable=self.tracking_toggled, onvalue=True, offvalue=False)
+            self.toggle_tracking_button.place(x=x_position, y=y_position.__next__())
+
             threshold_entry = tkinter.Entry(top, bd=5)
             threshold_button = tkinter.Button(
                 top, text='Set threshold', command=self.set_tracking_threshold)
             threshold_entry.place(x=x_position, y=y_position.__next__())
             threshold_button.place(x=x_position, y=y_position.__next__())
 
-        self.toggle_tracking_button.place(x=x_position, y=y_position.__next__())
         self.zoom_button.place(x=x_position, y=y_position.__next__())
 
         # Downsample button and variable
         self.downsample = tkinter.BooleanVar()
         c_p['downsampling'] = self.downsample
-        self.downsample_button = tkinter.Checkbutton(top, text='Downsample livefeed',\
+        self.downsample_button = tkinter.Checkbutton(top, text='Binning of livefeed',\
         variable=self.downsample, onvalue=True, offvalue=False)
         self.downsample_button.place(x=x_position, y=y_position.__next__())
         self.downsample.set(False)
 
-        self.downsample_label = tkinter.Label(top, text='Downsample factor')
+        self.downsample_label = tkinter.Label(top, text='Binning factor')
         y = y_position.__next__()
         self.downsample_label.place(x=x_position, y=y)
         self.downsample_slider = tkinter.Scale(top, command=self.set_downsample_level,
@@ -1549,16 +1552,17 @@ class UserInterface:
               print('New phasemask')
               self.SLM_Window.update()
               c_p['phasemask_updated'] = False
+
          c_p['scroll_for_z'] = self.z_scrolling.get()
          if c_p['stage_piezos'] or c_p['using_stepper_motors']:
              # TODO this case statement occurs in several places. Make it better
              compensate_focus_xy_move(c_p)
+        # Binn the image to increase effective sensitivity
+         if self.downsample.get():
+            image = sum_downsample(image, c_p['downsample_rate'])
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
-
-         if self.downsample.get():
-            image = sum_downsample(image, c_p['downsample_rate'])
 
          image = self.resize_display_image(image)
          # TODO implement convolution alternative to the downsampling
