@@ -169,13 +169,11 @@ class VideoWriterThread(threading.Thread):
                 self.frame_count = 0
 
         except Exception as err:
-            # The program tries to close a video without any video having
-            # been created
-            print(err)
-            print('No video to close')
-            pass
+            # The program tries to close a
+            print(f"No video to close {err}")
     # TODO add so that background is removed from videos and photos as well when
     # saving!
+
     def np_save_frames(self):
         """
         Saves all the frames in the buffer to a .npy file.
@@ -200,8 +198,9 @@ class VideoWriterThread(threading.Thread):
         self.np_save_path = self.c_p['recording_path'] + '/' + video_name + '/'
         try:
             os.mkdir(self.np_save_path)
-        except:
-            print('Directory already exist')
+        except Exception as ex:
+            # TODO need to check which type of exception we have
+            print(f"Directory already exist, {ex}")
 
     def write_to_NPY(self):
         nbr_frames = self.frame_count % self.frame_buffer_size
@@ -211,8 +210,8 @@ class VideoWriterThread(threading.Thread):
         try:
             self.frame_buffer[nbr_frames,:,:] = deepcopy(self.frame)
             self.frame_count += 1
-        except:
-            print('Could not save frame! Closing video!')
+        except Exception as ex:
+            print(f"Trouble writing frame, {ex}")
             self.close_video()
             self.frame_count = 0
 
@@ -319,8 +318,8 @@ class CameraThread(threading.Thread):
         self.name = name
         self.c_p = c_p
         self.setDaemon(True)
-
-        # Initalize camera and global image
+        # Initalize camera
+        # TODO make it so that we can connect/disconnect cameras on the go
         try:
             tlf = pylon.TlFactory.GetInstance()
             self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
@@ -333,10 +332,9 @@ class CameraThread(threading.Thread):
                 self.c_p['camera_model'] = 'basler_fast'
             else:
                 self.c_p['camera_model'] = 'basler_large'
-        except:
+        except Exception as ex:
             self.cam = None
         if self.cam is None:
-        #if c_p['camera_model'] == 'ThorlabsCam':
             try:
                 # Get a thorlabs camera
                 self.cam = TC.get_camera()
@@ -345,8 +343,8 @@ class CameraThread(threading.Thread):
                                       n_frames=1)
                 c_p['exposure_time'] = 20
 
-            except:
-                print('Could not connect to camera')
+            except Exception as ex:
+                print('Could not connect to camera, ex')
                 self.__del__()
         self.video_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
         self.video_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
@@ -473,17 +471,16 @@ class CameraThread(threading.Thread):
             self.cam.OffsetX = c_p['default_offset_x'] + offset_x
             self.cam.OffsetY = c_p['default_offset_y'] + offset_y
 
-        except Exception as e:
-            print('AOI not accepted', c_p['AOI'], width, height, offset_x, offset_y)
-            print(e)
+        except Exception as ex:
+            print(f"AOI not accepted, AOI: {c_p['AOI']}, error {ex}")
 
     def update_basler_exposure(self):
         try:
             self.cam.ExposureTime = self.c_p['exposure_time']
             self.c_p['fps'] = round(float(self.cam.ResultingFrameRate.GetValue()), 1)
             print('FPS is ', self.c_p['fps'])
-        except:
-            print('Exposure time not accepted by camera')
+        except Exception as ex:
+            print(f"Exposure time not accepted by camera, {ex}")
 
 
     def add_image_to_queue(self):
@@ -500,7 +497,6 @@ class CameraThread(threading.Thread):
                     c_p['raw_background'][c_p['AOI'][2]:c_p['AOI'][3], c_p['AOI'][0]:c_p['AOI'][1]]) # This could be a quite expensive operation
             except AssertionError:
                 print('Could not subtract bg from image queue')
-                pass
         # TODO fix bug in saving video with npy format!
         c_p['frame_queue'].put([img, copy(c_p['video_name'])])
 
@@ -527,10 +523,8 @@ class CameraThread(threading.Thread):
             self.update_basler_exposure()
             image_count = 0
 
-            global image
             self.cam.StartGrabbing()
-
-            start = time.time()
+            start = time.perf_counter()
 
             # Start continously capturing images
             while c_p['program_running']\
@@ -558,7 +552,7 @@ class CameraThread(threading.Thread):
             self.cam.StopGrabbing()
 
             # Close the livefeed and calculate the fps of the captures
-            end = time.time()
+            end = time.perf_counter()
             try:
                 fps = image_count/(end-start)
             except ZeroDivisionError:

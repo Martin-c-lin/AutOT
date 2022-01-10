@@ -79,8 +79,8 @@ class ArduinoLEDControlThread(Thread):
                 if self.last_write[0] == 'S':
                     try:
                         self.c_p['polymerization_time'] = int(self.c_p['polymerization_LED'][1:])
-                    except:
-                        print('Incorrect message')
+                    except ValueError as VE:
+                        print('Incorrect message, {VE}')
                 if self.last_write == 'T':
                     self.c_p['polymerization_LED_status'] = 'ON'
 

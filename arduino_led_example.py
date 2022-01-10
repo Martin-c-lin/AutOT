@@ -22,8 +22,8 @@ while running:
         print('O yeah')
         try:
             ArduinoUnoSerial.write(var.encode())
-        except:
-            pass
+        except Exception as ex:
+            print(f"ERROR: {ex}")
     print(ArduinoUnoSerial.readline())
     #print(ArduinoUnoSerial.readline())
 

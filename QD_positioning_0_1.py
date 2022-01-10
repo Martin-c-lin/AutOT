@@ -73,8 +73,8 @@ def start_threads(c_p, thread_list):
             motor_X_thread.start()
             thread_list.append(motor_X_thread)
             print('Motor x thread started')
-        except:
-            print('Could not start motor x thread')
+        except Exception as ex:
+            print(f"Could not start motor x thread, {ex}")
 
     if c_p['motor_y']:
         c_p['standard_motors'] = True
@@ -83,8 +83,8 @@ def start_threads(c_p, thread_list):
             motor_Y_thread.start()
             thread_list.append(motor_Y_thread)
             print('Motor y thread started')
-        except:
-            print('Could not start motor y thread')
+        except Exception as ex:
+            print(f"Could not start motor y thread, {ex}")
 
     if c_p['motor_z']:
         try:
@@ -92,8 +92,8 @@ def start_threads(c_p, thread_list):
             z_thread.start()
             thread_list.append(z_thread)
             print('Motor z thread started')
-        except:
-            print('Could not start motor z thread')
+        except Exception as ex:
+            print(f"Could not start motor z thread, {ex}")
 
     if c_p['SLM']:
         slm_thread = SLM.CreatePhasemaskThread(5,'Thread-SLM', c_p=c_p)
@@ -111,9 +111,10 @@ def start_threads(c_p, thread_list):
 
         try:
             temperature_controller = TC4015.TED4015()
-        except:
+        except Exception as ex:
             temperature_controller = None
-            print('problem connecting to temperature controller')
+            print(f"Problem connecting to temperature controller, {ex}")
+
         temperature_thread = TC4015.TemperatureThread(7, 'Temperature_thread', c_p, temperature_controller=temperature_controller)
         temperature_thread.start()
         thread_list.append(temperature_thread)
@@ -126,7 +127,7 @@ def start_threads(c_p, thread_list):
         append_c_p(c_p, TM.get_default_piezo_c_p())
         try:
             c_p['piezo_controller'] = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
-        except:
+        except Exception as ex:
             print('Could not connect piezo controller')
 
     if c_p['stage_piezo_x']:
@@ -138,7 +139,7 @@ def start_threads(c_p, thread_list):
             thread_list.append(thread_piezo_x)
 
             print('Started piezo x-thread')
-        except:
+        except Exception as ex:
             print('Could not start piezo x-thread')
 
     if c_p['stage_piezo_y']:
@@ -149,7 +150,7 @@ def start_threads(c_p, thread_list):
             thread_piezo_y.start()
             thread_list.append(thread_piezo_y)
             print('Started piezo y-thread')
-        except:
+        except Exception as ex:
             print('Could not start piezo y-thread')
 
     if c_p['stage_piezo_z']:
@@ -161,7 +162,7 @@ def start_threads(c_p, thread_list):
             thread_list.append(thread_piezo_z)
             c_p['piezo_elevation'] = 0 # Used by mouse input thread
             print('Started piezo z-thread')
-        except:
+        except Exception as ex:
             print('Could not start piezo z-thread')
 
     # If there is any stepper motor to connect, then add necessary c_p and
@@ -172,7 +173,7 @@ def start_threads(c_p, thread_list):
         append_c_p(c_p, TM.get_default_stepper_c_p())
         try:
             c_p['stepper_controller'] = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
-        except:
+        except Exception as ex:
             print('Could not connect stepper controller.')
     else:
         c_p['using_stepper_motors'] = False
@@ -183,7 +184,7 @@ def start_threads(c_p, thread_list):
             c_p, controller_device=c_p['stepper_controller'])
             thread_stepper_x.start()
             thread_list.append(thread_stepper_x)
-        except:
+        except Exception as ex:
             print('Could not connect stepper x')
 
     if c_p['stage_stepper_y']:
@@ -192,7 +193,7 @@ def start_threads(c_p, thread_list):
             c_p, controller_device=c_p['stepper_controller'])
             thread_stepper_y.start()
             thread_list.append(thread_stepper_y)
-        except:
+        except Exception as ex:
             print('Could not connect stepper y')
 
     if c_p['stage_stepper_z']:
@@ -202,7 +203,7 @@ def start_threads(c_p, thread_list):
             thread_stepper_z.start()
             thread_list.append(thread_stepper_z)
             c_p['stepper_elevation'] = 0
-        except:
+        except Exception as ex:
             print('Could not connect stepper z')
 
 
@@ -213,7 +214,7 @@ def start_threads(c_p, thread_list):
             shutter_thread.start()
             thread_list.append(shutter_thread)
             print('Started shutter thread')
-        except:
+        except Exception as ex:
             print('Could not start shutter thread')
 
     if c_p['QD_tracking']:
@@ -226,7 +227,7 @@ def start_threads(c_p, thread_list):
             QD_Tracking_Thread.start()
             thread_list.append(QD_Tracking_Thread)
             print('Quantum dot tracking thread started')
-        except:
+        except Exception as ex:
             print('Could not start quantum dot tracking thread')
 
     if c_p['arduino_LED']:
@@ -237,7 +238,7 @@ def start_threads(c_p, thread_list):
             ArcuinoThread.start()
             thread_list.append(ArcuinoThread)
             print('Arduino com thread started!')
-        except:
+        except Exception as ex:
             print('Could not start arduino thread')
 
     if c_p['stage_piezos'] or c_p['using_stepper_motors'] or c_p['standard_motors']:
@@ -248,7 +249,7 @@ def start_threads(c_p, thread_list):
             mouseInputTrd.start()
             thread_list.append(mouseInputTrd)
             print('Mouse-thread started')
-        except:
+        except Exception as ex:
             print('Could not start mouse input thread')
 
 
@@ -561,13 +562,13 @@ class UserInterface:
             #TODO: This should be executed async
             try:
                 c_p['stepper_controller'].Disconnect()
-            except:
-                print('Steppers already disconnected')
+            except Exception as ex:
+                print("Steppers already disconnected, {ex}")
             c_p['steppers_connected'] = [False, False, False]
         else:
             try:
                 c_p['stepper_controller'] = TM.ConnectBenchtopStepperController(c_p['stepper_serial_no'])
-            except:
+            except Exception as ex:
                 pass
             if c_p['stepper_controller'] is not None:
                 c_p['connect_steppers'] = c_p['stepper_controller'].IsConnected
@@ -582,15 +583,14 @@ class UserInterface:
         if not c_p['connect_piezos']:
             try:
                 c_p['piezo_controller'].Disconnect()
-            except:
+            except Exception as ex:
                 print('Piezo controller not connected')
             c_p['stage_piezo_connected'] = [False,False,False]
         else:
             try:
                 c_p['piezo_controller'] = TM.ConnectBenchtopPiezoController(c_p['piezo_serial_no'])
-            except:
+            except Exception as ex:
                 print('Error connecting piezo controller')
-                pass
             c_p['connect_piezos'] = c_p['piezo_controller'].IsConnected
 
     def motor_control_buttons(self, top, y_position, x_position):
@@ -900,13 +900,17 @@ class UserInterface:
             try:
                 tmp = subtract_bg(np.copy(c_p['image']),
                 c_p['raw_background'][c_p['AOI'][2]:c_p['AOI'][3], c_p['AOI'][0]:c_p['AOI'][1]])
-            except:
+            except AssertionError as AE:
+                # No worries this happens from time to time
                 pass
-    #    if c_p['downsample']:
-            # TODO implement so that we save downsampled frame as well
-    #        pass
 
         cv2.imwrite(image_name, cv2.cvtColor(tmp, cv2.COLOR_RGB2BGR))
+        # Check if downsamlping is being done
+        if self.downsample.get():
+           image_name = c_p['recording_path'] + '/' + label + 'binned.jpg'
+           binned_image =  sum_downsample(image, c_p['downsample_rate']):
+           cv2.imwrite(binned_image, cv2.cvtColor(binned_image, cv2.COLOR_RGB2BGR))
+
         np.save(image_name[:-4], c_p['image'])
         print('Took a snapshot of the experiment.')
 
@@ -1159,7 +1163,7 @@ class UserInterface:
         try:
             if self.new.state() == "normal":
                 self.new.focus()
-        except:
+        except Exception as ex:
             self.new = tkinter.Toplevel(self.window)
             self.SLM_Window = _class(self.new, self.c_p)
 
@@ -1477,10 +1481,11 @@ class UserInterface:
                 image[xc+cross, yc-cross] = 0
         if c_p['tracking_on']:
             try:
+                # Set pixelvalues of image 0 to mark the spots
+                # TODO should check that indices ok earlier
                 image[c_p['QD_target_loc_y_px']-3:c_p['QD_target_loc_y_px']+3,
                 c_p['QD_target_loc_x_px']-3:c_p['QD_target_loc_x_px']+3] = 0
-                print('Next QD should be: ', c_p['QD_target_loc_y_px'], c_p['QD_target_loc_x_px'])
-            except:
+            except IndexError as IE:
                 pass
 
     def mark_polymerized_areas(self, image):
@@ -2054,7 +2059,7 @@ def path_search(filled_traps_locs, target_particle_location,
             x_move = prev_x[-2] * c_p['cell_width'] - target_particle_location[0]
             y_move = prev_y[-2] * c_p['cell_width'] - target_particle_location[1]
             return x_move, y_move, True
-        except:
+        except Exception as ex:
             return 0, 0, False
 
 
@@ -2088,9 +2093,8 @@ def update_c_p(c_p, update_dict, wait_for_completion=True):
                 else:
                     c_p[key] = update_dict[key]
 
-            except:
-                print('Could not update control parameter ', key, 'with value',
-                value)
+            except Exception as ex:
+                print(f"Could not update control parameter: {key}, with {value})
                 return
         else:
             print('Invalid key: ', key)
@@ -2104,10 +2108,10 @@ def update_c_p(c_p, update_dict, wait_for_completion=True):
     # Check that both xm and ym are updated
     if len(c_p['xm']) > len(c_p['ym']):
         c_p['xm'] = c_p['xm'][:len(c_p['ym'])]
-        print(' WARNING! xm and ym not the same length, cutting off xm!')
+        print(f" WARNING! xm and ym not the same length, cutting off xm!")
     if len(c_p['ym']) > len(c_p['xm']):
         c_p['ym'] = c_p['ym'][:len(c_p['xm'])]
-        print(' WARNING! xm and ym not the same length, cutting off ym!')
+        print(" WARNING! xm and ym not the same length, cutting off ym!")
 
     # update phasemask. If there was an old one linked use it.
     if 'phasemask' not in update_dict:

@@ -246,7 +246,7 @@ class TkinterDisplay:
             mini_image[l:r,u,:] = 255  # Upper edge
             mini_image[r,u:d,:] = 255  # Right edge
             mini_image[l:r,d,:] = 255  # Bottom edge
-        except:
+        except IndexError:
             mini_image[0,0:-1,:] = 255  # Left edge
             mini_image[0:-1,0,:] = 255  # Upper edge
             mini_image[-1,0:-1,:] = 255  # Right edge

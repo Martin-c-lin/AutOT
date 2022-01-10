@@ -186,10 +186,10 @@ class TemperatureThread(Thread):
                         c_p['starting_temperature']
                     c_p['setpoint_temperature'] = c_p['starting_temperature']
                     c_p['temperature_controller_connected'] = True
-                except:
+                except Exception as ex:
                     # Handling the case of not having a temperature controller
-                    print('\nWARNING, COULD NOT ESTABLISH CONTACT WITH \
-                          TEMEPERATURE CONTROLLER!\n')
+                    print(f"\nWARNING, COULD NOT ESTABLISH CONTACT WITH \
+                          TEMEPERATURE CONTROLLER!\n {ex}")
                     self.temperature_controller = None
             self.c_p = c_p
             self.setDaemon(True)

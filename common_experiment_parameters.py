@@ -30,8 +30,8 @@ def get_save_path(base_path='D:/Martin/Experiment results/Day_', extension_path=
     print(recording_path)
     try:
         os.mkdir(recording_path)
-    except:
-        print('Directory already exist')
+    except FileExistsError as FEE:
+        print(F"Directory already exist, {FEE}")
     return recording_path
 
 

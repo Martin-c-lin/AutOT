@@ -72,7 +72,7 @@ class PiezoMotor():
         try:
             self.motor.MoveTo(self.channel, position, self.timeout)
             return True
-        except:
+        except Exception:
             print('Could not move piezo to target position')
             return False
 
@@ -138,7 +138,8 @@ class PiezoMotor():
         '''
         try:
             return self.motor.GetPosition(self.channel)
-        except:
+        except Exception:
+            # TODO find the right errorcode for this
             print('Could not find piezo position')
             return 0
 
@@ -172,19 +173,21 @@ def InitiatePiezoMotor(serialNumber, pollingRate=250):
     DeviceManagerCLI.BuildDeviceList()
     DeviceManagerCLI.GetDeviceListSize()
     motor = KCubeInertialMotor.CreateKCubeInertialMotor(serialNumber)
-    for attempts in range(3):
-        try:
-            motor.Connect(serialNumber)
-        except:
-            print("Connection attempt", attempts, "failed")
-            if attempts < 2:
-                print("Will wait 2 seconds and try again")
-                sleep(2)
-            else:
-                print("Cannot connect to device.\n Please ensure that the \
-                      device is connected to your computer and not in use in\
-                          any other program!")
-                return None
+    #for attempts in range(3):
+    try:
+        motor.Connect(serialNumber)
+    except Exception as ex:
+        print(f"Could not connect to piezo \n {ex}")
+        return None
+        # print("Connection attempt", attempts, "failed")
+            # if attempts < 2:
+            #     print("Will wait 2 seconds and try again")
+            #     sleep(2)
+            # else:
+            #     print("Cannot connect to device.\n Please ensure that the \
+            #           device is connected to your computer and not in use in\
+            #               any other program!")
+                # return None
     motor.WaitForSettingsInitialized(5000)
     # configure the stage
     motorSettings = motor.GetInertialMotorConfiguration(serialNumber)
@@ -216,8 +219,8 @@ class StageMotor():
     def SetJogSpeed(self,jogSpeed,jogAcc=0.1):
         try:
             self.motor.SetJogVelocityParams(Decimal(jogSpeed),Decimal(jogAcc))
-        except:
-            print('Could not set jog speed.')
+    except Exception as ex:
+        print(f"Failed to set jogSpeed \n {ex}")
 
     def connect_motor(self):
         self.motor = InitiateMotor(self.serialNumber, self.pollingRate)
@@ -261,10 +264,11 @@ class StageMotor():
         self.motor.SetJogStepSize(Decimal(float(distance)))
         try:
             motor.MoveJog(1, timeoutVal)# Jog in forward direction
-        except:
-            print( "Trying to move motor to NOK position")
+        except Exception as ex:
+            print(f"Move failed \n {ex}")
             return False
         return True
+
     def MoveMotorPixels(self, distance):
         '''
         Moves motor a specified number of pixels.
@@ -286,8 +290,8 @@ class StageMotor():
         self.motor.SetJogStepSize(Decimal(float(distance/self.mmToPixel)))
         try:
             self.motor.MoveJog(1, timeoutVal)  # Jog in forward direction
-        except:
-            print( "Trying to move motor to NOK position")
+        except Exception as ex:
+            print(f"Motoro move failed \n {ex}")
             return False
         return True
 
@@ -324,8 +328,8 @@ class StageMotor():
         self.motor.SetJogStepSize(Decimal(float(dx)))
         try:
             self.motor.MoveJog(1,timeoutVal)# Jog in forward direction
-        except:
-            print( "Trying to move motor to NOK position")
+        except Exception as ex:
+            print(f"Motor move failed \n {ex}")
             return False
         return True
 
@@ -358,19 +362,23 @@ def InitiateMotor(serialNumber, pollingRate=250, DeviceSettingsName='Z812'):
     DeviceManagerCLI.GetDeviceListSize()
 
     motor = KCubeDCServo.CreateKCubeDCServo(serialNumber)
-    for attempts in range(3):
-        try:
-            motor.Connect(serialNumber)
-        except:
-            print("Connection attempt", attempts, "failed")
-            if attempts < 2:
-                print("Will wait 2 seconds and try again")
-                sleep(2)
-            else:
-                print("Cannot connect to device.\n Please ensure that the" +\
-                      " device is connected to your computer and not in"+\
-                          " use by any other program!")
-                return None
+#    for attempts in range(3):
+    try:
+        motor.Connect(serialNumber)
+    except Exception as ex:
+        print(f"Failed to connect motor\n {ex}")
+        return None
+
+        # except:
+        #     print("Connection attempt", attempts, "failed")
+        #     if attempts < 2:
+        #         print("Will wait 2 seconds and try again")
+        #         sleep(2)
+        #     else:
+        #         print("Cannot connect to device.\n Please ensure that the" +\
+        #               " device is connected to your computer and not in"+\
+        #                   " use by any other program!")
+        #         return None
     motor.WaitForSettingsInitialized(5000)
     # configure the stage
     motorSettings = motor.LoadMotorConfiguration(serialNumber)
@@ -432,8 +440,8 @@ def MoveMotor(motor, distance):
     motor.SetJogStepSize(Decimal(float(distance)))
     try:
         motor.MoveJog(1, timeoutVal)# Jog in forward direction
-    except:
-        print( "Trying to move motor to NOK position")
+    except Exception as ex:
+        print(f"Failed to move motor \n {ex}")
         return False
     return True
 
@@ -459,8 +467,8 @@ def MoveMotorPixels(motor, distance, mmToPixel=16140):
     motor.SetJogStepSize(Decimal(float(distance/mmToPixel)))
     try:
         motor.MoveJog(1, timeoutVal)  # Jog in forward direction
-    except:
-        print( "Trying to move motor to NOK position")
+    except Exception as ex:
+        print(f"Failed to move motor \n {ex}")
         return False
     return True
 
@@ -497,8 +505,8 @@ def MoveMotorToPixel(motor, targetPixel,
     motor.SetJogStepSize(Decimal(float(dx)))
     try:
         motor.MoveJog(1,timeoutVal)# Jog in forward direction
-    except:
-        print( "Trying to move motor to NOK position")
+    except Exception as ex:
+        print(f"Failed to move motor \n {ex}")
         return False
     return True
 
@@ -792,9 +800,8 @@ class XYZ_piezo_stage_motor(Thread):
             print('Connecting channel', self.channel)
             self.piezo_channel = ConnectPiezoStageChannel(self.c_p['piezo_controller'], self.channel)
             print('Piezo channel connected')
-        except:
-            # Error probably due to controller not being connected.
-            pass
+        except Exception as ex:
+            print(f"Failed to connect piezo channel \n {ex}")
 
     def update_current_position(self):
         if self.piezo_channel.IsConnected:
@@ -858,10 +865,8 @@ class XYZ_piezo_stage_motor(Thread):
         try:
             self.piezo_channel.StopPolling()
             self.piezo_channel.Disconnect()
-        except:
-            # TODO solve this properly. No risk for error but looks bad
-            print('Device has already been disconnected')
-
+        except Exception as ex:
+            print(f"Device already disconnected \n {ex}")
 
 def ConnectBenchtopStepperController(serialNo):
     '''
@@ -965,9 +970,9 @@ class XYZ_stepper_stage_motor(Thread):
         try:
             self.stepper_channel = ConnectBenchtopStepperChannel(
                 self.c_p['stepper_controller'], self.channel)
-        except:
-            pass
-            #print('Error connecting motor')
+        except Exception as ex:
+            print(f"Failed to connect stepper \n {ex}")
+            # TODO check if some of these error handlings give too many printouts
 
     def update_current_position(self):
         decimal_pos = self.stepper_channel.Position
@@ -1007,8 +1012,9 @@ class XYZ_stepper_stage_motor(Thread):
                 self.stepper_channel.SetVelocityParams(
                     Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
                     Decimal(float(self.c_p['stepper_acc'][self.axis])))
-            except:
-                print('Could not set velocity params.')
+            except Exception as ex:
+                print(f"Could  not set velocity params, {ex}")
+
             tmp = self.stepper_channel.GetVelocityParams()
             stepper_speed =  float(str(tmp.MaxVelocity).replace(',', '.'))
             trials += 1
@@ -1021,8 +1027,8 @@ class XYZ_stepper_stage_motor(Thread):
             self.stepper_channel.SetJogVelocityParams(
                 Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
                 Decimal(float(self.c_p['stepper_acc'][self.axis])))
-        except:
-            print('Could not set velocity params.')
+        except Exception as ex:
+            print(f"Could  not set velocity params, {ex}")
 
     def run(self):
 
@@ -1066,8 +1072,8 @@ class XYZ_stepper_stage_motor(Thread):
         # Program is terminating. Stop the motor
         try:
             self.stepper_channel.StopImmediate()
-        except:
-            pass
+        except Exception as ex:
+            print(f"Motor stopping failed, {ex}")
 
         self.__del__()
 
@@ -1076,8 +1082,8 @@ class XYZ_stepper_stage_motor(Thread):
             self.stepper_channel.StopImmediate()
             self.stepper_channel.StopPolling()
             self.stepper_channel.Disconnect()
-        except:
-            print('Could not stop')
+        except Exception as ex:
+            print(f"Error {ex}")
 
 
 class MotorThreadV2(Thread):
@@ -1105,19 +1111,16 @@ class MotorThreadV2(Thread):
             try:
                 self.stepper_channel = InitiateMotor(c_p['serial_nums_motors'][self.axis],
                     pollingRate=c_p['polling_rate'])
-            except:
+            except Exception as ex:
+                print(f"Could  not connect stepper, {ex}")
                 self.stepper_channel = None
-                print('Could not connect stepper')
-            # else:
-            #   raise Exception("Invalid choice of axis, no motor available.")
 
         def connect_channel(self):
             try:
                 self.stepper_channel = ConnectBenchtopStepperChannel(
                     self.c_p['stepper_controller'], self.channel)
-            except:
-                pass
-                #print('Error connecting motor')
+            except Exception as ex:
+                print(f"Could  not set velocity params, {ex}")
 
         def update_current_position(self):
             decimal_pos = self.stepper_channel.Position
@@ -1157,8 +1160,8 @@ class MotorThreadV2(Thread):
                     self.stepper_channel.SetVelocityParams(
                         Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
                         Decimal(float(self.c_p['stepper_acc'][self.axis])))
-                except:
-                    print('Could not set velocity params.')
+                except Exception as ex:
+                    print(f"Could  not set velocity params, {ex}")
                 tmp = self.stepper_channel.GetVelocityParams()
                 stepper_speed =  float(str(tmp.MaxVelocity).replace(',', '.'))
                 trials += 1
@@ -1171,8 +1174,8 @@ class MotorThreadV2(Thread):
                 self.stepper_channel.SetJogVelocityParams(
                     Decimal(float(self.c_p['stepper_max_speed'][self.axis])),
                     Decimal(float(self.c_p['stepper_acc'][self.axis])))
-            except:
-                print('Could not set velocity params.')
+            except Exception as ex:
+                print(f"Could  not set velocity params, {ex}")
 
         def run(self):
 
@@ -1203,7 +1206,6 @@ class MotorThreadV2(Thread):
                         self.is_moving = False
 
                 elif self.c_p['connect_steppers']:
-                    #self.connect_channel()
                     self.stepper_channel = InitiateMotor(c_p['serial_nums_motors'][self.axis],
                         pollingRate=c_p['polling_rate'])
 
@@ -1221,8 +1223,8 @@ class MotorThreadV2(Thread):
             # Program is terminating. Stop the motor
             try:
                 self.stepper_channel.StopImmediate()
-            except:
-                pass
+            except Exception as ex:
+                print(f"Could  not stop properly, {ex}")
 
             self.__del__()
 
@@ -1231,5 +1233,5 @@ class MotorThreadV2(Thread):
                 self.stepper_channel.StopImmediate()
                 self.stepper_channel.StopPolling()
                 self.stepper_channel.Disconnect()
-            except:
-                print('Could not stop')
+            except Exception as ex:
+                print(f"Could disconnect properly, {ex}")

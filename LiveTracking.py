@@ -29,8 +29,8 @@ class LiveTrackerThread(Thread):
             if c_p['tracking_on']:
                 try:
                     self.c_p['particle_centers'] = self.c_p['tracking_function'](self.c_p['image'])
-                except:
-                    pass
+                except Exception as ex:
+                    print(f"ERROR: {ex}")
 
 
 def deeptrack_prediction(frames, model, image_normalizer):

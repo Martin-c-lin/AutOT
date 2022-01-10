@@ -12,6 +12,10 @@ Investigate if I can replace c_p with something similar to events for the
 threads.
 
 Make it so that stepper and "normal motors" implement the same interface
+For this I could have a common motor class and just have different methods for
+connecting the motors themselves.
+Suspect that the piezos will have to be handled differently.
+
 
 Simplify and unify the naming in the c_p. For instance; replace
 motor_starting_position with motorStartPos.
@@ -21,3 +25,5 @@ Move ExperimentControlThread into a spearate file similar to what I did with the
 
  Rewrite some of the functions which takes tons of c_p as input to use **kwargs
  instead.
+
+Make camera model class
