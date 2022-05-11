@@ -1,4 +1,9 @@
 # Script for controlling the whole setup automagically
+import sys
+sys.coinit_flags = 2
+import pywinauto # To fix askdirectory error
+from tkinter import simpledialog, ttk, filedialog
+
 import ThorlabsCam as TC
 import SLM#, QD_tracking
 import ThorlabsMotor as TM
@@ -9,21 +14,22 @@ import ThorlabsShutter as TS
 import CameraControls
 from arduinoLEDcontrol import ArduinoLEDControlThread, get_arduino_c_p, toggle_BG_shutter, toggle_green_laser
 from CameraControls import update_traps_relative_pos # Moved this function
-from common_experiment_parameters import get_default_c_p, get_thread_activation_parameters, append_c_p, get_save_path
-from MiscFunctions import sum_downsample, subtract_bg
+from common_experiment_parameters import append_c_p, get_save_path
+from MiscFunctions import subtract_bg, convolve_binning
+from KeyboardControl import TRD
 
-from instrumental import u
+#from instrumental import u
 import numpy as np
 import threading, time, cv2, queue, copy, tkinter, os, pickle
 from tkinter import filedialog as fd
 from functools import partial
 from datetime import datetime
-from cv2 import VideoWriter, VideoWriter_fourcc
 from tkinter import *  # TODO Should avoid this type of import statements.
-from tkinter import simpledialog, ttk
+from pynput import keyboard
+
+
 from tkinter.messagebox import showinfo
 import PIL.Image, PIL.ImageTk
-from pypylon import pylon
 
 
 def terminate_threads(thread_list, c_p):
@@ -251,6 +257,7 @@ def start_threads(c_p, thread_list):
             print('Mouse-thread started')
         except Exception as ex:
             print('Could not start mouse input thread')
+    
 
 
 class UserInterface:
@@ -258,6 +265,7 @@ class UserInterface:
     Class which creates the GUI.
     """
     def __init__(self, window, c_p, thread_list):
+         # TODO make this thing create it's own window
         self.window = window
         start_threads(c_p, thread_list)
         self.thread_list = thread_list
@@ -296,6 +304,9 @@ class UserInterface:
         self.control_menu = tkinter.Menu(self.menubar)
         self.create_control_menus()
         self.window.config(menu=self.menubar)
+        self.keyboard_c = TRD(c_p)
+        self.keyboard_listener = keyboard.Listener(on_press=self.keyboard_c.on_press)
+        self.keyboard_listener.start()
         self.update()
         self.window.mainloop()
         self.__del__()
@@ -305,6 +316,7 @@ class UserInterface:
         self.c_p['program_running'] = False
         self.c_p['motor_running'] = False
         self.c_p['tracking_on'] = False
+        self.keyboard_listener.join()
         terminate_threads(self.thread_list, self.c_p)
 
     def read_experiment_dictionary(self):
@@ -644,7 +656,7 @@ class UserInterface:
         c_p = self.c_p
         value = float(value)/ 1000
         c_p['stepper_max_speed'] = [value, value, value]
-        c_p['stepper_acc']:[value*2, value*2, value*2]
+        c_p['stepper_acc'] = [value*2, value*2, value*2]
         c_p['new_stepper_velocity_params'] = [True, True, True]
 
     def place_motor_speed_scale(self, top, x, y):
@@ -721,6 +733,7 @@ class UserInterface:
         """
         c_p = self.c_p
         L = 150 # length of scale in pixels
+        # TODO Fix problem here with autodetecting cameras
         self.x_zoom = partial(self.zoom_command, axis=0,
             max_width=c_p['camera_width'], indices=[0, 1])
         # Center does not get updated when using partial!
@@ -767,7 +780,7 @@ class UserInterface:
             try:
                 exposure_time = float(entry)
             except ValueError:
-                print('Cannot convert entry to integer')
+                print('Cannot convert entry to float')
             else:
                 if 0.01 < exposure_time < 120:
                     c_p['exposure_time'] = exposure_time
@@ -828,12 +841,6 @@ class UserInterface:
             top, text='Toggle green laser', command= partial(toggle_green_laser, self.c_p))
         self.green_laser_button.place(x=x_position, y=generator_y.__next__())
         self.place_polymerization_time(top, x=x_position, y=generator_y.__next__())
-        # generator_y.__next__()
-        # y0 = generator_y.__next__()
-        # generator_y.__next__()
-        # y1 = generator_y.__next__()
-        # self.place_manual_zoom_sliders(top, x=x_position, y=y0,
-        #     x1=x_position, y1=y1)
 
     def add_piezo_activation_buttons(self, top, x_position, y_position):
 
@@ -848,6 +855,11 @@ class UserInterface:
 
     def add_qd_tracking_buttons(self, top,x_position, x_position_2, y_position,
                         y_position_2):
+        """
+        Adds the buttons needed for the qd tracking.
+        """
+
+        c_p = self.c_p
         self.next_qd_button = tkinter.Button(top, text='Next QD position',
             command=self.increment_QD_count)
         self.previous_qd_button = tkinter.Button(top, text='Previous QD position',
@@ -907,9 +919,9 @@ class UserInterface:
         cv2.imwrite(image_name, cv2.cvtColor(tmp, cv2.COLOR_RGB2BGR))
         # Check if downsamlping is being done
         if self.downsample.get():
-           image_name = c_p['recording_path'] + '/' + label + 'binned.jpg'
-           binned_image =  sum_downsample(image, c_p['downsample_rate']):
-           cv2.imwrite(binned_image, cv2.cvtColor(binned_image, cv2.COLOR_RGB2BGR))
+           binned_name = c_p['recording_path'] + '/' + image_name[:-4] + 'binned.jpg'
+           binned_image =  convolve_binning(np.copy(c_p['image']), c_p['downsample_rate'])
+           cv2.imwrite(binned_name, cv2.cvtColor(binned_image, cv2.COLOR_RGB2BGR))
 
         np.save(image_name[:-4], c_p['image'])
         print('Took a snapshot of the experiment.')
@@ -922,6 +934,32 @@ class UserInterface:
         user_input = simpledialog.askstring("Exposure time dialog",
         " Set exposure time (microseconds) ")
         self.set_exposure(user_input)
+
+    def set_target_position_dialog(self, axis=2):
+        """
+        Sends command to move motor to target position.
+        """
+
+        labels = ["x", "y", "z"]
+
+        user_input = simpledialog.askstring("Target position dialog",
+        f"Set target position of {labels[axis]}-axis motor (millimeter) ")
+        try:
+            position = float(user_input)
+        except ValueError:
+            print("Cannot convert input to position")
+            return
+        if not self.c_p['steppers_connected'][axis]:
+            print('Stepper not connected!')
+            return
+        # Check that position is within the okay bounds
+        if 0 >= position or 8 <= position:
+            print("Target position out of bounds!")
+            return
+
+        # Tell the motors to move to the target position
+        self.c_p['stepper_next_move'][axis] = position
+        self.c_p['stepper_move_to_target'][axis] = True
 
     def max_fps_dialog(self):
         """
@@ -951,10 +989,23 @@ class UserInterface:
         Opens a small pop-up window with basic camera info such as model,
         fps, image size and exposure time.
         """
+        c_p = self.c_p
         camera_info = f"Model: {c_p['camera_model']} , fps: {c_p['fps']} ,exposure time: {c_p['exposure_time']}\n"
         camera_AOI_info = f"Current area of interest: {c_p['AOI']}, maximum image width: {c_p['camera_width']} , maximum image height: {c_p['camera_height']}"
         camera_AOI_info += f"\n recording format: .{c_p['video_format']}"
         showinfo(title="Camera feeed info", message=camera_info+camera_AOI_info)
+
+    def set_save_folder(self):
+        # Ask user for a folder to save in
+        folder_ = filedialog.askdirectory()
+        # Check so that the dialog was not cancelled and a proper path was returned
+        if len(folder_) > 1:
+            # Update recording path
+            self.c_p['recording_path'] = folder_
+            # This may give errors with the numpy-save function
+
+    def save_c_p(self):
+        pass
 
     def create_control_menus(self):
         """
@@ -967,6 +1018,12 @@ class UserInterface:
         self.control_menu.add_command(label='Connect/disconnect steppers', command=self.connect_stepper_motors)
         self.control_menu.add_command(label='Connect/disconnect piezos', command=self.connect_stage_piezos)
         self.control_menu.add_command(label='Select experiment schedule', command=self.read_experiment_dictionary)
+        x_move = partial(self.set_target_position_dialog, 0)
+        y_move = partial(self.set_target_position_dialog, 1)
+        self.control_menu.add_command(label='Set target position x', command=x_move)
+        self.control_menu.add_command(label='Set target position y', command=y_move)
+        self.control_menu.add_command(label='Set target position z', command=self.set_target_position_dialog)
+        self.control_menu.add_command(label='Set save folder', command=self.set_save_folder)
         self.control_menu.add_separator()
         self.menubar.add_cascade(label="Basic controls", menu=self.control_menu)
 
@@ -996,6 +1053,7 @@ class UserInterface:
         self.camera_menu.add_cascade(label="Recording format",
             menu=self.video_format_menu)
         self.menubar.add_cascade(label="Camera control", menu=self.camera_menu)
+
     def toggle_recording(self):
         '''
         Button function for starting of recording
@@ -1029,9 +1087,9 @@ class UserInterface:
                                              command=self.toggle_recording)
         self.home_z_button = tkinter.Button(top, text='Toggle home z',
                                             command=home_z_command)
-        toggle_bright_particle_button = tkinter.Button(
-            top, text='Toggle particle brightness',
-            command=toggle_bright_particle)
+        # toggle_bright_particle_button = tkinter.Button(
+        #     top, text='Toggle particle brightness',
+        #     command=toggle_bright_particle)
 
 
 
@@ -1064,7 +1122,7 @@ class UserInterface:
             temperature_button.place(x=x_position, y=y_position.__next__())
 
         self.recording_button.place(x=x_position, y=y_position.__next__())
-        toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
+        # toggle_bright_particle_button.place(x=x_position, y=y_position.__next__())
         self.tracking_toggled = tkinter.BooleanVar()
         self.tracking_toggled.set(False)
 
@@ -1205,7 +1263,7 @@ class UserInterface:
             target_key_connection = 'motors_connected'
         elif  c_p['using_stepper_motors']:
             target_key_motor = 'stepper_current_position'
-            target_key_connection = 'stage_stepper_connected'
+            target_key_connection = 'steppers_connected'
 
         if target_key_motor is not None:
             position_text = 'x: '+str(c_p[target_key_motor][0])+\
@@ -1564,7 +1622,7 @@ class UserInterface:
              compensate_focus_xy_move(c_p)
         # Binn the image to increase effective sensitivity
          if self.downsample.get():
-            image = sum_downsample(image, c_p['downsample_rate'])
+            image = convolve_binning(image, c_p['downsample_rate'])
 
          self.update_indicators()
          c_p['tracking_on'] = self.tracking_toggled.get()
@@ -1572,7 +1630,7 @@ class UserInterface:
          image = self.resize_display_image(image)
          # TODO implement convolution alternative to the downsampling
          # Now do the background removal on the significantly smaller image.
-         if c_p['bg_removal']:# and c_p['background_illumination']:
+         if c_p['bg_removal']:
              try:
                 if np.shape(image) == np.shape(c_p['background']):
                     image = subtract_bg(image, c_p['background'])
@@ -1651,7 +1709,7 @@ class ExperimentControlThread(threading.Thread):
         self.setDaemon(True)
 
    def __del__(self):
-       c_p['tracking_on'] = False
+       self.c_p['tracking_on'] = False
 
    def catch_particle(self, min_index_trap=None, min_index_particle=None):
         '''
@@ -1690,7 +1748,7 @@ class ExperimentControlThread(threading.Thread):
         else:
             c_p['target_particle_center'] = []
 
-   def lift_for_experiment(self,patiance=3):
+   def lift_for_experiment(self, patiance=3):
        '''
        Assumes that all particles have been caught.
        patiance, how long(s) we allow a trap to be unoccipied for
@@ -1699,6 +1757,7 @@ class ExperimentControlThread(threading.Thread):
        '''
        z_starting_pos = compensate_focus()
        patiance_counter = 0
+       c_p = self.c_p
        print('Lifting time. Starting from ', z_starting_pos, ' lifting ',
             c_p['target_experiment_z'])
        while c_p['target_experiment_z'] > c_p['motor_current_pos'][2] - z_starting_pos:
@@ -1723,6 +1782,7 @@ class ExperimentControlThread(threading.Thread):
         Checks if all traps are occupied. Returns true if this is the case.
         Tries to catch the closes unoccupied particle.
         '''
+        c_p = self.c_p
         if tracking_func is None:
             x, y = fpt.find_particle_centers(copy.copy(image),
                       threshold=c_p['particle_threshold'],
@@ -1756,10 +1816,10 @@ class ExperimentControlThread(threading.Thread):
 
         #snapshot(c_p['measurement_name']+'_pre'+time_stamp)
         zoom_in(self.c_p)
-        c_p['recording'] = True
+        self.c_p['recording'] = True
         patiance = 50
         patiance_counter = 0
-        while time.time() <= start + duration and c_p['tracking_on']:
+        while time.time() <= start + duration and self.c_p['tracking_on']:
             all_filled, nbr_particles, min_index_trap, min_index_particle  =\
                 self.check_exp_conditions()
             if all_filled:
@@ -1770,7 +1830,7 @@ class ExperimentControlThread(threading.Thread):
                 patiance_counter += 1
             if patiance_counter > patiance:
                 break
-        c_p['recording'] = False
+        self.c_p['recording'] = False
         zoom_out()
         #snapshot(c_p['measurement_name']+'_after'+time_stamp)
         if time.time() >= start + duration:
@@ -1782,7 +1842,7 @@ class ExperimentControlThread(threading.Thread):
        Function for adding ghost traps after having lifted the particles.
        '''
        # Update number of ghost traps.
-       c_p['nbr_ghost_traps'] = len(ghost_traps_x)
+       self.c_p['nbr_ghost_traps'] = len(ghost_traps_x)
 
        # Convert traps positions to SLM positions.
        if min(ghost_traps_x) >= 1:
@@ -1790,16 +1850,16 @@ class ExperimentControlThread(threading.Thread):
        if min(ghost_traps_y) >= 1:
            ghost_traps_y = pixels_to_SLM_locs(ghost_traps_y, 1)
        if ghost_traps_z is None:
-           ghost_traps_z = np.zeros(c_p['nbr_ghost_traps'])
+           ghost_traps_z = np.zeros(self.c_p['nbr_ghost_traps'])
 
        # Append ghost traps to xm, ym and zm
-       c_p['xm'] += ghost_traps_x
-       c_p['ym'] += ghost_traps_y
-       c_p['zm'] += ghost_traps_z
+       self.c_p['xm'] += ghost_traps_x
+       self.c_p['ym'] += ghost_traps_y
+       self.c_p['zm'] += ghost_traps_z
 
        # Update the phasemask
-       c_p['new_phasemask'] = True
-       while c_p['new_phasemask'] and c_p['tracking_on']:
+       self.c_p['new_phasemask'] = True
+       while self.c_p['new_phasemask'] and self.c_p['tracking_on']:
            time.sleep(0.1)
 
    def run(self):
@@ -2094,7 +2154,7 @@ def update_c_p(c_p, update_dict, wait_for_completion=True):
                     c_p[key] = update_dict[key]
 
             except Exception as ex:
-                print(f"Could not update control parameter: {key}, with {value})
+                print(f"Could not update control parameter: {key},{ex}")
                 return
         else:
             print('Invalid key: ', key)

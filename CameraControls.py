@@ -13,6 +13,12 @@ from queue import Queue
 import skvideo.io
 from MiscFunctions import subtract_bg
 
+class VideoFormatError(Exception):
+    """
+    Raised when a video format is not supported.
+    """
+    pass
+
 def get_camera_c_p():
     '''
     Function for retrieving the c_p relevant for controlling the camera
@@ -30,7 +36,7 @@ def get_camera_c_p():
         'recording': False,  # True if recording is on
         'AOI': [0, 480, 0, 480],  # Default for
         'zoomed_in': False,  # Keeps track of whether the image is cropped or
-        'camera_model': 'basler_large',  #basler_large, basler_fast, thorlabs are the options
+        'camera_model': 'basler_fast',  #basler_large, basler_fast, thorlabs are the options
         'camera_orientatation': 'down',  # direction camera is mounted in.
         'default_offset_x':0, # Used to center the camera on the sample
         'default_offset_y':0,
@@ -46,10 +52,11 @@ def get_camera_c_p():
     # Add custom parameters for different cameras.
     if camera_c_p['camera_model'] == 'basler_large':
         # Correct value for QD setup
-        camera_c_p['mmToPixel'] = 37_700 # Made a control measurement and found it to be 37.7
+        camera_c_p['mmToPixel'] = 45_000 # TODO: Need to measure this!
+        #37_700 # Made a control measurement and found it to be 37.7
 
         # Correct value for HOT setup
-        camera_c_p['mmToPixel'] = 30_700 # Made a control measurement and found it to be 37.7
+        #camera_c_p['mmToPixel'] = 30_700 # Made a control measurement and found it to be 37.7
 
         camera_c_p['camera_width'] = 4096
         camera_c_p['camera_height'] = 3040
@@ -119,7 +126,7 @@ def create_mp4_video_writer(c_p, video_name=None, image_width=None,
         reverting to 25.')
 
     video_name = c_p['recording_path'] + '/' + video_name + '.mp4'
-
+    # TODO fix so that exceptions in recording path can be handled
     video = skvideo.io.FFmpegWriter(video_name, outputdict={
                                      '-b':c_p['bitrate'],
                                      '-r':frame_rate, # Does not like this
@@ -138,6 +145,8 @@ class VideoWriterThread(threading.Thread):
         self.threadID = threadID
         self.name = name
         self.c_p = c_p
+        self.setDaemon(True)
+
         self.sleep_time = 0.1
         self.frame = None
         self.video_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
@@ -148,7 +157,7 @@ class VideoWriterThread(threading.Thread):
         self.frame_buffer_size = 100
         self.frame_count = 0
         self.VideoWriter = None
-        self.video_format = 'avi' # Format of current video being recorded
+        # self.video_format = 'avi' # TODO use only the c_p version. Format of current video being recorded
         self.np_save_path = None
 
     def close_video(self):
@@ -157,11 +166,13 @@ class VideoWriterThread(threading.Thread):
         """
         self.video_created = False
         try:
-            if self.video_format == 'mp4':
-                self.VideoWriter.close()
+            if self.c_p['video_format'] == 'mp4':
+                if self.VideoWriter is not None:
+                    self.VideoWriter.close()
                 del self.VideoWriter
-            elif self.video_format == 'avi':
-                self.VideoWriter.release()
+            elif self.c_p['video_format'] == 'avi':
+                if self.VideoWriter is not None:
+                    self.VideoWriter.release()
                 del self.VideoWriter
             else:
                 # is npy, save what remains of buffer then clear it
@@ -172,7 +183,7 @@ class VideoWriterThread(threading.Thread):
             # The program tries to close a
             print(f"No video to close {err}")
     # TODO add so that background is removed from videos and photos as well when
-    # saving!
+    # saving! Would probably need a separate queue for the BGs to do this well.
 
     def np_save_frames(self):
         """
@@ -199,12 +210,11 @@ class VideoWriterThread(threading.Thread):
         try:
             os.mkdir(self.np_save_path)
         except Exception as ex:
-            # TODO need to check which type of exception we have
             print(f"Directory already exist, {ex}")
 
     def write_to_NPY(self):
         nbr_frames = self.frame_count % self.frame_buffer_size
-        if nbr_frames == 0 and self.frame_count > 0: # had trouble with saving frames 0-1 in separte file
+        if nbr_frames == 0 and self.frame_count > 0:
             # Save the frames into target folder and with suitable name
             self.np_save_frames()
         try:
@@ -225,9 +235,9 @@ class VideoWriterThread(threading.Thread):
             # Reasonable threshold perhaps 100_000 frames?
         """
         # TODO add bg removal as parameter for each saved frame
-        if self.video_format == 'mp4':
+        if self.c_p['video_format'] == 'mp4':
             self.VideoWriter.writeFrame(self.frame)
-        elif self.video_format == 'avi':
+        elif self.c_p['video_format'] == 'avi':
             self.VideoWriter.write(self.frame)
         else:
             self.write_to_NPY()
@@ -237,7 +247,7 @@ class VideoWriterThread(threading.Thread):
 
     def create_video_writer(self, video_name):
         """
-
+        Creates a video writer for the current video.
         """
         # Adjust the video shape to match the images
         image_shape = np.shape(self.frame)
@@ -246,26 +256,25 @@ class VideoWriterThread(threading.Thread):
         if self.c_p['video_format'] == 'mp4':
             self.VideoWriter = create_mp4_video_writer(c_p=self.c_p,
                 video_name=video_name)
-            self.video_format = 'mp4'
+            #self.video_format = 'mp4'
 
         elif self.c_p['video_format'] == 'avi':
             self.VideoWriter = create_avi_video_writer(self.c_p,
                 video_name, self.video_width, self.video_height)
-            self.video_format = 'avi'
+            #self.video_format = 'avi'
 
         elif self.c_p['video_format'] == 'npy':
-            self.video_format = 'npy'
-            # image_width = self.c_p['AOI'][1] - self.c_p['AOI'][0]
-            # image_height = self.c_p['AOI'][3] - self.c_p['AOI'][2]
-
+            #self.video_format = 'npy'
+            # calculate an appropriate buffer size based on the size in memory
+            # the frames take up.
             self.frame_buffer_size = int(501760000/( self.video_width*self.video_height))
-            print('Buffer_size: ', self.frame_buffer_size)
+            # print(f'Buffer_size: {self.frame_buffer_size}')
             self.frame_buffer = np.uint8(np.zeros([self.frame_buffer_size, self.video_height, self.video_width]))
             self.frame_count = 0
 
             self.create_NP_writer(video_name)
         else:
-            raise VideoFormatError(f"Video format{c_p['video_format']} not recognized!")
+            raise VideoFormatError(f"Video format{self.c_p['video_format']} not recognized!")
 
         self.video_created = True
 
@@ -320,20 +329,7 @@ class CameraThread(threading.Thread):
         self.setDaemon(True)
         # Initalize camera
         # TODO make it so that we can connect/disconnect cameras on the go
-        try:
-            tlf = pylon.TlFactory.GetInstance()
-            self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
-            self.cam.Open()
-            #print(self.cam.Width.GetMax(), self.cam.Height.GetMax())
-            sleep(0.2)
-            self.c_p['camera_width'] = int(self.cam.Width.GetMax())
-            self.c_p['camera_height'] = int(self.cam.Height.GetMax())
-            if self.c_p['camera_width'] < 1000:
-                self.c_p['camera_model'] = 'basler_fast'
-            else:
-                self.c_p['camera_model'] = 'basler_large'
-        except Exception as ex:
-            self.cam = None
+        self.connect_basler_camera()
         if self.cam is None:
             try:
                 # Get a thorlabs camera
@@ -360,8 +356,28 @@ class CameraThread(threading.Thread):
         else:
             try:
                 self.cam.Close()
-            except:
-                pass
+            except Exception as ex:
+                print(ex)
+
+    def connect_basler_camera(self):
+        """
+        Connects to the basler camera.
+        """
+        try:
+            tlf = pylon.TlFactory.GetInstance()
+            self.cam = pylon.InstantCamera(tlf.CreateFirstDevice())
+            self.cam.Open()
+            sleep(0.2)
+            self.c_p['camera_width'] = int(self.cam.Width.GetMax())
+            self.c_p['camera_height'] = int(self.cam.Height.GetMax())
+            if self.c_p['camera_width'] < 1000:
+                self.c_p['camera_model'] = 'basler_fast'
+            else:
+                self.c_p['camera_model'] = 'basler_large'
+            return True
+        except Exception as ex:
+            self.cam = None
+            return False
 
     def get_important_parameters(self):
         '''

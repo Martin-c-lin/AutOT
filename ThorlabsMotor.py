@@ -219,8 +219,8 @@ class StageMotor():
     def SetJogSpeed(self,jogSpeed,jogAcc=0.1):
         try:
             self.motor.SetJogVelocityParams(Decimal(jogSpeed),Decimal(jogAcc))
-    except Exception as ex:
-        print(f"Failed to set jogSpeed \n {ex}")
+        except Exception as ex:
+            print(f"Failed to set jogSpeed \n {ex}")
 
     def connect_motor(self):
         self.motor = InitiateMotor(self.serialNumber, self.pollingRate)
@@ -931,9 +931,9 @@ def get_default_stepper_c_p():
     stepper_c_p = {
         'stepper_serial_no': '70167314',
         'stepper_starting_position': [0, 0, 0],
-        'stage_stepper_connected': [False, False, False],
+        #'stage_stepper_connected': [False, False, False],
         'stepper_current_position': [0, 0, 0],
-        'stepper_target_position': [2.3, 2.3, 0],
+        'stepper_target_position': [2.3, 2.3, 7],
         'stepper_move_to_target': [False, False, False],
         'stepper_next_move': [0, 0, 0],
         'stepper_max_speed': [0.01, 0.01, 0.01],
@@ -987,6 +987,30 @@ class XYZ_stepper_stage_motor(Thread):
         self.stepper_channel.MoveRelative(1, Decimal(distance), Int32(100000))
         self.update_current_position()
 
+    def move_fast_to(self, position):
+        """
+        Function for moving quickly to a specified position
+        """
+        # Check that intended posiiton is ok
+        assert 0 < position < 8
+
+        # Save old settings
+        v = self.stepper_channel.GetVelocityParams().MaxVelocity
+        a = self.stepper_channel.GetVelocityParams().Acceleration
+
+        # Change motor to move quickly
+        self.stepper_channel.SetVelocityParams( # TODO test if my own function works better
+                            Decimal(float(2)),
+                            Decimal(float(2)))
+        # Move to target position
+        sleep(self.sleep_time)
+        self.stepper_channel.MoveTo(Decimal(position), Int32(100000))
+        # Reset the velocity settings
+        # TODO use a different function such as jog to move, could be more reliable
+        self.stepper_channel.SetVelocityParams(v, a)
+        self.c_p['stepper_target_position'][self.axis]  = self.update_current_position()
+        self.c_p['stepper_starting_position'][self.axis] = self.c_p['stepper_target_position'][self.axis]
+
     def move_to_position(self, position):
         distance = position - self.c_p['stepper_current_position'][self.axis]
         self.move_distance(float(distance))
@@ -1020,7 +1044,7 @@ class XYZ_stepper_stage_motor(Thread):
             trials += 1
             sleep(self.sleep_time)
         if trials >= 20:
-            print('Falsed to set velocity params for motor no ', self.axis)
+            print('Failed to set velocity params for motor no ', self.axis)
 
     def set_jog_velocity_params(self):
         try:
@@ -1056,12 +1080,20 @@ class XYZ_stepper_stage_motor(Thread):
                 elif np.abs(jog_distance) <= self.step:
                     self.stepper_channel.StopImmediate()
                     self.is_moving = False
+
+                # Check if "fast" move is required
+                if self.c_p['stepper_move_to_target'][self.axis]:
+                    self.stepper_channel.StopImmediate()
+                    self.is_moving = False
+                    self.move_fast_to(self.c_p['stepper_next_move'][self.axis])
+                    self.c_p['stepper_move_to_target'][self.axis] = False
+
             elif self.c_p['connect_steppers']:
                 self.connect_channel()
                 if self.stepper_channel is not None and self.stepper_channel.IsConnected:
                     self.c_p['stepper_starting_position'][self.axis] = self.update_current_position()
                     self.c_p['stepper_target_position'][self.axis] =  self.c_p['stepper_starting_position'][self.axis]
-                    self.c_p['stage_stepper_connected'][self.axis] = True
+                    self.c_p['steppers_connected'][self.axis] = True
                     self.set_jog_velocity_params()
                     self.set_velocity_params()
                     self.move_absolute()
@@ -1072,8 +1104,8 @@ class XYZ_stepper_stage_motor(Thread):
         # Program is terminating. Stop the motor
         try:
             self.stepper_channel.StopImmediate()
-        except Exception as ex:
-            print(f"Motor stopping failed, {ex}")
+        except AttributeError as AE:
+            print(f"Motor stopping failed, {AE}")
 
         self.__del__()
 
@@ -1212,7 +1244,7 @@ class MotorThreadV2(Thread):
                     if self.stepper_channel is not None and self.stepper_channel.IsConnected:
                         self.c_p['stepper_starting_position'][self.axis] = self.update_current_position()
                         self.c_p['stepper_target_position'][self.axis] =  self.c_p['stepper_starting_position'][self.axis]
-                        self.c_p['stage_stepper_connected'][self.axis] = True
+                        self.c_p['steppers_connected'][self.axis] = True
                         self.set_jog_velocity_params()
                         self.set_velocity_params()
                         self.move_absolute()

@@ -52,7 +52,7 @@ def max_downsample(image, filter_size=4, lim=255):
     new_array[new_array>lim] = 255#lim
     return np.uint8(new_array)
 
-def convolve_Sample(image, filter_size=4,):
+def convolve_binning(image, filter_size=4,):
     """
     Convolves an image with a filter and then subtracts a ... to make it easier to see quantum dots and similar faint objects
     """

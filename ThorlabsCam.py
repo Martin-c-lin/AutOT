@@ -11,7 +11,9 @@ from instrumental import instrument, list_instruments, drivers, u, Q_
 
 
 def get_camera():
-    list_instruments()
+    instr = list_instruments()
+    if len(instr) < 1:
+        return None
     return drivers.cameras.uc480.UC480_Camera()
 
 

@@ -38,12 +38,14 @@ class TED4015():
         None.
 
         '''
-        self.rm = pyvisa.ResourceManager()
-        self.resource_list = self.rm.list_resources()
-        self.TED4015 = self.rm.open_resource(self.resource_list[index])
-        self.TED4015.read_termination = '\n'
-        self.TED4015.write_termination = '\n'
-
+        try:
+            self.rm = pyvisa.ResourceManager()
+            self.resource_list = self.rm.list_resources()
+            self.TED4015 = self.rm.open_resource(self.resource_list[index])
+            self.TED4015.read_termination = '\n'
+            self.TED4015.write_termination = '\n'
+        except Exception as ex:
+            self.TED4015 = None
     def get_setpoint_temperature(self):
         """
         Returns the setpoint temperature of the instrument

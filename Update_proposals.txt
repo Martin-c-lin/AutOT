@@ -1,6 +1,7 @@
 Try to make a single API on which one can build other applications.
 
 Add possibility to "home" motors to a presaved location.
+Also make it possible to move to a specific position quickly.
 
 Make it possible to build different applications on using these basic building blocks.
 
@@ -27,3 +28,52 @@ Move ExperimentControlThread into a spearate file similar to what I did with the
  instead.
 
 Make camera model class
+
+
+
+from tkinter import *
+from tkinter.ttk import *
+# TODO: This should be written in a way so that it can update on it's own.
+# Needs some sort of mainloop or similar. Maybe it can also use events
+class MotorControllWindow(TopLevel):
+
+    def __init__(self, master, c_p):
+        super.__init__(master=master)
+        self.title = "Motor controls"
+
+        self.motor_labels = labels = ['x', 'y', 'z'] # Labels of the different motors
+
+        # Create info labels for the motors
+        self.x_motor_label = Label(self, text=get_motor_info(0))
+        self.y_motor_label = Label(self, text=get_motor_info(1))
+        self.z_motor_label = Label(self, text=get_motor_info(2))
+        self.x_motor_label.pack()
+        self.y_motor_label.pack()
+        self.z_motor_label.pack()
+
+    def get_motor_info(self, axis):
+        """
+        Returns a string with info about the motor.
+        """
+
+        # Extract relevant info form the control paramters
+        position = self.c_p['stepper_current_position'][axis]
+        max_speed = self.c_p['stepper_max_speed'][axis]
+        acceleration = self.c_p['stepper_acc'][axis]
+        homed = False # TODO include this too
+        connection_status = "connected"
+        if not self.c_p['steppers_connected'][axis]:
+            connection_status = "disconnected"
+
+        # Combine it all into a readable string
+        info = f"Motor {self.motor_labels[axis]} is {connection_status}:\n\
+Position - {position} mm \n Max speed - {max_speed} mm/s \n Acceleration -\
+{acceleration} mm/s^2 "
+        return info
+
+    def motor_speed_command(self, value):
+        c_p = self.c_p
+        value = float(value)/ 1000
+        c_p['stepper_max_speed'] = [value, value, value]
+        c_p['stepper_acc']:[value*2, value*2, value*2]
+        c_p['new_stepper_velocity_params'] = [True, True, True]

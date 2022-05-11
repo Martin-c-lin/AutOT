@@ -2,6 +2,8 @@
 from datetime import datetime
 import numpy as np
 import os
+import pickle
+from tkinter import filedialog
 
 
 def get_save_path(base_path='D:/Martin/Experiment results/Day_', extension_path=""):
@@ -23,6 +25,7 @@ def get_save_path(base_path='D:/Martin/Experiment results/Day_', extension_path=
         DESCRIPTION.
 
     '''
+    #base_path = r"C:\Users\marti\OneDrive\PhD\Projects\DNA pulling\Alignment files\Calibration_images"
     now = datetime.now()
     recording_path = base_path + str(now.year) \
         + '-' + str(now.month) + '-' + str(now.day)
@@ -32,6 +35,9 @@ def get_save_path(base_path='D:/Martin/Experiment results/Day_', extension_path=
         os.mkdir(recording_path)
     except FileExistsError as FEE:
         print(F"Directory already exist, {FEE}")
+    except FileNotFoundError as FNFE:
+        print(F"Could not find the path {base_path} Error message{FNFE}")
+        return None
     return recording_path
 
 
@@ -112,6 +118,29 @@ def set_defualt_trap_position(c_p):
 
     c_p['zm'] = np.zeros(len(c_p['xm']))
 
+
+def save_c_p(c_p):
+    '''
+    Saves the control parameters to a file. File is selected by user via GUI.
+    '''
+    filename = filedialog.asksaveasfilename(defaultextension=".pkl")
+    with open(filename, 'wb') as file:
+        pickle.dump(c_p, file)
+
+def load_c_p():
+    '''
+    Loads the control parameters from a file. File is selected by user via GUI.
+    '''
+
+    # TODO test and ensure that we don't get any problems with the file
+    filename = filedialog.askopenfilename()
+    try:
+        with open(filename, 'rb') as file:
+            c_p = pickle.load(file)
+    except FileNotFoundError as FNFE:
+        print(F"Could not find the path {filename} Error message{FNFE}")
+        return None
+    return c_p
 
 def get_default_c_p(recording_path=None):
     '''

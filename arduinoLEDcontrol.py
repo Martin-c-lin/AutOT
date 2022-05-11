@@ -53,7 +53,7 @@ class ArduinoLEDControlThread(Thread):
     '''
     Thread which controls the arduinos output. Turns on/off the polymerization LED
     '''
-    def __init__(self, threadID, name, c_p, sleep_time=0.01, port = 'com3'):
+    def __init__(self, threadID, name, c_p, sleep_time=0.01, port='com3'):
         Thread.__init__(self)
         self.c_p = c_p
         self.name = name
